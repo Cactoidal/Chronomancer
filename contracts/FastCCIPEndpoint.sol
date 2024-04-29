@@ -43,10 +43,11 @@ contract FastCCIPEndpoint is CCIPReceiver {
         filledOrderPaths[_messageId][_recipient][_token][_amount][_data] = msg.sender;
         IERC20(_token).transfer(_recipient, _amount);
         emit OrderFilled(_messageId);
-        if (_recipient.code.length == 0) {//|| !_recipient.supportsInterface(type(IFastCCIPEndpoint).interfaceId)) {
+        if (_recipient.code.length == 0) {//|| !_recipient.supportsInterface(type(CCIPReceiver).interfaceId)) {
             return;
         }
         IFastCCIPEndpoint(_recipient)._recieveData(_data);
+        //CCIPReceiver(_recipient).ccipReceive(message);
     }
 
     // Right now only compatible with one token, due to the nature of order paths.
@@ -70,10 +71,11 @@ contract FastCCIPEndpoint is CCIPReceiver {
         }
         else {
             IERC20(token).transfer(recipient, amount);
-            if (recipient.code.length == 0) {//|| !_recipient.supportsInterface(type(IFastCCIPEndpoint).interfaceId)) {
+            if (recipient.code.length == 0) {//|| !_recipient.supportsInterface(type(CCIPReceiver).interfaceId)) {
             return;
         }
             IFastCCIPEndpoint(recipient)._recieveData(data);
+            //CCIPReceiver(recipient).ccipReceive(message);
         }
 
     }
