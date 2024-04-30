@@ -13,6 +13,7 @@ contract FastCCIPEndpoint is CCIPReceiver {
 
     event OrderFilled(bytes32 messageId);
     event MessageReceived(bytes32 messageId);
+
     error OrderPathAlreadyFilled();
 
     address immutable ROUTER;
@@ -109,19 +110,36 @@ contract FastCCIPEndpoint is CCIPReceiver {
     }
 
 
-    function filterOrder(bytes calldata _message, address _endpoint, address _token) public pure returns (address, uint256) {
+    function filterOrder(bytes calldata _message, address _endpoint, address _token) public pure returns (uint256) {
         Internal.EVM2EVMMessage memory message = abi.decode(_message, (Internal.EVM2EVMMessage));
         address receiver = message.receiver;
         address token = message.tokenAmounts[0].token;
         if (receiver != _endpoint) {
-            return (address(0), 0);
+            return (0);
         }
         if (token != _token) {
-            return (address(0), 0);
+            return (0);
         }
-        return (receiver, message.tokenAmounts[0].amount);
+        return (message.tokenAmounts[0].amount);
 
     }
 
+    function isOrderPathFilled(bytes calldata _message) public view returns (bool) {
+        Internal.EVM2EVMMessage memory message = abi.decode(_message, (Internal.EVM2EVMMessage));
+
+        bytes32 messageId = message.messageId;
+        (address recipient, bytes memory data) = abi.decode(message.data, (address, bytes));
+        address token = message.tokenAmounts[0].token;
+
+        // The submitted amount must include the fee (0.1%)
+        uint amount = message.tokenAmounts[0].amount - (message.tokenAmounts[0].amount * FEE);
+       
+        if (filledOrderPaths[messageId][recipient][token][amount][data] != address(0)) {
+            return true;
+        }
+        else {
+            return false;
+        }
+    }
 
 }
