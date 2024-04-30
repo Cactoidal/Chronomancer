@@ -110,12 +110,9 @@ return_string
 //U256::exp10(18) * amount
 
 
-//Any2EVMMessage: PoolArray<u8>,
-
-//async fn fill_order
 #[method]
 #[tokio::main]
-async fn test_fill(key: PoolArray<u8>, chain_id: u64, mining_contract: GodotString, rpc: GodotString, _gas_fee: u64, _count: u64, EVM2EVMMessage: GodotString, ui_node: Ref<Control>) -> NewFuture {
+async fn fill_order(key: PoolArray<u8>, chain_id: u64, endpoint_contract: GodotString, rpc: GodotString, _gas_fee: u64, _count: u64, EVM2EVMMessage: GodotString, ui_node: Ref<Control>) -> NewFuture {
 
 let vec = &key.to_vec();
 
@@ -129,7 +126,7 @@ let user_address = wallet.address();
         
 let provider = Provider::<Http>::try_from(rpc.to_string()).expect("could not instantiate HTTP Provider");
         
-let contract_address: Address = mining_contract.to_string().parse().unwrap();
+let contract_address: Address = endpoint_contract.to_string().parse().unwrap();
         
 let client = SignerMiddleware::new(provider, wallet.clone());
         
@@ -137,7 +134,7 @@ let contract = FastCCIPBotABI::new(contract_address.clone(), Arc::new(client.clo
 
 let message_vec = hex::decode(EVM2EVMMessage.to_string()).unwrap();
 
-let calldata = contract.test_fill(message_vec.into()).calldata().unwrap();
+let calldata = contract.fill_order(message_vec.into()).calldata().unwrap();
 
 let tx = Eip1559TransactionRequest::new()
     .from(user_address)
@@ -167,6 +164,44 @@ NewFuture(Ok(()))
 
 }
 
+
+#[method]
+fn filter_order(key: PoolArray<u8>, chain_id: u64, endpoint_contract: GodotString, rpc: GodotString, EVM2EVMMessage: GodotString, token_contract: GodotString) -> GodotString {
+
+let vec = &key.to_vec();
+
+let keyset = &vec[..]; 
+             
+let prewallet : LocalWallet = LocalWallet::from_bytes(&keyset).unwrap();
+        
+let wallet: LocalWallet = prewallet.with_chain_id(chain_id);
+        
+let user_address = wallet.address();
+        
+let provider = Provider::<Http>::try_from(rpc.to_string()).expect("could not instantiate HTTP Provider");
+        
+let contract_address: Address = endpoint_contract.to_string().parse().unwrap();
+        
+let client = SignerMiddleware::new(provider, wallet.clone());
+        
+let contract = FastCCIPBotABI::new(contract_address.clone(), Arc::new(client.clone()));
+
+let message_vec = hex::decode(EVM2EVMMessage.to_string()).unwrap();
+
+let token_address: Address = token_contract.to_string().parse().unwrap();
+
+let calldata = contract.filter_order(message_vec.into(), contract_address, token_address).calldata().unwrap();
+
+let return_string: GodotString = calldata.to_string().into();
+
+return_string
+
 }
 
+
+}
+
+
+
 godot_init!(init);
+
