@@ -31,6 +31,7 @@ contract FastCCIPEndpoint is CCIPReceiver {
         CHAINLINK = _link;
     }
 
+    Internal.EVM2EVMMessage public testMessage;
     
     // Not compatible with tax-on-transfer tokens; could perhaps be toggled?
     function fillOrder(bytes calldata _message) external {
@@ -48,13 +49,25 @@ contract FastCCIPEndpoint is CCIPReceiver {
             revert OrderPathAlreadyFilled();
         }
         filledOrderPaths[messageId][recipient][token][amount][data] = msg.sender;
-        IERC20(token).transferFrom(msg.sender, recipient, amount);
+
+        // Commented out for testing
+        //IERC20(token).transferFrom(msg.sender, recipient, amount);
+
+        // Test values
+        testMessage.messageId = message.messageId;
+        testMessage.data = data;
+        testMessage.receiver = recipient;
+
+
         emit OrderFilled(messageId);
         if (recipient.code.length == 0) {//|| !_recipient.supportsInterface(type(CCIPReceiver).interfaceId)) {
             return;
         }
 
     
+        // Should the unadulterated token amount be sent, or should it include the fee?
+        // In the event of an unfilled order, the original message is sent.  So I lean
+        // toward leaving it alone.
         Client.Any2EVMMessage memory ccipMessage = Client.Any2EVMMessage({
             messageId: message.messageId,
             sourceChainSelector: message.sourceChainSelector,
