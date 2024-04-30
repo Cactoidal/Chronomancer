@@ -128,7 +128,7 @@ contract TestSender is CCIPReceiver, OwnerIsCreator {
     }
 
 
-    error wtf(string why);
+    error FailedTransfer(string error);
 
     /// @notice Sends data and transfer tokens to receiver on the destination chain.
     /// @notice Pay for fees in LINK.
@@ -182,7 +182,7 @@ contract TestSender is CCIPReceiver, OwnerIsCreator {
 
         bool success = IERC20(_token).transferFrom(address(msg.sender), address(this), _amount);
         if (!success) {
-            revert wtf("lol");
+            revert FailedTransfer("Failed to transfer ERC20");
         }
 
         // Send the message through the router and store the returned message ID
