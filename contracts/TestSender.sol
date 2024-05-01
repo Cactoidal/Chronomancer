@@ -159,6 +159,7 @@ contract TestSender is CCIPReceiver, OwnerIsCreator {
         Client.EVM2AnyMessage memory evm2AnyMessage = _buildCCIPMessage(
             _endpoint,
             _recipient,
+            _destinationChainSelector,
             _data,
             _token,
             _amount,
@@ -233,6 +234,7 @@ contract TestSender is CCIPReceiver, OwnerIsCreator {
         Client.EVM2AnyMessage memory evm2AnyMessage = _buildCCIPMessage(
             _endpoint,
             _recipient,
+            _destinationChainSelector,
             _data,
             _token,
             _amount,
@@ -338,6 +340,7 @@ contract TestSender is CCIPReceiver, OwnerIsCreator {
     function _buildCCIPMessage(
         address _endpoint,
         address _recipient,
+        uint64 _destinationChainSelector,
         bytes calldata _data,
         address _token,
         uint256 _amount,
@@ -353,8 +356,8 @@ contract TestSender is CCIPReceiver, OwnerIsCreator {
         // Create an EVM2AnyMessage struct in memory with necessary information for sending a cross-chain message
         return
             Client.EVM2AnyMessage({
-                receiver: abi.encode(_endpoint), // ABI-encoded receiver address
-                data: abi.encode(_recipient, _data), // ABI-encoded string
+                receiver: abi.encode(_endpoint), // ABI-encoded endpoint address
+                data: abi.encode(_recipient, _destinationChainSelector, _data), // ABI-encoded recipient, destinationSelector, and data
                 tokenAmounts: tokenAmounts, // The amount and type of token being transferred
                 extraArgs: Client._argsToBytes(
                     // Additional arguments, setting gas limit
