@@ -40,7 +40,7 @@ contract FastCCIPEndpoint is CCIPReceiver {
         Internal.EVM2EVMMessage memory message = abi.decode(_message, (Internal.EVM2EVMMessage));
 
         bytes32 messageId = message.messageId;
-        (address recipient, uint64 destinationSelector, bytes memory data) = abi.decode(message.data, (address, uint64, bytes));
+        (address recipient, bytes memory data) = abi.decode(message.data, (address, bytes));
         address token = message.tokenAmounts[0].token;
 
         // The submitted amount must include the fee (0.1%)
@@ -109,34 +109,26 @@ contract FastCCIPEndpoint is CCIPReceiver {
 
     }
 
-
-    // For now the destinationSelector will be in the data object, because I don't see how to extract it from
-    // the EVM2EVM message without getting the transaction hash and the input parameters, which adds even more
-    // complexity to this procedure
-    function filterOrder(bytes calldata _message, uint64 _destinationSelector, address _endpoint, address _filler, uint _minimum, address[] calldata _tokenList) public view returns (bool) {
+    function filterOrder(bytes calldata _message, address _endpoint, address _filler, address[] calldata _tokenList, uint64[] calldata _tokenMinimums) public view returns (bool) {
         Internal.EVM2EVMMessage memory message = abi.decode(_message, (Internal.EVM2EVMMessage));
 
         address receiver = message.receiver;
         address token = message.tokenAmounts[0].token;
-        (,uint64 destinationSelector,) = abi.decode(message.data, (address, uint64, bytes));
-        uint minimum = 1e18 * _minimum;
+       
 
         if (receiver != _endpoint) {
-            return false;
-        }
-        if (_destinationSelector != destinationSelector) {
             return false;
         }
         if (message.tokenAmounts[0].amount > IERC20(token).balanceOf(_filler)) {
             return false;
         }
-        if (message.tokenAmounts[0].amount < minimum) {
-            return false;
-        }
         bool containsToken;
         for (uint i = 0; i < _tokenList.length; i++) {
             if (token == _tokenList[i]) {
-                containsToken = true;
+                if (message.tokenAmounts[0].amount > _tokenMinimums[i] * 1e18) {
+                    containsToken = true;
+                }
+                
             }
         if (!containsToken) {
             return false;
