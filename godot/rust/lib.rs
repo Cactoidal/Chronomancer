@@ -45,6 +45,12 @@ abigen!(
     event_derives(serde::Deserialize, serde::Serialize)
 );
 
+abigen!(
+    ERC20ABI,
+    "./ERC20.json",
+    event_derives(serde::Deserialize, serde::Serialize)
+);
+
 struct NewFuture(Result<(), Box<dyn std::error::Error + 'static>>);
 
 impl ToVariant for NewFuture {
@@ -166,7 +172,7 @@ NewFuture(Ok(()))
 
 
 #[method]
-fn filter_order(key: PoolArray<u8>, chain_id: u64, endpoint_contract: GodotString, rpc: GodotString, EVM2EVMMessage: GodotString, token_contract: GodotString) -> GodotString {
+fn filter_order(key: PoolArray<u8>, chain_id: u64, endpoint_contract: GodotString, rpc: GodotString, EVM2EVMMessage: GodotString, destination_selector: GodotString, minimum: u64, token_contracts: PoolArray<GodotString>) -> GodotString {
 
 let vec = &key.to_vec();
 
@@ -188,15 +194,210 @@ let contract = FastCCIPBotABI::new(contract_address.clone(), Arc::new(client.clo
 
 let message_vec = hex::decode(EVM2EVMMessage.to_string()).unwrap();
 
-let token_address: Address = token_contract.to_string().parse().unwrap();
+let preselect: &str = &destination_selector.to_string();
 
-let calldata = contract.filter_order(message_vec.into(), contract_address, token_address).calldata().unwrap();
+let selector: u64 = u64::from_str_radix(preselect, 16).unwrap();
+
+let address_vec = &token_contracts.to_vec();
+
+let address_string_vec: Vec<String> = address_vec.iter().map(|e| e.to_string() as String).collect();
+
+let token_address_vec: Vec<Address> = address_string_vec.iter().map(|e|e.parse::<Address>().unwrap() as Address).collect();
+
+let calldata = contract.filter_order(message_vec.into(), selector.into(),contract_address, user_address, minimum.into(), token_address_vec).calldata().unwrap();
 
 let return_string: GodotString = calldata.to_string().into();
 
 return_string
 
 }
+
+
+#[method]
+fn encode_big_number(amount_string: GodotString, exponent: u64) -> GodotString {
+
+    let number_string: String = amount_string.to_string();
+
+    let amount = number_string.parse::<u64>().unwrap();
+
+    let big_number = U256::exp10(exponent as usize) * amount;
+
+    godot_print!("{:?}", big_number);
+
+    let big_number_string: GodotString = ethers::abi::AbiEncode::encode_hex(big_number).into();
+
+    big_number_string
+
+}
+
+
+
+
+//  ERC20 FUNCTIONS //
+
+
+#[method]
+fn check_token_balance(key: PoolArray<u8>, chain_id: u64, rpc: GodotString, token_contract: GodotString) -> GodotString {
+
+let vec = &key.to_vec();
+
+let keyset = &vec[..]; 
+             
+let prewallet : LocalWallet = LocalWallet::from_bytes(&keyset).unwrap();
+        
+let wallet: LocalWallet = prewallet.with_chain_id(chain_id);
+        
+let user_address = wallet.address();
+        
+let provider = Provider::<Http>::try_from(rpc.to_string()).expect("could not instantiate HTTP Provider");
+        
+let token_address: Address = token_contract.to_string().parse().unwrap();
+        
+let client = SignerMiddleware::new(provider, wallet.clone());
+        
+let contract = ERC20ABI::new(token_address.clone(), Arc::new(client.clone()));
+
+let calldata = contract.balance_of(user_address).calldata().unwrap();
+
+let return_string: GodotString = calldata.to_string().into();
+
+return_string
+
+}
+
+#[method]
+fn get_token_name(key: PoolArray<u8>, chain_id: u64, rpc: GodotString, token_contract: GodotString) -> GodotString {
+
+let vec = &key.to_vec();
+
+let keyset = &vec[..]; 
+             
+let prewallet : LocalWallet = LocalWallet::from_bytes(&keyset).unwrap();
+        
+let wallet: LocalWallet = prewallet.with_chain_id(chain_id);
+        
+let user_address = wallet.address();
+        
+let provider = Provider::<Http>::try_from(rpc.to_string()).expect("could not instantiate HTTP Provider");
+        
+let token_address: Address = token_contract.to_string().parse().unwrap();
+        
+let client = SignerMiddleware::new(provider, wallet.clone());
+        
+let contract = ERC20ABI::new(token_address.clone(), Arc::new(client.clone()));
+
+let calldata = contract.name().calldata().unwrap();
+
+let return_string: GodotString = calldata.to_string().into();
+
+return_string
+
+}
+
+#[method]
+fn check_endpoint_allowance(key: PoolArray<u8>, chain_id: u64, rpc: GodotString, token_contract: GodotString, endpoint_contract: GodotString) -> GodotString {
+
+let vec = &key.to_vec();
+
+let keyset = &vec[..]; 
+             
+let prewallet : LocalWallet = LocalWallet::from_bytes(&keyset).unwrap();
+        
+let wallet: LocalWallet = prewallet.with_chain_id(chain_id);
+        
+let user_address = wallet.address();
+        
+let provider = Provider::<Http>::try_from(rpc.to_string()).expect("could not instantiate HTTP Provider");
+        
+let token_address: Address = token_contract.to_string().parse().unwrap();
+
+let endpoint_address: Address = endpoint_contract.to_string().parse().unwrap();
+        
+let client = SignerMiddleware::new(provider, wallet.clone());
+        
+let contract = ERC20ABI::new(token_address.clone(), Arc::new(client.clone()));
+
+let calldata = contract.allowance(user_address, endpoint_address).calldata().unwrap();
+
+let return_string: GodotString = calldata.to_string().into();
+
+return_string
+
+}
+
+
+#[method]
+#[tokio::main]
+async fn approve_endpoint_allowance(key: PoolArray<u8>, chain_id: u64, endpoint_contract: GodotString, rpc: GodotString, _gas_fee: u64, _count: u64, token_contract: GodotString, ui_node: Ref<Control>) -> NewFuture {
+
+let vec = &key.to_vec();
+
+let keyset = &vec[..]; 
+             
+let prewallet : LocalWallet = LocalWallet::from_bytes(&keyset).unwrap();
+        
+let wallet: LocalWallet = prewallet.with_chain_id(chain_id);
+        
+let user_address = wallet.address();
+        
+let provider = Provider::<Http>::try_from(rpc.to_string()).expect("could not instantiate HTTP Provider");
+        
+let contract_address: Address = endpoint_contract.to_string().parse().unwrap();
+        
+let client = SignerMiddleware::new(provider, wallet.clone());
+
+let endpoint_address: Address = endpoint_contract.to_string().parse().unwrap();
+
+let token_address: Address = token_contract.to_string().parse().unwrap();
+
+let contract = ERC20ABI::new(token_address.clone(), Arc::new(client.clone()));
+
+let calldata = contract.approve(endpoint_address, U256::MAX).calldata().unwrap();
+
+let tx = Eip1559TransactionRequest::new()
+    .from(user_address)
+    .to(contract_address) 
+    .value(0)
+    .gas(900000)
+    .max_fee_per_gas(_gas_fee)
+    .max_priority_fee_per_gas(_gas_fee)
+    .chain_id(chain_id)
+    .nonce(_count)
+    .data(calldata);
+
+let typed_tx: TypedTransaction = TypedTransaction::Eip1559(tx.clone());
+
+let signature = wallet.sign_transaction(&typed_tx).await.unwrap();
+
+let signed_data = TypedTransaction::rlp_signed(&typed_tx, &signature);
+
+let node: TRef<Control> = unsafe { ui_node.assume_safe() };
+
+unsafe {
+    node.call("set_signed_data", &[hex::encode(signed_data).to_variant()])
+};
+
+
+NewFuture(Ok(()))
+
+}
+
+
+
+
+
+// HELPER FUNCTIONS //
+
+
+#[method]
+fn decode_bool (message: GodotString) -> GodotString {
+    let raw_hex: String = message.to_string();
+    let decoded: bool = ethers::abi::AbiDecode::decode_hex(raw_hex).unwrap();
+    let return_string: GodotString = format!("{:?}", decoded).into();
+    return_string
+}
+
+
 
 
 }
