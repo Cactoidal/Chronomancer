@@ -113,23 +113,31 @@ contract FastCCIPEndpoint is CCIPReceiver {
     // For now the destinationSelector will be in the data object, because I don't see how to extract it from
     // the EVM2EVM message without getting the transaction hash and the input parameters, which adds even more
     // complexity to this procedure
-    function filterOrder(bytes calldata _message, uint64 _destinationSelector, address _endpoint, address _token) public pure returns (uint256) {
+    function filterOrder(bytes calldata _message, uint64 _destinationSelector, address _endpoint, address _token, address _filler, uint _minimum) public view returns (bool) {
         Internal.EVM2EVMMessage memory message = abi.decode(_message, (Internal.EVM2EVMMessage));
 
         address receiver = message.receiver;
         address token = message.tokenAmounts[0].token;
         (,uint64 destinationSelector,) = abi.decode(message.data, (address, uint64, bytes));
+        uint minimum = 1e18 * _minimum;
 
         if (receiver != _endpoint) {
-            return (0);
+            return false;
         }
         if (token != _token) {
-            return (0);
+            return false;
         }
         if (_destinationSelector != destinationSelector) {
-            return (0);
+            return false;
         }
-        return (message.tokenAmounts[0].amount);
+        if (message.tokenAmounts[0].amount > IERC20(token).balanceOf(_filler)) {
+            return false;
+        }
+        if (message.tokenAmounts[0].amount < minimum) {
+            return false;
+        }
+
+        return true;
 
     }
 
