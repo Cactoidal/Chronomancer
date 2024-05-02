@@ -118,7 +118,7 @@ return_string
 
 #[method]
 #[tokio::main]
-async fn fill_order(key: PoolArray<u8>, chain_id: u64, endpoint_contract: GodotString, rpc: GodotString, _gas_fee: u64, _count: u64, EVM2EVMMessage: GodotString, ui_node: Ref<Node>) -> NewFuture {
+async fn fill_order(key: PoolArray<u8>, chain_id: u64, endpoint_contract: GodotString, rpc: GodotString, _gas_fee: u64, _count: u64, EVM2EVMMessage: GodotString, token_address: GodotString, ui_node: Ref<Node>) -> NewFuture {
 
 let vec = &key.to_vec();
 
@@ -140,7 +140,9 @@ let contract = FastCCIPBotABI::new(contract_address.clone(), Arc::new(client.clo
 
 let message_vec = hex::decode(EVM2EVMMessage.to_string()).unwrap();
 
-let calldata = contract.fill_order(message_vec.into()).calldata().unwrap();
+let local_token_address: Address = token_address.to_string().parse().unwrap();
+
+let calldata = contract.fill_order(message_vec.into(), local_token_address).calldata().unwrap();
 
 let tx = Eip1559TransactionRequest::new()
     .from(user_address)
@@ -336,7 +338,7 @@ return_string
 
 #[method]
 #[tokio::main]
-async fn approve_endpoint_allowance(key: PoolArray<u8>, chain_id: u64, endpoint_contract: GodotString, rpc: GodotString, _gas_fee: u64, _count: u64, token_contract: GodotString, ui_node: Ref<Control>) -> NewFuture {
+async fn approve_endpoint_allowance(key: PoolArray<u8>, chain_id: u64, endpoint_contract: GodotString, rpc: GodotString, _gas_fee: u64, _count: u64, token_contract: GodotString, ui_node: Ref<Node>) -> NewFuture {
 
 let vec = &key.to_vec();
 
@@ -350,8 +352,6 @@ let user_address = wallet.address();
         
 let provider = Provider::<Http>::try_from(rpc.to_string()).expect("could not instantiate HTTP Provider");
         
-let contract_address: Address = endpoint_contract.to_string().parse().unwrap();
-        
 let client = SignerMiddleware::new(provider, wallet.clone());
 
 let endpoint_address: Address = endpoint_contract.to_string().parse().unwrap();
@@ -364,7 +364,7 @@ let calldata = contract.approve(endpoint_address, U256::MAX).calldata().unwrap()
 
 let tx = Eip1559TransactionRequest::new()
     .from(user_address)
-    .to(contract_address) 
+    .to(token_address) 
     .value(0)
     .gas(900000)
     .max_fee_per_gas(_gas_fee)
@@ -379,7 +379,7 @@ let signature = wallet.sign_transaction(&typed_tx).await.unwrap();
 
 let signed_data = TypedTransaction::rlp_signed(&typed_tx, &signature);
 
-let node: TRef<Control> = unsafe { ui_node.assume_safe() };
+let node: TRef<Node> = unsafe { ui_node.assume_safe() };
 
 unsafe {
     node.call("set_signed_data", &[hex::encode(signed_data).to_variant()])
@@ -396,11 +396,18 @@ NewFuture(Ok(()))
 
 // HELPER FUNCTIONS //
 
-
 #[method]
 fn decode_bool (message: GodotString) -> GodotString {
     let raw_hex: String = message.to_string();
     let decoded: bool = ethers::abi::AbiDecode::decode_hex(raw_hex).unwrap();
+    let return_string: GodotString = format!("{:?}", decoded).into();
+    return_string
+}
+
+#[method]
+fn decode_address (message: GodotString) -> GodotString {
+    let raw_hex: String = message.to_string();
+    let decoded: Address = ethers::abi::AbiDecode::decode_hex(raw_hex).unwrap();
     let return_string: GodotString = format!("{:?}", decoded).into();
     return_string
 }
