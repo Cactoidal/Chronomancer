@@ -18,7 +18,7 @@ func _process(delta):
 	filter_orders()
 	prune_pending_messages(delta)
 
-func intake_message(message):
+func intake_message(message, from_network):
 	var is_new_message = true
 	if !pending_messages.empty():
 		for pending_message in pending_messages:
@@ -30,7 +30,8 @@ func intake_message(message):
 		pending_messages.append({
 			"message": message,
 			"checked": false, 
-			"time_to_prune": 240})
+			"time_to_prune": 240,
+			"from_network": from_network})
 
 func filter_orders():
 	if !pending_messages.empty():
@@ -39,28 +40,31 @@ func filter_orders():
 				message_filtering_paused = true
 				pending_message["checked"] = true
 				message_in_queue = pending_message
-				compose_message(pending_message["message"])
+				compose_message(pending_message["message"], pending_message["from_network"])
 				print("composing message")
 
-func compose_message(message):
+func compose_message(message, from_network):
 	var rpc = network_info["rpc"]
 	var chain_id = network_info["chain_id"]
 	var endpoint_contract = network_info["endpoint_contract"]
 	var monitored_tokens = network_info["monitored_tokens"]
 	
-	var token_list: PoolStringArray
+	var local_token_contracts: PoolStringArray
+	var remote_token_contracts: PoolStringArray
 	var token_minimum_list: PoolStringArray
 	
 	for token in monitored_tokens:
-		token_list.append(token["token_contract"])
+		local_token_contracts.append(token["local_token_contract"])
+		remote_token_contracts.append(token["monitored_networks"][from_network])
+		#allow custom minimum
 		token_minimum_list.append("0")
-		#token_minimum_list.append(token["minimum"])
 		
 	var file = File.new()
 	file.open("user://keystore", File.READ)
 	var content = file.get_buffer(32)
 	file.close()
-	var calldata = FastCcipBot.filter_order(content, chain_id, endpoint_contract, rpc, message, token_list, token_minimum_list)
+	
+	var calldata = FastCcipBot.filter_order(content, chain_id, endpoint_contract, rpc, message, local_token_contracts, remote_token_contracts, token_minimum_list)
 	
 	perform_ethereum_request("eth_call", [{"to": endpoint_contract, "input": calldata}, "latest"])
 	
