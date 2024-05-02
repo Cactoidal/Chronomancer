@@ -10,6 +10,7 @@ var pending_orders = []
 var order_filling_paused = false
 
 var order_in_queue
+var approval_in_queue
 var current_method
 var tx_count
 var gas_price
@@ -18,6 +19,10 @@ var tx_hash
 
 var checking_for_tx_receipt = false
 var tx_receipt_poll_timer = 4
+
+var pending_approvals = []
+var needs_to_approve = false
+
 
 #need error catching for faulty 200 responde codes with no return value
 #double check how the tx hash and tx receipt are structured
@@ -33,6 +38,7 @@ func _ready():
 func _process(delta):
 	if checking_for_tx_receipt:
 		check_for_tx_receipt(delta)
+	handle_approvals()
 	fill_orders()
 	prune_pending_orders(delta)
 
@@ -48,7 +54,7 @@ func intake_order(order):
 		pending_orders.append(order)
 
 func fill_orders():
-	if !pending_orders.empty():
+	if !pending_orders.empty() && !needs_to_approve:
 		for pending_order in pending_orders:
 			if pending_order["checked"] == false && !order_filling_paused:
 				order_filling_paused = true
@@ -56,6 +62,17 @@ func fill_orders():
 				current_method = "eth_getBalance"
 				perform_ethereum_request("eth_getBalance", [user_address, "latest"])
 
+func handle_approvals():
+	if needs_to_approve && !order_filling_paused:
+		if !pending_approvals.empty():
+			order_filling_paused = true
+			current_method = "eth_getBalance"
+			approval_in_queue = pending_approvals[0].duplicate()
+			pending_approvals.pop_front()
+			perform_ethereum_request("eth_getBalance", [user_address, "latest"])
+		else:
+			needs_to_approve = false
+			order_filling_paused = false
 
 func perform_ethereum_request(method, params, extra_args={}):
 	var rpc = network_info["rpc"]
@@ -84,40 +101,50 @@ func check_gas_balance(get_result, response_code):
 		#may need to be checked in rust
 		if int(balance) > int(network_info["minimum_gas_threshold"]):
 			current_method = "eth_call"
-			compose_message(order_in_queue["message"])
+			if !needs_to_approve:
+				print("composing order")
+				compose_message(order_in_queue["message"], order_in_queue["from_network"])
+			else:
+				current_method = "eth_getTransactionCount"
+				perform_ethereum_request("eth_getTransactionCount", [user_address, "latest"])
 		else:
 			gas_error()
 	else:
 		rpc_error()
 
 
-func compose_message(message):
+func compose_message(message, from_network):
+	
 	var rpc = network_info["rpc"]
 	var chain_id = network_info["chain_id"]
 	var endpoint_contract = network_info["endpoint_contract"]
 	var monitored_tokens = network_info["monitored_tokens"]
 	
-	var token_list: PoolStringArray
+	var local_token_contracts: PoolStringArray
+	var remote_token_contracts: PoolStringArray
 	var token_minimum_list: PoolStringArray
 	
 	for token in monitored_tokens:
-		token_list.append(token["token_contract"])
+		local_token_contracts.append(token["local_token_contract"])
+		remote_token_contracts.append(token["monitored_networks"][from_network])
+		#allow custom minimum
 		token_minimum_list.append("0")
-		#token_minimum_list.append(token["minimum"])
-	
+		
 	var file = File.new()
 	file.open("user://keystore", File.READ)
 	var content = file.get_buffer(32)
 	file.close()
-	var calldata = FastCcipBot.filter_order(content, chain_id, endpoint_contract, rpc, message, token_list, token_minimum_list)
+	
+	var calldata = FastCcipBot.filter_order(content, chain_id, endpoint_contract, rpc, message, local_token_contracts, remote_token_contracts, token_minimum_list)
 	
 	perform_ethereum_request("eth_call", [{"to": endpoint_contract, "input": calldata}, "latest"])
 
 
 func check_order_validity(get_result, response_code):
 	if response_code == 200:
-		var valid = FastCcipBot.decode_bool(get_result["result"])
-		if valid == "true":
+		#var valid = FastCcipBot.decode_bool(get_result["result"])
+		var valid = get_result["result"]
+		if valid != "0x0000000000000000000000000000000000000000000000000000000000000000":
 			current_method = "eth_getTransactionCount"
 			perform_ethereum_request("eth_getTransactionCount", [user_address, "latest"])
 		else:
@@ -141,7 +168,7 @@ func get_gas_price(get_result, response_code):
 		
 		var rpc = network_info["rpc"]
 		var chain_id = network_info["chain_id"]
-		var endpoint_address = network_info["endpoint_contract"]
+		var endpoint_contract = network_info["endpoint_contract"]
 		
 		mark_queued_order_as_checked()
 		
@@ -149,7 +176,13 @@ func get_gas_price(get_result, response_code):
 		file.open("user://keystore", File.READ)
 		var content = file.get_buffer(32)
 		file.close()
-		FastCcipBot.fill_order(content, chain_id, endpoint_address, rpc, gas_price, tx_count, order_in_queue["message"], self)
+		if !needs_to_approve:
+			var local_token = FastCcipBot.decode_address(order_in_queue["local_token"])
+			FastCcipBot.fill_order(content, chain_id, endpoint_contract, rpc, gas_price, tx_count, order_in_queue["message"], local_token, self)
+		else:
+			var local_token_contract = approval_in_queue["local_token_contract"]
+			print("approving endpoint " + endpoint_contract + " allowance to spend local token " + local_token_contract)
+			FastCcipBot.approve_endpoint_allowance(content, chain_id, endpoint_contract, rpc, gas_price, tx_count, local_token_contract, self)
 	else:
 		rpc_error()
 
