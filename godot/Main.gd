@@ -6,9 +6,12 @@ var order_processor = preload("res://OrderProcessor.tscn")
 var user_address
 var header = "Content-Type: application/json"
 
-var networks = ["Ethereum Sepolia", "Arbitrum Sepolia"]
+var networks = ["Ethereum Sepolia", "Arbitrum Sepolia", "Optimism Sepolia"]
 
 #the ability to add tokens, networks, onramps, and endpoint contracts would be nice
+
+#eventually let's move this data blob somewhere else
+# so it's not cluttering the top of this script
 
 var network_info = {
 	
@@ -40,7 +43,7 @@ var network_info = {
 	"Arbitrum Sepolia": 
 		{
 		"chain_id": 421614,
-		"rpc": "https://endpoints.omniatech.io/v1/arbitrum/sepolia/public",
+		"rpc": "https://sepolia-rollup.arbitrum.io/rpc",
 		"gas_balance": "0", 
 		"onramp_contracts": ["0x4205E1Ca0202A248A5D42F5975A8FE56F3E302e9", "0x701Fe16916dd21EFE2f535CA59611D818B017877"],
 		"onramp_contracts_by_network": 
@@ -55,7 +58,7 @@ var network_info = {
 				}
 			
 		],
-		"endpoint_contract": "", #deploy it
+		"endpoint_contract": "0x7245EF4082D949Aff38fa5741b68b8aD76467e2A",
 		"monitored_tokens": [{"token_contract": "0xA8C0c11bf64AF62CDCA6f93D3769B88BdD7cb93D", "token_balance": "0", "minimum": 0.00000001}], #BnM address
 		"minimum_gas_threshold": 0,
 		"latest_block": 0,
@@ -79,7 +82,7 @@ var network_info = {
 				}
 			
 		],
-		"endpoint_contract": "", #deploy it
+		"endpoint_contract": "0x2e0d90fD5C983a5a76f5AB32698Db396Df066491",
 		"monitored_tokens": [{"token_contract": "0x8aF4204e30565DF93352fE8E1De78925F6664dA7", "token_balance": "0", "minimum": 0.00000001}], #BnM address
 		"minimum_gas_threshold": 0,
 		"latest_block": 0,
@@ -154,7 +157,8 @@ func check_for_ccip_messages(from_network, get_result):
 				if network["contract"] == onramp:
 					to_network = network["network"]
 			
-			network_info[to_network]["order_processor"].intake_message(message)
+			if to_network != null:
+				network_info[to_network]["order_processor"].intake_message(message)
 			
 func ethereum_request_failed(network, method, extra_args):
 	pass
