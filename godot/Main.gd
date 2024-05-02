@@ -8,6 +8,9 @@ var header = "Content-Type: application/json"
 
 var networks = ["Ethereum Sepolia", "Arbitrum Sepolia", "Optimism Sepolia"]
 
+var monitorable_tokens = []
+var active_monitored_tokens = []
+
 #the ability to add tokens, networks, onramps, and endpoint contracts would be nice
 
 #eventually let's move this data blob somewhere else
@@ -58,7 +61,7 @@ var network_info = {
 				}
 			
 		],
-		"endpoint_contract": "0x7245EF4082D949Aff38fa5741b68b8aD76467e2A",
+		"endpoint_contract": "0xD7e4A13c7896edA172e568eB6E35Da68d3572127",
 		"monitored_tokens": [{"token_contract": "0xA8C0c11bf64AF62CDCA6f93D3769B88BdD7cb93D", "token_balance": "0", "minimum": 0.00000001}], #BnM address
 		"minimum_gas_threshold": 0,
 		"latest_block": 0,
@@ -114,7 +117,14 @@ func _process(delta):
 		get_logs()
 
 func get_logs():
-	for network in networks:
+	var network_list = []
+	
+	for token in active_monitored_tokens:
+		for network in token["monitored_networks"].keys():
+			if !network in network_list:
+				network_list.append(network)
+	
+	for network in network_list:
 		perform_ethereum_request(network, "eth_getLogs", [{"fromBlock": "latest", "address": network_info[network]["onramp_contracts"], "topics": ["0xd0c3c799bf9e2639de44391e7f524d229b2b55f5b1ea94b2bf7da42f7243dddd"]}])
 
 func perform_ethereum_request(network, method, params, extra_args={}):
@@ -158,7 +168,7 @@ func check_for_ccip_messages(from_network, get_result):
 					to_network = network["network"]
 			
 			if to_network != null:
-				network_info[to_network]["order_processor"].intake_message(message)
+				network_info[to_network]["order_processor"].intake_message(message, from_network)
 			
 func ethereum_request_failed(network, method, extra_args):
 	pass
@@ -209,15 +219,25 @@ func get_erc20_balance(network, token_contract):
 	perform_ethereum_request(network, "eth_call", [{"to": token_contract, "input": calldata}, "latest"], {"function_name": "check_token_balance", "token_contract": token_contract})
 
 
-#make sure no doubles are possible
-func add_monitored_token(network, token_contract, token_balance, endpoint_contract, minimum):
+func add_monitored_token(network, token_contract, local_token_contract, networks, endpoint_contract, minimum):	
 	var new_monitored_token = {
-		"token_contract": token_contract,
-		"token_balance": token_balance,
+		"local_token_contract": local_token_contract,
+		"monitored_networks": networks,
+#		{
+#			"network":"token_contract"
+#		}
+#		[
+#			{
+#				"network": "",
+#				"token_contract": ""
+#			}
+#		],
 		"endpoint_contract": endpoint_contract,
-		"minimum": minimum,
+		"minimum": minimum
 	}
-	network_info[network]["monitored_tokens"].append(new_monitored_token)
+	if !new_monitored_token in monitorable_tokens:
+		network_info[network]["monitored_tokens"].append(new_monitored_token)
+		monitorable_tokens.append(new_monitored_token)
 
 
 func update_balance(network, get_result):
