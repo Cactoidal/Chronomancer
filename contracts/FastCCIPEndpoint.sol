@@ -36,13 +36,14 @@ contract FastCCIPEndpoint is CCIPReceiver {
     Internal.EVM2EVMMessage public testMessage;
     
     // Not compatible with tax-on-transfer tokens; could perhaps be toggled?
-    function fillOrder(bytes calldata _message) external {
+    function fillOrder(bytes calldata _message, address _local_token) external {
 
         Internal.EVM2EVMMessage memory message = abi.decode(_message, (Internal.EVM2EVMMessage));
 
         bytes32 messageId = message.messageId;
         (address recipient, bytes memory data) = abi.decode(message.data, (address, bytes));
-        address token = message.tokenAmounts[0].token;
+        //address token = message.tokenAmounts[0].token;
+        address token = _local_token;
 
         // The submitted amount must include the fee (0.1%)
         uint amount = message.tokenAmounts[0].amount - (message.tokenAmounts[0].amount * FEE);
@@ -52,22 +53,14 @@ contract FastCCIPEndpoint is CCIPReceiver {
         }
         filledOrderPaths[messageId][recipient][token][amount][data] = msg.sender;
 
-        // Commented out for testing
-        //IERC20(token).transferFrom(msg.sender, recipient, amount);
-
-        // Test values
-        testMessage.messageId = message.messageId;
-        testMessage.data = data;
-        testMessage.receiver = recipient;
-
+        IERC20(token).transferFrom(msg.sender, recipient, amount);
 
         emit OrderFilled(messageId);
         if (recipient.code.length == 0) {//|| !_recipient.supportsInterface(type(CCIPReceiver).interfaceId)) {
             return;
         }
 
-    
-        // Should the unadulterated token amount be sent, or should it include the fee?
+        // Should the unadulterated destTokenAmounts value be sent, or should it include the fee?
         // In the event of an unfilled order, the original message is sent.  So I lean
         // toward leaving it alone.
         Client.Any2EVMMessage memory ccipMessage = Client.Any2EVMMessage({
@@ -106,6 +99,10 @@ contract FastCCIPEndpoint is CCIPReceiver {
             if (recipient == address(this)) {
                 revert NoRecursionAllowed();
             }
+            // Do I need to potentially approve sending tokens in the event that the recipient is a contract?
+            // if (recipient.code.length == 0) {
+            // IERC20(token).approve(address(this), amount);
+            // }
             IERC20(token).transfer(recipient, amount);
             if (recipient.code.length == 0) {//|| !_recipient.supportsInterface(type(CCIPReceiver).interfaceId)) {
             return;
@@ -116,36 +113,32 @@ contract FastCCIPEndpoint is CCIPReceiver {
     }
 
     // Used by bots to determine order validity off-chain before submitting a transaction
-    function filterOrder(bytes calldata _message, address _endpoint, address _filler, address[] calldata _localTokenList, address[] calldata _remoteTokenList, uint64[] calldata _tokenMinimums) public view returns (bool) {
+    function filterOrder(bytes calldata _message, address _endpoint, address _filler, address[] calldata _localTokenList, address[] calldata _remoteTokenList, uint64[] calldata _tokenMinimums) public view returns (address) {
         Internal.EVM2EVMMessage memory message = abi.decode(_message, (Internal.EVM2EVMMessage));
 
         address receiver = message.receiver;
         address token = message.tokenAmounts[0].token;
         (address recipient, ) = abi.decode(message.data, (address, bytes));
-       
+
         // Check that the endpoint is the target and that no recursion takes place
         if (receiver != _endpoint || receiver == recipient) {
-            return false;
+            return address(0);
         }
         
-        bool containsToken;
         // Check EVM2EVM message for monitored remote token, then check the balance and minimum 
         // of the matching local token
         for (uint i = 0; i < _remoteTokenList.length; i++) {
             if (token == _remoteTokenList[i]) {
                 if (message.tokenAmounts[0].amount < IERC20(_localTokenList[i]).balanceOf(_filler)) {
                     if (message.tokenAmounts[0].amount > _tokenMinimums[i]) {
-                        containsToken = true;
+                        return _localTokenList[i];
                         }
                     }
                 }
             }
         
-        if (!containsToken) {
-            return false;
-        }
-        
-        return true;
+        // Return invalid if not all criteria are met
+        return address(0);
 
     }
 
