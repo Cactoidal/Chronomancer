@@ -15,6 +15,7 @@ contract FastCCIPEndpoint is CCIPReceiver {
     event MessageReceived(bytes32 messageId);
 
     error OrderPathAlreadyFilled();
+    error NoRecursionAllowed();
 
     address immutable ROUTER;
     address immutable CHAINLINK;
@@ -100,6 +101,9 @@ contract FastCCIPEndpoint is CCIPReceiver {
             IERC20(token).transfer(orderFiller, amount);
         }
         else {
+            if (recipient == address(this)) {
+                revert NoRecursionAllowed();
+            }
             IERC20(token).transfer(recipient, amount);
             if (recipient.code.length == 0) {//|| !_recipient.supportsInterface(type(CCIPReceiver).interfaceId)) {
             return;
@@ -114,28 +118,29 @@ contract FastCCIPEndpoint is CCIPReceiver {
 
         address receiver = message.receiver;
         address token = message.tokenAmounts[0].token;
+        (address recipient, ) = abi.decode(message.data, (address, bytes));
        
-
-        if (receiver != _endpoint) {
+        // Check that the endpoint is the target and that no recursion takes place
+        if (receiver != _endpoint || receiver == recipient) {
             return false;
         }
+        
         if (message.tokenAmounts[0].amount > IERC20(token).balanceOf(_filler)) {
             return false;
         }
         bool containsToken;
         for (uint i = 0; i < _tokenList.length; i++) {
             if (token == _tokenList[i]) {
-                if (message.tokenAmounts[0].amount > _tokenMinimums[i] * 1e18) {
+                if (message.tokenAmounts[0].amount > _tokenMinimums[i]) {
                     containsToken = true;
+                    }
                 }
-                
             }
+        
         if (!containsToken) {
             return false;
         }
-
-        }
-
+        
         return true;
 
     }
