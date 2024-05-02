@@ -29,9 +29,10 @@ func _ready():
 	self.connect("request_completed", self, "resolve_ethereum_request")
 
 
+
 func _process(delta):
 	if checking_for_tx_receipt:
-		check_for_tx_receipt()
+		check_for_tx_receipt(delta)
 	fill_orders()
 	prune_pending_orders(delta)
 
@@ -116,7 +117,7 @@ func compose_message(message):
 func check_order_validity(get_result, response_code):
 	if response_code == 200:
 		var valid = FastCcipBot.decode_bool(get_result["result"])
-		if valid:
+		if valid == "true":
 			current_method = "eth_getTransactionCount"
 			perform_ethereum_request("eth_getTransactionCount", [user_address, "latest"])
 		else:
@@ -167,19 +168,21 @@ func get_transaction_hash(get_result, response_code):
 	else:
 		rpc_error()
 
-func check_for_tx_receipt():
-	perform_ethereum_request("eth_getTransactionReceipt", [tx_hash])
+func check_for_tx_receipt(delta):
+	tx_receipt_poll_timer -= delta
+	if tx_receipt_poll_timer < 0:
+		tx_receipt_poll_timer = 4
+		perform_ethereum_request("eth_getTransactionReceipt", [tx_hash])
 
 func check_transaction_receipt(get_result, response_code):
 	tx_receipt_poll_timer = 4
 	if response_code == 200:
-		#check how this actually comes in
 		#also tx gas bumping
 		#print(get_result)
 		if get_result.has("result"): 
 			if get_result["result"] != null:
-				var success = FastCcipBot.decode_bool(get_result["result"]["status"])
-				if success:
+				var success = get_result["result"]["status"]
+				if success == "0x1":
 					print("order filled")
 					checking_for_tx_receipt = false	
 					order_filling_paused = false
@@ -219,7 +222,6 @@ func prune_pending_orders(delta):
 				deletion_queue.append(pending_order)
 		if !deletion_queue.empty():
 			for deletable in deletion_queue:
-				if pending_orders["checked"] == false:
-					print("pending order timed out")
+				print("old order timed out")
 				pending_orders.erase(deletable)
 				
