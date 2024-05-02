@@ -12,7 +12,7 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 contract FastCCIPEndpoint is CCIPReceiver {
 
     event OrderFilled(bytes32 messageId);
-    event MessageReceived(bytes32 messageId);
+    event ReceivedTokens(bytes32 messageId, address token, uint amount);
 
     error OrderPathAlreadyFilled();
     error NoRecursionAllowed();
@@ -82,16 +82,18 @@ contract FastCCIPEndpoint is CCIPReceiver {
         CCIPReceiver(recipient).ccipReceive(ccipMessage);
     }
 
+
     // Right now only compatible with one token, due to the nature of order paths.
     // Could be reconfigured to work with multiple tokens, multiple recipients, and multiple data objects
     function _ccipReceive(
         Client.Any2EVMMessage memory message
     ) internal override {
         require(msg.sender == ROUTER);
-        emit MessageReceived(message.messageId);
 
         address token = message.destTokenAmounts[0].token;
         uint256 amount = message.destTokenAmounts[0].amount;
+
+        emit ReceivedTokens(message.messageId, token, amount);
 
         (address recipient, bytes memory data) = abi.decode(message.data, (address, bytes));
 
@@ -113,7 +115,8 @@ contract FastCCIPEndpoint is CCIPReceiver {
 
     }
 
-    function filterOrder(bytes calldata _message, address _endpoint, address _filler, address[] calldata _tokenList, uint64[] calldata _tokenMinimums) public view returns (bool) {
+    // Used by bots to determine order validity off-chain before submitting a transaction
+    function filterOrder(bytes calldata _message, address _endpoint, address _filler, address[] calldata _localTokenList, address[] calldata _remoteTokenList, uint64[] calldata _tokenMinimums) public view returns (bool) {
         Internal.EVM2EVMMessage memory message = abi.decode(_message, (Internal.EVM2EVMMessage));
 
         address receiver = message.receiver;
@@ -125,14 +128,15 @@ contract FastCCIPEndpoint is CCIPReceiver {
             return false;
         }
         
-        if (message.tokenAmounts[0].amount > IERC20(token).balanceOf(_filler)) {
-            return false;
-        }
         bool containsToken;
-        for (uint i = 0; i < _tokenList.length; i++) {
-            if (token == _tokenList[i]) {
-                if (message.tokenAmounts[0].amount > _tokenMinimums[i]) {
-                    containsToken = true;
+        // Check EVM2EVM message for monitored remote token, then check the balance and minimum 
+        // of the matching local token
+        for (uint i = 0; i < _remoteTokenList.length; i++) {
+            if (token == _remoteTokenList[i]) {
+                if (message.tokenAmounts[0].amount > IERC20(_localTokenList[i]).balanceOf(_filler)) {
+                    if (message.tokenAmounts[0].amount > _tokenMinimums[i]) {
+                        containsToken = true;
+                        }
                     }
                 }
             }
@@ -144,6 +148,7 @@ contract FastCCIPEndpoint is CCIPReceiver {
         return true;
 
     }
+
 
     function isOrderPathFilled(bytes calldata _message) public view returns (bool) {
         Internal.EVM2EVMMessage memory message = abi.decode(_message, (Internal.EVM2EVMMessage));
