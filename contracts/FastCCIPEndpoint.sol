@@ -133,7 +133,7 @@ contract FastCCIPEndpoint is CCIPReceiver {
         // of the matching local token
         for (uint i = 0; i < _remoteTokenList.length; i++) {
             if (token == _remoteTokenList[i]) {
-                if (message.tokenAmounts[0].amount > IERC20(_localTokenList[i]).balanceOf(_filler)) {
+                if (message.tokenAmounts[0].amount < IERC20(_localTokenList[i]).balanceOf(_filler)) {
                     if (message.tokenAmounts[0].amount > _tokenMinimums[i]) {
                         containsToken = true;
                         }
