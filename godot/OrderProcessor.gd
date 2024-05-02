@@ -19,14 +19,14 @@ func _process(delta):
 	prune_pending_messages(delta)
 
 func intake_message(message):
-	print("got message")
-	print("going to " + network_info["rpc"])
 	var is_new_message = true
 	if !pending_messages.empty():
 		for pending_message in pending_messages:
 			if pending_message["message"] == message:
 				is_new_message = false
 	if is_new_message:
+		print("got message")
+		print("going to " + network_info["rpc"])
 		pending_messages.append({
 			"message": message,
 			"checked": false, 
@@ -79,17 +79,18 @@ func perform_ethereum_request(method, params, extra_args={}):
 func resolve_ethereum_request(result, response_code, headers, body):
 	var get_result = parse_json(body.get_string_from_ascii())
 	
-	if response_code == 200:
+	print(get_result)
+	if response_code == 200 && get_result.has("result"):
 		print("checked validity:")
 		print(get_result)
 		var valid = FastCcipBot.decode_bool(get_result["result"])
-		if valid:
+		if valid == "true":
 			$OrderFiller.intake_order(message_in_queue.duplicate())
 			print("sent order to filler")
 		else:
-			pass
+			print("invalid order")
 	else:
-		pass
+		print("invalid order")
 	
 	message_filtering_paused = false
 
@@ -102,7 +103,6 @@ func prune_pending_messages(delta):
 				deletion_queue.append(pending_message)
 		if !deletion_queue.empty():
 			for deletable in deletion_queue:
-				if pending_messages["checked"] == false:
-					print("pending message timed out")
+				print("old message timed out")
 				pending_messages.erase(deletable)
 	
