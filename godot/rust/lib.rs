@@ -172,7 +172,7 @@ NewFuture(Ok(()))
 
 
 #[method]
-fn filter_order(key: PoolArray<u8>, chain_id: u64, endpoint_contract: GodotString, rpc: GodotString, EVM2EVMMessage: GodotString, token_contracts: PoolArray<GodotString>, token_minimums: PoolArray<GodotString>) -> GodotString {
+fn filter_order(key: PoolArray<u8>, chain_id: u64, endpoint_contract: GodotString, rpc: GodotString, EVM2EVMMessage: GodotString, local_token_contracts: PoolArray<GodotString>, remote_token_contracts: PoolArray<GodotString>, token_minimums: PoolArray<GodotString>) -> GodotString {
 
 let vec = &key.to_vec();
 
@@ -194,11 +194,17 @@ let contract = FastCCIPBotABI::new(contract_address.clone(), Arc::new(client.clo
 
 let message_vec = hex::decode(EVM2EVMMessage.to_string()).unwrap();
 
-let address_vec = &token_contracts.to_vec();
+let local_address_vec = &local_token_contracts.to_vec();
 
-let address_string_vec: Vec<String> = address_vec.iter().map(|e| e.to_string() as String).collect();
+let local_address_string_vec: Vec<String> = local_address_vec.iter().map(|e| e.to_string() as String).collect();
 
-let token_address_vec: Vec<Address> = address_string_vec.iter().map(|e|e.parse::<Address>().unwrap() as Address).collect();
+let local_token_address_vec: Vec<Address> = local_address_string_vec.iter().map(|e|e.parse::<Address>().unwrap() as Address).collect();
+
+let remote_address_vec = &remote_token_contracts.to_vec();
+
+let remote_address_string_vec: Vec<String> = remote_address_vec.iter().map(|e| e.to_string() as String).collect();
+
+let remote_token_address_vec: Vec<Address> = remote_address_string_vec.iter().map(|e|e.parse::<Address>().unwrap() as Address).collect();
 
 let minimums_vec = &token_minimums.to_vec();
 
@@ -206,10 +212,7 @@ let string_minimums_vec: Vec<String> = minimums_vec.iter().map(|e| e.to_string()
 
 let u64_minimums_vec: Vec<u64> = string_minimums_vec.iter().map(|e|e.parse::<u64>().unwrap() as u64).collect();
 
-godot_print!("token_address_vec: {:?}", token_address_vec);
-godot_print!("u64_minimums_vec: {:?}", u64_minimums_vec);
-
-let calldata = contract.filter_order(message_vec.into(), contract_address, user_address, token_address_vec, u64_minimums_vec).calldata().unwrap();
+let calldata = contract.filter_order(message_vec.into(), contract_address, user_address, local_token_address_vec, remote_token_address_vec, u64_minimums_vec).calldata().unwrap();
 
 let return_string: GodotString = calldata.to_string().into();
 
