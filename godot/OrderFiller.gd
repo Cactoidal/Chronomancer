@@ -7,7 +7,7 @@ var network_info
 var user_address
 
 var pending_orders = []
-var pause_order_filling = false
+var order_filling_paused = false
 
 var order_in_queue
 var current_method
@@ -43,14 +43,14 @@ func intake_order(order):
 				is_new_order = false
 	if is_new_order:
 		order["checked"] = false
-		order["time_to_prune"] = 240
+		order["time_to_prune"] = 300
 		pending_orders.append(order)
 
 func fill_orders():
 	if !pending_orders.empty():
 		for pending_order in pending_orders:
-			if pending_order["checked"] == false && !pause_order_filling:
-				pause_order_filling = true
+			if pending_order["checked"] == false && !order_filling_paused:
+				order_filling_paused = true
 				order_in_queue = pending_order
 				current_method = "eth_getBalance"
 				perform_ethereum_request("eth_getBalance", [user_address, "latest"])
@@ -80,7 +80,8 @@ func resolve_ethereum_request(result, response_code, headers, body):
 func check_gas_balance(get_result, response_code):
 	if response_code == 200:
 		var balance = String(get_result["result"].hex_to_int())
-		if balance > network_info["minimum_gas_threshold"]:
+		#may need to be checked in rust
+		if int(balance) > int(network_info["minimum_gas_threshold"]):
 			current_method = "eth_call"
 			compose_message(order_in_queue["message"])
 		else:
@@ -92,29 +93,29 @@ func check_gas_balance(get_result, response_code):
 func compose_message(message):
 	var rpc = network_info["rpc"]
 	var chain_id = network_info["chain_id"]
-	var destination_selector = network_info["chain_selector"]
 	var endpoint_contract = network_info["endpoint_contract"]
 	var monitored_tokens = network_info["monitored_tokens"]
 	
-	var token_list = []
-	var token_minimum_list = []
+	var token_list: PoolStringArray
+	var token_minimum_list: PoolStringArray
 	
 	for token in monitored_tokens:
 		token_list.append(token["token_contract"])
-		token_minimum_list.append(token["minimum"])
+		token_minimum_list.append("0")
+		#token_minimum_list.append(token["minimum"])
 	
 	var file = File.new()
 	file.open("user://keystore", File.READ)
 	var content = file.get_buffer(32)
 	file.close()
-	var calldata = FastCcipBot.filter_order(content, chain_id, endpoint_contract, rpc, message, destination_selector, token_list, token_minimum_list)
+	var calldata = FastCcipBot.filter_order(content, chain_id, endpoint_contract, rpc, message, token_list, token_minimum_list)
 	
 	perform_ethereum_request("eth_call", [{"to": endpoint_contract, "input": calldata}, "latest"])
 
 
 func check_order_validity(get_result, response_code):
 	if response_code == 200:
-		var valid = FastCcipBot.decode_bool(get_result)
+		var valid = FastCcipBot.decode_bool(get_result["result"])
 		if valid:
 			current_method = "eth_getTransactionCount"
 			perform_ethereum_request("eth_getTransactionCount", [user_address, "latest"])
@@ -133,7 +134,8 @@ func get_tx_count(get_result, response_code):
 
 func get_gas_price(get_result, response_code):
 	if response_code == 200:
-		gas_price = get_result["result"].hex_to_int()
+		gas_price = int(ceil((get_result["result"].hex_to_int() * 1.1))) #adjusted up
+		#adjustable filter for gas spikes
 		current_method = "eth_sendRawTransaction"
 		
 		var rpc = network_info["rpc"]
@@ -155,7 +157,9 @@ func set_signed_data(var signature):
 	perform_ethereum_request("eth_sendRawTransaction", [signed_data])
 
 func get_transaction_hash(get_result, response_code):
-	if response_code == 200:
+	if response_code == 200 && get_result.has("result"):
+		print("sent tx")
+		print(get_result)
 		tx_hash = get_result["result"]
 		checking_for_tx_receipt = true
 		current_method = "eth_getTransactionReceipt"
@@ -167,34 +171,38 @@ func check_for_tx_receipt():
 	perform_ethereum_request("eth_getTransactionReceipt", [tx_hash])
 
 func check_transaction_receipt(get_result, response_code):
+	tx_receipt_poll_timer = 4
 	if response_code == 200:
 		#check how this actually comes in
-		if get_result["result"]:
-			var success = FastCcipBot.decode_bool(get_result["result"]["success"])
-			if success:
-				print("order filled")
-			else:
-				print("failed to fill order")
-			
-			checking_for_tx_receipt = false	
-			pause_order_filling = false
-		else:
-			tx_receipt_poll_timer = 4
+		#also tx gas bumping
+		#print(get_result)
+		if get_result.has("result"): 
+			if get_result["result"] != null:
+				var success = FastCcipBot.decode_bool(get_result["result"]["status"])
+				if success:
+					print("order filled")
+					checking_for_tx_receipt = false	
+					order_filling_paused = false
+				else:
+					print("failed to fill order")
+					checking_for_tx_receipt = false	
+					order_filling_paused = false
 	else:
+		checking_for_tx_receipt = false	
 		rpc_error()
 			
 
 func rpc_error():
-	pause_order_filling = false
+	order_filling_paused = false
 	print("rpc error")
 
 func gas_error():
-	pause_order_filling = false
+	order_filling_paused = false
 	print("insufficient gas")
 
 func invalid_order():
 	mark_queued_order_as_checked()
-	pause_order_filling = false
+	order_filling_paused = false
 	print("invalid order")
 
 func mark_queued_order_as_checked():
