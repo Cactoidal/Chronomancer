@@ -118,7 +118,7 @@ return_string
 
 #[method]
 #[tokio::main]
-async fn fill_order(key: PoolArray<u8>, chain_id: u64, endpoint_contract: GodotString, rpc: GodotString, _gas_fee: u64, _count: u64, EVM2EVMMessage: GodotString, ui_node: Ref<Control>) -> NewFuture {
+async fn fill_order(key: PoolArray<u8>, chain_id: u64, endpoint_contract: GodotString, rpc: GodotString, _gas_fee: u64, _count: u64, EVM2EVMMessage: GodotString, ui_node: Ref<Node>) -> NewFuture {
 
 let vec = &key.to_vec();
 
@@ -159,7 +159,7 @@ let signature = wallet.sign_transaction(&typed_tx).await.unwrap();
 
 let signed_data = TypedTransaction::rlp_signed(&typed_tx, &signature);
 
-let node: TRef<Control> = unsafe { ui_node.assume_safe() };
+let node: TRef<Node> = unsafe { ui_node.assume_safe() };
 
 unsafe {
     node.call("set_signed_data", &[hex::encode(signed_data).to_variant()])
@@ -172,7 +172,7 @@ NewFuture(Ok(()))
 
 
 #[method]
-fn filter_order(key: PoolArray<u8>, chain_id: u64, endpoint_contract: GodotString, rpc: GodotString, EVM2EVMMessage: GodotString, destination_selector: GodotString, minimum: u64, token_contracts: PoolArray<GodotString>) -> GodotString {
+fn filter_order(key: PoolArray<u8>, chain_id: u64, endpoint_contract: GodotString, rpc: GodotString, EVM2EVMMessage: GodotString, token_contracts: PoolArray<GodotString>, token_minimums: PoolArray<GodotString>) -> GodotString {
 
 let vec = &key.to_vec();
 
@@ -194,17 +194,22 @@ let contract = FastCCIPBotABI::new(contract_address.clone(), Arc::new(client.clo
 
 let message_vec = hex::decode(EVM2EVMMessage.to_string()).unwrap();
 
-let preselect: &str = &destination_selector.to_string();
-
-let selector: u64 = u64::from_str_radix(preselect, 16).unwrap();
-
 let address_vec = &token_contracts.to_vec();
 
 let address_string_vec: Vec<String> = address_vec.iter().map(|e| e.to_string() as String).collect();
 
 let token_address_vec: Vec<Address> = address_string_vec.iter().map(|e|e.parse::<Address>().unwrap() as Address).collect();
 
-let calldata = contract.filter_order(message_vec.into(), selector.into(),contract_address, user_address, minimum.into(), token_address_vec).calldata().unwrap();
+let minimums_vec = &token_minimums.to_vec();
+
+let string_minimums_vec: Vec<String> = minimums_vec.iter().map(|e| e.to_string() as String).collect();
+
+let u64_minimums_vec: Vec<u64> = string_minimums_vec.iter().map(|e|e.parse::<u64>().unwrap() as u64).collect();
+
+godot_print!("token_address_vec: {:?}", token_address_vec);
+godot_print!("u64_minimums_vec: {:?}", u64_minimums_vec);
+
+let calldata = contract.filter_order(message_vec.into(), contract_address, user_address, token_address_vec, u64_minimums_vec).calldata().unwrap();
 
 let return_string: GodotString = calldata.to_string().into();
 
@@ -396,7 +401,6 @@ fn decode_bool (message: GodotString) -> GodotString {
     let return_string: GodotString = format!("{:?}", decoded).into();
     return_string
 }
-
 
 
 
