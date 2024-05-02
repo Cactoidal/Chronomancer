@@ -27,11 +27,15 @@ func intake_message(message, from_network):
 	if is_new_message:
 		print("got message")
 		print("going to " + network_info["rpc"])
-		pending_messages.append({
+		pending_messages.append(
+			{
 			"message": message,
 			"checked": false, 
 			"time_to_prune": 240,
-			"from_network": from_network})
+			"from_network": from_network,
+			"local_token": ""
+			}
+			)
 
 func filter_orders():
 	if !pending_messages.empty():
@@ -87,8 +91,10 @@ func resolve_ethereum_request(result, response_code, headers, body):
 	if response_code == 200 && get_result.has("result"):
 		print("checked validity:")
 		print(get_result)
-		var valid = FastCcipBot.decode_bool(get_result["result"])
-		if valid == "true":
+		var valid = get_result["result"]
+		#var valid = FastCcipBot.decode_bool(get_result["result"])
+		if valid != "0x0000000000000000000000000000000000000000000000000000000000000000":
+			message_in_queue["local_token"] = valid
 			$OrderFiller.intake_order(message_in_queue.duplicate())
 			print("sent order to filler")
 		else:
