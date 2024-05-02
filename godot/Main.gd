@@ -12,6 +12,9 @@ var monitorable_tokens = []
 var active_monitored_tokens = []
 
 #the ability to add tokens, networks, onramps, and endpoint contracts would be nice
+#I may need to be flexible in allowing addition of networks that do not monitor
+#onramps of every other chain, nor require that each added network be monitored by
+#each other chain
 
 #eventually let's move this data blob somewhere else
 # so it's not cluttering the top of this script
@@ -61,8 +64,8 @@ var network_info = {
 				}
 			
 		],
-		"endpoint_contract": "0xD7e4A13c7896edA172e568eB6E35Da68d3572127",
-		"monitored_tokens": [{"token_contract": "0xA8C0c11bf64AF62CDCA6f93D3769B88BdD7cb93D", "token_balance": "0", "minimum": 0.00000001}], #BnM address
+		"endpoint_contract": "0x1F325786Ed9B347D54BC24c21585239E77f9e466",
+		"monitored_tokens": [],
 		"minimum_gas_threshold": 0,
 		"latest_block": 0,
 		"order_processor": null
@@ -100,6 +103,25 @@ func _ready():
 	check_keystore()
 	get_address()
 	get_gas_balances()
+	add_monitored_token(
+		#Serviced Network
+		"Arbitrum Sepolia",
+		#Local Token Contract (CCIP-BnM)
+		"0xA8C0c11bf64AF62CDCA6f93D3769B88BdD7cb93D",
+		#Monitored Networks and Remote Token Contracts
+		{
+			"Ethereum Sepolia": "0xFd57b4ddBf88a4e07fF4e34C487b99af2Fe82a05", 
+			"Optimism Sepolia": "0x8aF4204e30565DF93352fE8E1De78925F6664dA7"
+		},
+		#Endpoint Contract (to allow custom endpoints later)
+		"0x1F325786Ed9B347D54BC24c21585239E77f9e466",
+		#Minimum transfer threshold
+		0
+		)
+	
+	#temp	
+	active_monitored_tokens = monitorable_tokens
+	
 	for network in networks:
 		var new_processor = order_processor.instance()
 		network_info[network]["order_processor"] = new_processor
@@ -151,6 +173,7 @@ func resolve_ethereum_request(network, method, get_result, extra_args):
 		"eth_getBalance": update_balance(network, get_result)
 		"eth_blockNumber": update_block_number(network, get_result)
 		"eth_getLogs": check_for_ccip_messages(network, get_result)
+		"eth_call": check_endpoint_allowance(network, get_result, extra_args)
 
 func check_for_ccip_messages(from_network, get_result):
 	if get_result["result"] != []:
@@ -169,7 +192,25 @@ func check_for_ccip_messages(from_network, get_result):
 			
 			if to_network != null:
 				network_info[to_network]["order_processor"].intake_message(message, from_network)
-			
+
+func check_endpoint_allowance(network, get_result, extra_args):
+	var local_token_contract = extra_args["local_token_contract"]
+	var endpoint_contract = extra_args["endpoint_contract"]
+	
+	var allowance = get_result["result"]
+	if allowance != "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff":
+		var order_filler = network_info[network]["order_processor"].get_node("OrderFiller")
+		print(network + " endpoint " + endpoint_contract + " needs approval to spend local token " + local_token_contract)
+		order_filler.needs_to_approve = true
+		order_filler.pending_approvals.append(
+			{
+				"endpoint_contract": endpoint_contract, 
+				"local_token_contract": local_token_contract
+			}
+		)
+	else:
+		print(network + " endpoint " + endpoint_contract + " has allowance to spend local token " + local_token_contract)
+
 func ethereum_request_failed(network, method, extra_args):
 	pass
 
@@ -219,25 +260,29 @@ func get_erc20_balance(network, token_contract):
 	perform_ethereum_request(network, "eth_call", [{"to": token_contract, "input": calldata}, "latest"], {"function_name": "check_token_balance", "token_contract": token_contract})
 
 
-func add_monitored_token(network, token_contract, local_token_contract, networks, endpoint_contract, minimum):	
+func add_monitored_token(serviced_network, local_token_contract, monitored_networks, endpoint_contract, minimum):	
 	var new_monitored_token = {
 		"local_token_contract": local_token_contract,
-		"monitored_networks": networks,
+		"monitored_networks": monitored_networks,
 #		{
 #			"network":"token_contract"
 #		}
-#		[
-#			{
-#				"network": "",
-#				"token_contract": ""
-#			}
-#		],
 		"endpoint_contract": endpoint_contract,
 		"minimum": minimum
 	}
 	if !new_monitored_token in monitorable_tokens:
-		network_info[network]["monitored_tokens"].append(new_monitored_token)
+		network_info[serviced_network]["monitored_tokens"].append(new_monitored_token)
 		monitorable_tokens.append(new_monitored_token)
+		
+		#check token approval
+		var chain_id = network_info[serviced_network]["chain_id"]
+		var rpc = network_info[serviced_network]["rpc"]
+		var file = File.new()
+		file.open("user://keystore", File.READ)
+		var content = file.get_buffer(32)
+		file.close()
+		var calldata = FastCcipBot.check_endpoint_allowance(content, chain_id, rpc, local_token_contract, endpoint_contract)
+		perform_ethereum_request(serviced_network, "eth_call", [{"to": local_token_contract, "input": calldata}, "latest"], {"function_name": "check_endpoint_allowance", "local_token_contract": local_token_contract, "endpoint_contract": endpoint_contract})
 
 
 func update_balance(network, get_result):
