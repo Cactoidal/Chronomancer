@@ -4,9 +4,10 @@ var header = "Content-Type: application/json"
 
 var main_script
 var network_info
+var user_address
 
 var pending_messages = []
-var pause_message_filtering = false
+var message_filtering_paused = false
 
 var message_in_queue
 
@@ -18,6 +19,8 @@ func _process(delta):
 	prune_pending_messages(delta)
 
 func intake_message(message):
+	print("got message")
+	print("going to " + network_info["rpc"])
 	var is_new_message = true
 	if !pending_messages.empty():
 		for pending_message in pending_messages:
@@ -32,31 +35,32 @@ func intake_message(message):
 func filter_orders():
 	if !pending_messages.empty():
 		for pending_message in pending_messages:
-			if pending_message["checked"] == false && !pause_message_filtering:
-				pause_message_filtering = true
+			if pending_message["checked"] == false && !message_filtering_paused:
+				message_filtering_paused = true
 				pending_message["checked"] = true
+				message_in_queue = pending_message
 				compose_message(pending_message["message"])
+				print("composing message")
 
 func compose_message(message):
-	message_in_queue = message
 	var rpc = network_info["rpc"]
 	var chain_id = network_info["chain_id"]
-	var destination_selector = network_info["chain_selector"]
 	var endpoint_contract = network_info["endpoint_contract"]
 	var monitored_tokens = network_info["monitored_tokens"]
 	
-	var token_list = []
-	var token_minimum_list = []
+	var token_list: PoolStringArray
+	var token_minimum_list: PoolStringArray
 	
 	for token in monitored_tokens:
 		token_list.append(token["token_contract"])
-		token_minimum_list.append(token["minimum"])
-	
+		token_minimum_list.append("0")
+		#token_minimum_list.append(token["minimum"])
+		
 	var file = File.new()
 	file.open("user://keystore", File.READ)
 	var content = file.get_buffer(32)
 	file.close()
-	var calldata = FastCcipBot.filter_order(content, chain_id, endpoint_contract, rpc, message, destination_selector, token_list, token_minimum_list)
+	var calldata = FastCcipBot.filter_order(content, chain_id, endpoint_contract, rpc, message, token_list, token_minimum_list)
 	
 	perform_ethereum_request("eth_call", [{"to": endpoint_contract, "input": calldata}, "latest"])
 	
@@ -76,7 +80,9 @@ func resolve_ethereum_request(result, response_code, headers, body):
 	var get_result = parse_json(body.get_string_from_ascii())
 	
 	if response_code == 200:
-		var valid = FastCcipBot.decode_bool(get_result)
+		print("checked validity:")
+		print(get_result)
+		var valid = FastCcipBot.decode_bool(get_result["result"])
 		if valid:
 			$OrderFiller.intake_order(message_in_queue.duplicate())
 			print("sent order to filler")
@@ -85,7 +91,7 @@ func resolve_ethereum_request(result, response_code, headers, body):
 	else:
 		pass
 	
-	pause_message_filtering = false
+	message_filtering_paused = false
 
 func prune_pending_messages(delta):
 	if !pending_messages.empty():
@@ -96,6 +102,7 @@ func prune_pending_messages(delta):
 				deletion_queue.append(pending_message)
 		if !deletion_queue.empty():
 			for deletable in deletion_queue:
+				if pending_messages["checked"] == false:
+					print("pending message timed out")
 				pending_messages.erase(deletable)
-				print("pending message timed out")
 	
