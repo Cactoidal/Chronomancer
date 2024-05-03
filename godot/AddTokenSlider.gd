@@ -75,6 +75,8 @@ func _process(delta):
 		previous_token_length = $AddressEntry.text.length()
 		if previous_token_length == 42 && $NetworkLabel.text != "":
 			get_erc20_name($NetworkLabel.text, $AddressEntry.text)
+			if choosing_service_network:
+				get_erc20_balance($NetworkLabel.text, $AddressEntry.text)
 		else:
 			$TokenLabel.text = ""
 	
@@ -99,6 +101,7 @@ func pick_network(network):
 		wipe_buttons()
 		clear_text()
 		$NetworkLabel.text = network
+		perform_ethereum_request(network, "eth_getBalance", [main_script.user_address, "latest"])
 	elif choosing_monitored_networks && network != pending_token["serviced_network"]:
 		wipe_buttons()
 		clear_text()
@@ -111,7 +114,7 @@ func pick_network(network):
 
 func confirm_choices():
 	if choosing_service_network:
-		if pending_token["serviced_network"] != "" && $TokenLabel.text != "" && $AddressEntry.text.length() == 42:
+		if pending_token["serviced_network"] != "" && $TokenLabel.text != "" && $AddressEntry.text.length() == 42 && int($GasBalance.text.right(9)) > 0 && int($TokenBalance.text.right(9)) > 0:
 			clear_text()
 			choosing_service_network = false
 			choosing_monitored_networks = true
@@ -148,13 +151,15 @@ func clear_text():
 	$TokenLabel.text = ""
 	$NetworkLabel.text = ""
 	$AddressEntry.text = ""
+	$GasBalance.text = ""
+	$TokenBalance.text = ""
 	$ScanLink.visible = false
 	$FinalConfirm.text = ""
 	
 func clear_all():
 	clear_text()
 	$AddNetwork.visible = false
-	$Prompt.text = "Choose a network to serve and\nprovide your token's local address.\nYou must have a balance to perform\nfast transfers."
+	$Prompt.text = "Choose a network to serve and\nprovide your token's local address.\nYou must have a balance to provide\nfast transfers."
 	choosing_service_network = false
 	choosing_monitored_networks = false
 	choosing_minimum = false
@@ -190,6 +195,16 @@ func get_erc20_name(network, token_contract):
 	var content = file.get_buffer(32)
 	file.close()
 	var calldata = FastCcipBot.get_token_name(content, chain_id, rpc, token_contract)
+	perform_ethereum_request(network, "eth_call", [{"to": token_contract, "input": calldata}, "latest"], {"function_name": "get_token_name", "token_contract": token_contract})
+	
+func get_erc20_balance(network, token_contract):
+	var chain_id = network_info[network]["chain_id"]
+	var rpc = network_info[network]["rpc"]
+	var file = File.new()
+	file.open("user://keystore", File.READ)
+	var content = file.get_buffer(32)
+	file.close()
+	var calldata = FastCcipBot.check_token_balance(content, chain_id, rpc, token_contract)
 	perform_ethereum_request(network, "eth_call", [{"to": token_contract, "input": calldata}, "latest"], {"function_name": "check_token_balance", "token_contract": token_contract})
 
 func perform_ethereum_request(network, method, params, extra_args={}):
@@ -213,14 +228,30 @@ func perform_ethereum_request(network, method, params, extra_args={}):
 
 func resolve_ethereum_request(network, method, get_result, extra_args):
 	match method:
-		"eth_call": load_token_name(network, get_result, extra_args)
+		"eth_getBalance": load_network_gas(network, get_result)
+		"eth_call": load_token_data(network, get_result, extra_args)
 
-func load_token_name(network, get_result, extra_args):
+
+func load_network_gas(network, get_result):
 	if "result" in get_result.keys():
-		if get_result["result"] != "0x":
-			$TokenLabel.text = FastCcipBot.decode_hex_string(get_result["result"])
-			scan_link = network_info[network]["scan_url"] + "address/" + $AddressEntry.text
-			$ScanLink.visible = true
+		$GasBalance.text = "Balance: " + String(get_result["result"].hex_to_int())
+		print($GasBalance.text.right(9))
+	
+#add a check for balances
+func load_token_data(network, get_result, extra_args):
+	if extra_args["function_name"] == "get_token_name":
+		if "result" in get_result.keys():
+			if get_result["result"] != "0x":
+				$TokenLabel.text = FastCcipBot.decode_hex_string(get_result["result"])
+				scan_link = network_info[network]["scan_url"] + "address/" + $AddressEntry.text
+				$ScanLink.visible = true
+				
+	if extra_args["function_name"] == "check_token_balance":
+		if "result" in get_result.keys():
+			$TokenBalance.text = "Balance: " + FastCcipBot.decode_u256(get_result["result"])
+			print($TokenBalance.text.right(9))
+		else:
+			$TokenBalance.text = "Balance: 0"
 
 func open_scanner_link():
 	OS.shell_open(scan_link)
