@@ -2,6 +2,7 @@ extends Control
 
 var eth_http_request = preload("res://EthRequest.tscn")
 var order_processor = preload("res://OrderProcessor.tscn")
+var monitorable_token = preload("res://MonitorableToken.tscn")
 
 var user_address
 var header = "Content-Type: application/json"
@@ -47,7 +48,8 @@ var network_info = {
 		"maximum_gas_fee": "",
 		"latest_block": 0,
 		"order_processor": null,
-		"scan_url": "https://sepolia.etherscan.io/"
+		"scan_url": "https://sepolia.etherscan.io/",
+		"logo": preload("res://assets/Ethereum.png")
 		},
 		
 	"Arbitrum Sepolia": 
@@ -74,7 +76,8 @@ var network_info = {
 		"maximum_gas_fee": "",
 		"latest_block": 0,
 		"order_processor": null,
-		"scan_url": "https://sepolia.arbiscan.io/"
+		"scan_url": "https://sepolia.arbiscan.io/",
+		"logo": preload("res://assets/Arbitrum.png")
 		},
 		
 	"Optimism Sepolia": {
@@ -100,7 +103,8 @@ var network_info = {
 		"maximum_gas_fee": "",
 		"latest_block": 0,
 		"order_processor": null,
-		"scan_url": "https://sepolia-optimism.etherscan.io/"
+		"scan_url": "https://sepolia-optimism.etherscan.io/",
+		"logo": preload("res://assets/Optimism.png")
 	},
 	
 	"Polygon Mumbai": {},
@@ -130,6 +134,7 @@ func _ready():
 	#DEBUG
 	#active_monitored_tokens = monitorable_tokens
 	
+	$LoadSavedTokens.connect("pressed", self, "load_saved_tokens")
 	for network in networks:
 		var new_processor = order_processor.instance()
 		network_info[network]["order_processor"] = new_processor
@@ -267,24 +272,28 @@ func get_erc20_balance(network, token_contract):
 	var calldata = FastCcipBot.check_token_balance(content, chain_id, rpc, token_contract)
 	perform_ethereum_request(network, "eth_call", [{"to": token_contract, "input": calldata}, "latest"], {"function_name": "check_token_balance", "token_contract": token_contract})
 
-
-#func add_monitored_token(serviced_network, local_token_contract, monitored_networks, endpoint_contract, minimum):	
-#	var new_monitored_token = {
-#		"local_token_contract": local_token_contract,
-#		"monitored_networks": monitored_networks,
-##		{
-##			"network":"token_contract"
-##		}
-#		"endpoint_contract": endpoint_contract,
-#		"minimum": minimum
-#	}
+#DEBUG
+var downshift = 0
 func add_monitored_token(new_monitored_token):
 	var serviced_network = new_monitored_token["serviced_network"]
 	var local_token_contract = new_monitored_token["local_token_contract"]
 	var endpoint_contract = new_monitored_token["endpoint_contract"]
-	if !new_monitored_token in monitorable_tokens:
+	#DEBUG
+	#if !new_monitored_token in monitorable_tokens:
+	
+	if downshift < 8734237864782: #nonsense value, delete and replace with commented if above
+		save_token(new_monitored_token)
 		network_info[serviced_network]["monitored_tokens"].append(new_monitored_token)
 		monitorable_tokens.append(new_monitored_token)
+		
+		var instanced_monitorable_token = monitorable_token.instance()
+		instanced_monitorable_token.load_info(self, new_monitored_token)
+		
+		#position sorting needed
+		$MonitoredTokenList/MonitoredTokenScroll/MonitoredTokenContainer.add_child(instanced_monitorable_token)
+		instanced_monitorable_token.rect_position.y += downshift
+		downshift += 270
+		$MonitoredTokenList/MonitoredTokenScroll/MonitoredTokenContainer.rect_min_size.y += 270
 		
 		#check token approval
 		var chain_id = network_info[serviced_network]["chain_id"]
@@ -294,8 +303,42 @@ func add_monitored_token(new_monitored_token):
 		var content = file.get_buffer(32)
 		file.close()
 		var calldata = FastCcipBot.check_endpoint_allowance(content, chain_id, rpc, local_token_contract, endpoint_contract)
-		perform_ethereum_request(serviced_network, "eth_call", [{"to": local_token_contract, "input": calldata}, "latest"], {"function_name": "check_endpoint_allowance", "local_token_contract": local_token_contract, "endpoint_contract": endpoint_contract})
+		perform_ethereum_request(serviced_network, "eth_call", [{"to": local_token_contract, "input": calldata}, "latest"], {"function_name": "check_endpoint_allowance", "local_token_contract": local_token_contract, "endpoint_contract": endpoint_contract, "monitorable_token": instanced_monitorable_token})
 
+func save_token(token):
+	var delete = File.new()
+	delete.open("user://saved_tokens", File.WRITE)
+	delete.close()
+	
+	var content
+	var file = File.new()
+	if file.file_exists("user://saved_tokens"):
+		file.open("user://saved_tokens", File.READ)
+		content = parse_json(file.get_as_text())
+		file.close()
+	
+	var file2 = File.new()
+	file.open("user://saved_tokens", File.WRITE)
+	
+	if content != null:
+		if !token in content["tokens"]:
+			content["tokens"].append(token)
+	else:
+		content = {"tokens": [token]}
+	
+	file.store_string(JSON.print(content))
+	file.close()
+	
+
+func load_saved_tokens():
+	var file = File.new()
+	if file.file_exists("user://saved_tokens"):
+		file.open("user://saved_tokens", File.READ)
+		var content = parse_json(file.get_as_text())
+		for token in content["tokens"]:
+			add_monitored_token(token)
+		file.close()
+	
 
 func update_balance(network, get_result):
 	var balance = String(get_result["result"].hex_to_int())

@@ -1,20 +1,28 @@
-[gd_scene load_steps=9 format=2]
+[gd_scene load_steps=11 format=2]
 
-[ext_resource path="res://Ethereum.gd" type="Script" id=1]
+[ext_resource path="res://Main.gd" type="Script" id=1]
 [ext_resource path="res://assets/Polygon.png" type="Texture" id=2]
 [ext_resource path="res://assets/EmptyButton.png" type="Texture" id=3]
 [ext_resource path="res://assets/Optimism.png" type="Texture" id=4]
-[ext_resource path="res://assets/arbitrum.png" type="Texture" id=5]
+[ext_resource path="res://assets/Arbitrum.png" type="Texture" id=5]
 [ext_resource path="res://assets/Avalanche.png" type="Texture" id=6]
 [ext_resource path="res://assets/Ethereum.png" type="Texture" id=7]
 [ext_resource path="res://AddTokenSlider.gd" type="Script" id=8]
+[ext_resource path="res://MonitoredTokenList.tscn" type="PackedScene" id=9]
+[ext_resource path="res://ChronomancerLogo.tscn" type="PackedScene" id=10]
 
-[node name="Main" type="Control"]
+[node name="Coordinator" type="Control"]
+margin_right = 40.0
+margin_bottom = 40.0
+
+[node name="Main" type="Control" parent="."]
+visible = false
+modulate = Color( 1, 1, 1, 0 )
 anchor_right = 1.0
 anchor_bottom = 1.0
 script = ExtResource( 1 )
 
-[node name="Label" type="Label" parent="."]
+[node name="Label" type="Label" parent="Main"]
 visible = false
 margin_left = 18.0
 margin_top = 15.0
@@ -22,7 +30,7 @@ margin_right = 70.0
 margin_bottom = 29.0
 text = "Address"
 
-[node name="Address" type="LineEdit" parent="."]
+[node name="Address" type="LineEdit" parent="Main"]
 visible = false
 margin_left = 7.0
 margin_top = 36.0
@@ -30,12 +38,12 @@ margin_right = 831.0
 margin_bottom = 64.0
 editable = false
 
-[node name="GasBalances" type="Control" parent="."]
+[node name="GasBalances" type="Control" parent="Main"]
 visible = false
 margin_right = 40.0
 margin_bottom = 40.0
 
-[node name="EthSepoliaLabel" type="Label" parent="GasBalances"]
+[node name="EthSepoliaLabel" type="Label" parent="Main/GasBalances"]
 margin_left = 18.0
 margin_top = 85.0
 margin_right = 96.0
@@ -43,14 +51,14 @@ margin_bottom = 116.0
 text = "ETH Sepolia Balance
 "
 
-[node name="Ethereum Sepolia" type="Label" parent="GasBalances"]
+[node name="Ethereum Sepolia" type="Label" parent="Main/GasBalances"]
 margin_left = 18.0
 margin_top = 111.0
 margin_right = 70.0
 margin_bottom = 142.0
 text = "0"
 
-[node name="ArbSepoliaLabel" type="Label" parent="GasBalances"]
+[node name="ArbSepoliaLabel" type="Label" parent="Main/GasBalances"]
 margin_left = 18.0
 margin_top = 131.0
 margin_right = 146.0
@@ -58,14 +66,14 @@ margin_bottom = 162.0
 text = "ARB Sepolia Balance
 "
 
-[node name="Arbitrum Sepolia" type="Label" parent="GasBalances"]
+[node name="Arbitrum Sepolia" type="Label" parent="Main/GasBalances"]
 margin_left = 18.0
 margin_top = 157.0
 margin_right = 70.0
 margin_bottom = 188.0
 text = "0"
 
-[node name="OpSepoliaLabel" type="Label" parent="GasBalances"]
+[node name="OpSepoliaLabel" type="Label" parent="Main/GasBalances"]
 margin_left = 16.0
 margin_top = 180.0
 margin_right = 146.0
@@ -73,18 +81,36 @@ margin_bottom = 211.0
 text = "OP Sepolia Balance
 "
 
-[node name="Optimism Sepolia" type="Label" parent="GasBalances"]
+[node name="Optimism Sepolia" type="Label" parent="Main/GasBalances"]
 margin_left = 16.0
 margin_top = 206.0
 margin_right = 68.0
 margin_bottom = 237.0
 text = "0"
 
-[node name="HTTP" type="Control" parent="."]
+[node name="HTTP" type="Control" parent="Main"]
 margin_right = 40.0
 margin_bottom = 40.0
 
-[node name="AddToken" type="Button" parent="."]
+[node name="LoadSavedTokens" type="Button" parent="Main"]
+margin_left = 255.0
+margin_top = 64.0
+margin_right = 387.0
+margin_bottom = 84.0
+mouse_default_cursor_shape = 2
+text = "Load Saved Tokens"
+
+[node name="MonitoredTokenList" parent="Main" instance=ExtResource( 9 )]
+
+[node name="Overlay" type="ColorRect" parent="Main"]
+visible = false
+anchor_right = 1.0
+anchor_bottom = 1.0
+margin_right = 1124.0
+margin_bottom = 636.0
+color = Color( 0, 0, 0, 0.392157 )
+
+[node name="AddToken" type="Button" parent="Main"]
 margin_left = 18.0
 margin_top = 4.0
 margin_right = 97.0
@@ -93,60 +119,60 @@ mouse_default_cursor_shape = 2
 text = "Add Token"
 script = ExtResource( 8 )
 
-[node name="SlideTween" type="Tween" parent="AddToken"]
+[node name="SlideTween" type="Tween" parent="Main/AddToken"]
 
-[node name="NetworkButtons" type="Panel" parent="AddToken"]
+[node name="NetworkButtons" type="Panel" parent="Main/AddToken"]
 margin_left = -371.0
 margin_top = -2.0
 margin_right = 2.0
 margin_bottom = 481.0
 
-[node name="Frames" type="Control" parent="AddToken/NetworkButtons"]
+[node name="Frames" type="Control" parent="Main/AddToken/NetworkButtons"]
 margin_right = 40.0
 margin_bottom = 40.0
 
-[node name="EmptyFrame" type="TextureRect" parent="AddToken/NetworkButtons/Frames"]
+[node name="EmptyFrame" type="TextureRect" parent="Main/AddToken/NetworkButtons/Frames"]
 margin_right = 100.0
 margin_bottom = 100.0
 rect_scale = Vector2( 0.7, 0.7 )
 texture = ExtResource( 3 )
 
-[node name="EmptyFrame2" type="TextureRect" parent="AddToken/NetworkButtons/Frames"]
+[node name="EmptyFrame2" type="TextureRect" parent="Main/AddToken/NetworkButtons/Frames"]
 margin_left = 70.0
 margin_right = 170.0
 margin_bottom = 100.0
 rect_scale = Vector2( 0.7, 0.7 )
 texture = ExtResource( 3 )
 
-[node name="EmptyFrame3" type="TextureRect" parent="AddToken/NetworkButtons/Frames"]
+[node name="EmptyFrame3" type="TextureRect" parent="Main/AddToken/NetworkButtons/Frames"]
 margin_left = 140.0
 margin_right = 240.0
 margin_bottom = 100.0
 rect_scale = Vector2( 0.7, 0.7 )
 texture = ExtResource( 3 )
 
-[node name="EmptyFrame4" type="TextureRect" parent="AddToken/NetworkButtons/Frames"]
+[node name="EmptyFrame4" type="TextureRect" parent="Main/AddToken/NetworkButtons/Frames"]
 margin_left = 210.0
 margin_right = 310.0
 margin_bottom = 100.0
 rect_scale = Vector2( 0.7, 0.7 )
 texture = ExtResource( 3 )
 
-[node name="EmptyFrame5" type="TextureRect" parent="AddToken/NetworkButtons/Frames"]
+[node name="EmptyFrame5" type="TextureRect" parent="Main/AddToken/NetworkButtons/Frames"]
 margin_left = 280.0
 margin_right = 380.0
 margin_bottom = 100.0
 rect_scale = Vector2( 0.7, 0.7 )
 texture = ExtResource( 3 )
 
-[node name="EmptyFrame6" type="TextureRect" parent="AddToken/NetworkButtons/Frames"]
+[node name="EmptyFrame6" type="TextureRect" parent="Main/AddToken/NetworkButtons/Frames"]
 margin_top = 70.0
 margin_right = 100.0
 margin_bottom = 170.0
 rect_scale = Vector2( 0.7, 0.7 )
 texture = ExtResource( 3 )
 
-[node name="EmptyFrame7" type="TextureRect" parent="AddToken/NetworkButtons/Frames"]
+[node name="EmptyFrame7" type="TextureRect" parent="Main/AddToken/NetworkButtons/Frames"]
 margin_left = 70.0
 margin_top = 70.0
 margin_right = 170.0
@@ -154,7 +180,7 @@ margin_bottom = 170.0
 rect_scale = Vector2( 0.7, 0.7 )
 texture = ExtResource( 3 )
 
-[node name="EmptyFrame8" type="TextureRect" parent="AddToken/NetworkButtons/Frames"]
+[node name="EmptyFrame8" type="TextureRect" parent="Main/AddToken/NetworkButtons/Frames"]
 margin_left = 140.0
 margin_top = 70.0
 margin_right = 240.0
@@ -162,7 +188,7 @@ margin_bottom = 170.0
 rect_scale = Vector2( 0.7, 0.7 )
 texture = ExtResource( 3 )
 
-[node name="EmptyFrame9" type="TextureRect" parent="AddToken/NetworkButtons/Frames"]
+[node name="EmptyFrame9" type="TextureRect" parent="Main/AddToken/NetworkButtons/Frames"]
 margin_left = 210.0
 margin_top = 70.0
 margin_right = 310.0
@@ -170,7 +196,7 @@ margin_bottom = 170.0
 rect_scale = Vector2( 0.7, 0.7 )
 texture = ExtResource( 3 )
 
-[node name="EmptyFrame10" type="TextureRect" parent="AddToken/NetworkButtons/Frames"]
+[node name="EmptyFrame10" type="TextureRect" parent="Main/AddToken/NetworkButtons/Frames"]
 margin_left = 280.0
 margin_top = 70.0
 margin_right = 380.0
@@ -178,7 +204,7 @@ margin_bottom = 170.0
 rect_scale = Vector2( 0.7, 0.7 )
 texture = ExtResource( 3 )
 
-[node name="Ethereum Sepolia" type="TextureButton" parent="AddToken/NetworkButtons"]
+[node name="Ethereum Sepolia" type="TextureButton" parent="Main/AddToken/NetworkButtons"]
 margin_left = 15.0
 margin_top = 7.0
 margin_right = 55.0
@@ -188,7 +214,7 @@ mouse_filter = 1
 mouse_default_cursor_shape = 2
 texture_normal = ExtResource( 7 )
 
-[node name="Overlay" type="ColorRect" parent="AddToken/NetworkButtons/Ethereum Sepolia"]
+[node name="Overlay" type="ColorRect" parent="Main/AddToken/NetworkButtons/Ethereum Sepolia"]
 margin_left = -15.0
 margin_top = -6.0
 margin_right = 85.0
@@ -197,7 +223,7 @@ rect_scale = Vector2( 0.7, 0.7 )
 mouse_filter = 1
 color = Color( 1, 1, 1, 0 )
 
-[node name="Arbitrum Sepolia" type="TextureButton" parent="AddToken/NetworkButtons"]
+[node name="Arbitrum Sepolia" type="TextureButton" parent="Main/AddToken/NetworkButtons"]
 margin_left = 80.0
 margin_top = 6.0
 margin_right = 130.0
@@ -206,7 +232,7 @@ mouse_filter = 1
 mouse_default_cursor_shape = 2
 texture_normal = ExtResource( 5 )
 
-[node name="Overlay" type="ColorRect" parent="AddToken/NetworkButtons/Arbitrum Sepolia"]
+[node name="Overlay" type="ColorRect" parent="Main/AddToken/NetworkButtons/Arbitrum Sepolia"]
 margin_left = -10.0
 margin_top = -4.0
 margin_right = 87.0
@@ -215,7 +241,7 @@ rect_scale = Vector2( 0.7, 0.7 )
 mouse_filter = 1
 color = Color( 1, 1, 1, 0 )
 
-[node name="Optimism Sepolia" type="TextureButton" parent="AddToken/NetworkButtons"]
+[node name="Optimism Sepolia" type="TextureButton" parent="Main/AddToken/NetworkButtons"]
 margin_left = 150.0
 margin_top = 9.0
 margin_right = 200.0
@@ -224,7 +250,7 @@ mouse_filter = 1
 mouse_default_cursor_shape = 2
 texture_normal = ExtResource( 4 )
 
-[node name="Overlay" type="ColorRect" parent="AddToken/NetworkButtons/Optimism Sepolia"]
+[node name="Overlay" type="ColorRect" parent="Main/AddToken/NetworkButtons/Optimism Sepolia"]
 margin_left = -10.0
 margin_top = -9.0
 margin_right = 90.0
@@ -233,7 +259,7 @@ rect_scale = Vector2( 0.7, 0.7 )
 mouse_filter = 1
 color = Color( 1, 1, 1, 0 )
 
-[node name="Avalanche Fuji" type="TextureButton" parent="AddToken/NetworkButtons"]
+[node name="Avalanche Fuji" type="TextureButton" parent="Main/AddToken/NetworkButtons"]
 margin_left = 220.0
 margin_top = 9.0
 margin_right = 270.0
@@ -242,7 +268,7 @@ mouse_filter = 1
 mouse_default_cursor_shape = 2
 texture_normal = ExtResource( 6 )
 
-[node name="Overlay" type="ColorRect" parent="AddToken/NetworkButtons/Avalanche Fuji"]
+[node name="Overlay" type="ColorRect" parent="Main/AddToken/NetworkButtons/Avalanche Fuji"]
 margin_left = -10.0
 margin_top = -9.0
 margin_right = 90.0
@@ -251,7 +277,7 @@ rect_scale = Vector2( 0.7, 0.7 )
 mouse_filter = 1
 color = Color( 1, 1, 1, 0 )
 
-[node name="Polygon Mumbai" type="TextureButton" parent="AddToken/NetworkButtons"]
+[node name="Polygon Mumbai" type="TextureButton" parent="Main/AddToken/NetworkButtons"]
 margin_left = 290.0
 margin_top = 10.0
 margin_right = 340.0
@@ -260,7 +286,7 @@ mouse_filter = 1
 mouse_default_cursor_shape = 2
 texture_normal = ExtResource( 2 )
 
-[node name="Overlay" type="ColorRect" parent="AddToken/NetworkButtons/Polygon Mumbai"]
+[node name="Overlay" type="ColorRect" parent="Main/AddToken/NetworkButtons/Polygon Mumbai"]
 margin_left = -10.0
 margin_top = -10.0
 margin_right = 90.0
@@ -269,7 +295,7 @@ rect_scale = Vector2( 0.7, 0.7 )
 mouse_filter = 1
 color = Color( 1, 1, 1, 0 )
 
-[node name="Prompt" type="Label" parent="AddToken"]
+[node name="Prompt" type="Label" parent="Main/AddToken"]
 margin_left = -289.0
 margin_top = 145.0
 margin_right = -67.0
@@ -279,41 +305,41 @@ provide your token's local address.
 You must have a balance to provide
 fast transfers."
 
-[node name="AddressEntry" type="LineEdit" parent="AddToken"]
+[node name="AddressEntry" type="LineEdit" parent="Main/AddToken"]
 margin_left = -345.0
 margin_top = 276.0
 margin_right = -34.0
 margin_bottom = 300.0
 
-[node name="NetworkLabel" type="Label" parent="AddToken"]
+[node name="NetworkLabel" type="Label" parent="Main/AddToken"]
 margin_left = -364.0
 margin_top = 230.0
 margin_right = -21.0
 margin_bottom = 244.0
 align = 1
 
-[node name="GasBalance" type="Label" parent="AddToken"]
+[node name="GasBalance" type="Label" parent="Main/AddToken"]
 margin_left = -364.0
 margin_top = 250.0
 margin_right = -21.0
 margin_bottom = 264.0
 align = 1
 
-[node name="TokenLabel" type="Label" parent="AddToken"]
+[node name="TokenLabel" type="Label" parent="Main/AddToken"]
 margin_left = -366.0
 margin_top = 319.0
 margin_right = -20.0
 margin_bottom = 333.0
 align = 1
 
-[node name="TokenBalance" type="Label" parent="AddToken"]
+[node name="TokenBalance" type="Label" parent="Main/AddToken"]
 margin_left = -366.0
 margin_top = 342.0
 margin_right = -20.0
 margin_bottom = 356.0
 align = 1
 
-[node name="Confirm" type="Button" parent="AddToken"]
+[node name="Confirm" type="Button" parent="Main/AddToken"]
 margin_left = -243.0
 margin_top = 430.0
 margin_right = -127.0
@@ -321,7 +347,7 @@ margin_bottom = 450.0
 mouse_default_cursor_shape = 2
 text = "Confirm Choices"
 
-[node name="AddNetwork" type="Button" parent="AddToken"]
+[node name="AddNetwork" type="Button" parent="Main/AddToken"]
 visible = false
 margin_left = -231.0
 margin_top = 388.0
@@ -330,7 +356,7 @@ margin_bottom = 408.0
 mouse_default_cursor_shape = 2
 text = "Add Network"
 
-[node name="ScanLink" type="RichTextLabel" parent="AddToken"]
+[node name="ScanLink" type="RichTextLabel" parent="Main/AddToken"]
 visible = false
 margin_left = -288.0
 margin_top = 362.0
@@ -340,14 +366,16 @@ bbcode_enabled = true
 bbcode_text = "[center][u]Scanner Link[/u][/center]"
 text = "Scanner Link"
 
-[node name="ScanLink" type="TextureButton" parent="AddToken/ScanLink"]
+[node name="ScanLink" type="TextureButton" parent="Main/AddToken/ScanLink"]
 margin_left = 64.0
 margin_right = 143.0
 margin_bottom = 15.0
 mouse_default_cursor_shape = 2
 
-[node name="FinalConfirm" type="Label" parent="AddToken"]
+[node name="FinalConfirm" type="Label" parent="Main/AddToken"]
 margin_left = -357.0
 margin_top = 147.0
 margin_right = -12.0
 margin_bottom = 382.0
+
+[node name="ChronomancerLogo" parent="." instance=ExtResource( 10 )]
