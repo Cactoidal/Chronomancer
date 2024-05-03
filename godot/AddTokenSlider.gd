@@ -48,7 +48,7 @@ func _ready():
 	start_pos = rect_position
 	slide_pos = rect_position
 	slide_pos.x += 355
-	pending_token = new_token
+	pending_token = new_token.duplicate()
 	self.connect("pressed", self, "slide")
 	$Confirm.connect("pressed", self, "confirm_choices")
 	$AddNetwork.connect("pressed", self, "add_monitored_network")
@@ -94,7 +94,7 @@ func _process(delta):
 		
 
 func start_new():
-	pending_token = new_token
+	pending_token = new_token.duplicate()
 	choosing_service_network = true
 
 func pick_network(network):
@@ -174,7 +174,7 @@ func clear_all():
 	choosing_monitored_networks = false
 	choosing_minimum = false
 	confirming_choices = false
-	pending_token = new_token
+	pending_token = new_token.duplicate()
 	wipe_buttons()
 	$AddressEntry.visible = true
 
