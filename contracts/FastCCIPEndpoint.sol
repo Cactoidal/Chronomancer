@@ -16,6 +16,7 @@ contract FastCCIPEndpoint is CCIPReceiver {
 
     error OrderPathAlreadyFilled();
     error NoRecursionAllowed();
+    error OrderAlreadyArrived();
 
     address immutable ROUTER;
     address immutable CHAINLINK;
@@ -28,6 +29,8 @@ contract FastCCIPEndpoint is CCIPReceiver {
     // CCIP message ID => Recipient Address => Token Address => Token Amount => Data => Filler Address
     mapping(bytes32 => mapping(address => mapping(address => mapping(uint256 => mapping(bytes => address))))) filledOrderPaths;
 
+    mapping(bytes32 => bool) messageArrived;
+
     constructor(address _router, address _link) CCIPReceiver(_router) {
         ROUTER = _router;
         CHAINLINK = _link;
@@ -36,6 +39,8 @@ contract FastCCIPEndpoint is CCIPReceiver {
     Internal.EVM2EVMMessage public testMessage;
     
     // Not compatible with tax-on-transfer tokens; could perhaps be toggled?
+    // For now only use standard ERC20 tokens.  Special cases can be added later.
+    // Custom endpoints can also define their own logic
     function fillOrder(bytes calldata _message, address _local_token) external {
 
         Internal.EVM2EVMMessage memory message = abi.decode(_message, (Internal.EVM2EVMMessage));
@@ -48,6 +53,9 @@ contract FastCCIPEndpoint is CCIPReceiver {
         // The submitted amount must include the fee (0.1%)
         uint amount = message.tokenAmounts[0].amount - (message.tokenAmounts[0].amount * FEE);
        
+        if (messageArrived[messageId]) {
+            revert OrderAlreadyArrived();
+        }
         if (filledOrderPaths[messageId][recipient][token][amount][data] != address(0)) {
             revert OrderPathAlreadyFilled();
         }
@@ -83,6 +91,8 @@ contract FastCCIPEndpoint is CCIPReceiver {
     ) internal override {
         require(msg.sender == ROUTER);
 
+        messageArrived[message.messageId] = true;
+
         address token = message.destTokenAmounts[0].token;
         uint256 amount = message.destTokenAmounts[0].amount;
 
@@ -103,6 +113,7 @@ contract FastCCIPEndpoint is CCIPReceiver {
             // if (recipient.code.length == 0) {
             // IERC20(token).approve(address(this), amount);
             // }
+           
             IERC20(token).transfer(recipient, amount);
             if (recipient.code.length == 0) {//|| !_recipient.supportsInterface(type(CCIPReceiver).interfaceId)) {
             return;
