@@ -26,9 +26,12 @@ var confirming_choices = false
 
 var previous_token_length = 0
 
+#it would be nice to have the option of setting a custom endpoint
+
 var new_token = {
 		"serviced_network": "",
 		"local_token_contract ": "",
+		"token_name": "",
 		"monitored_networks": {
 		 #network : remote_token_contract
 		},
@@ -91,12 +94,14 @@ func _process(delta):
 		
 
 func start_new():
-	pending_token = {"serviced_network":"", "monitored_networks": {}}
+	pending_token = new_token
 	choosing_service_network = true
 
 func pick_network(network):
 	if choosing_service_network:
 		pending_token["serviced_network"] = network
+		#for now, there is a default endpoint contract on each network
+		pending_token["endpoint_contract"] = network_info[network]["endpoint_contract"]
 		get_button_overlay(network).color = color_red
 		wipe_buttons()
 		clear_text()
@@ -115,18 +120,20 @@ func pick_network(network):
 func confirm_choices():
 	if choosing_service_network:
 		if pending_token["serviced_network"] != "" && $TokenLabel.text != "" && $AddressEntry.text.length() == 42 && int($GasBalance.text.right(9)) > 0 && int($TokenBalance.text.right(9)) > 0:
+			pending_token["local_token_contract"] = $AddressEntry.text
+			pending_token["token_name"] = $TokenLabel.text
 			clear_text()
 			choosing_service_network = false
 			choosing_monitored_networks = true
 			$Prompt.text = "Provide remote token addresses\nfor each network to monitor."
 			$AddNetwork.visible = true
-	if choosing_monitored_networks == true && !pending_token["monitored_networks"].keys().empty():
+	elif choosing_monitored_networks == true && !pending_token["monitored_networks"].keys().empty():
 		clear_text()
 		$AddNetwork.visible = false
 		choosing_minimum = true
 		choosing_monitored_networks = false
 		$Prompt.text = "Set the transfer minimum."
-	if choosing_minimum && $AddressEntry.text.is_valid_float():
+	elif choosing_minimum && $AddressEntry.text.is_valid_float():
 		pending_token["minimum"] = int($AddressEntry.text)
 		clear_text()
 		$AddressEntry.visible = false
@@ -137,12 +144,15 @@ func confirm_choices():
 		$FinalConfirm.text = "You will provide fast transfers to " + pending_token["serviced_network"] + ",\nby monitoring incoming traffic from:\n\n" + network_list_string + "\nAnd will only serve transactions with a \nminimum transfer of " + String(pending_token["minimum"]) + " tokens."
 		choosing_minimum = false
 		confirming_choices = true
+	elif confirming_choices:
+		main_script.add_monitored_token(pending_token)
+		slide()
 
 
 func add_monitored_network():
 	var network = $NetworkLabel.text
 	var token_name = $TokenLabel.text
-	if network != "" && token_name != "" && $AddressEntry.text.length() == 42:
+	if network != "" && token_name != "" && $AddressEntry.text.length() == 42 && token_name == pending_token["token_name"]:
 		pending_token["monitored_networks"][network] = $AddressEntry.text
 		clear_text()
 
@@ -235,9 +245,7 @@ func resolve_ethereum_request(network, method, get_result, extra_args):
 func load_network_gas(network, get_result):
 	if "result" in get_result.keys():
 		$GasBalance.text = "Balance: " + String(get_result["result"].hex_to_int())
-		print($GasBalance.text.right(9))
 	
-#add a check for balances
 func load_token_data(network, get_result, extra_args):
 	if extra_args["function_name"] == "get_token_name":
 		if "result" in get_result.keys():
@@ -249,7 +257,6 @@ func load_token_data(network, get_result, extra_args):
 	if extra_args["function_name"] == "check_token_balance":
 		if "result" in get_result.keys():
 			$TokenBalance.text = "Balance: " + FastCcipBot.decode_u256(get_result["result"])
-			print($TokenBalance.text.right(9))
 		else:
 			$TokenBalance.text = "Balance: 0"
 
