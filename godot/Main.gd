@@ -11,6 +11,8 @@ var networks = ["Ethereum Sepolia", "Arbitrum Sepolia", "Optimism Sepolia"]
 var monitorable_tokens = []
 var active_monitored_tokens = []
 
+var ccip_explorer_url = "https://ccip.chain.link/msg/" # + messageId, NOT tx hash
+
 #the ability to add tokens, networks, onramps, and endpoint contracts would be nice
 #I may need to be flexible in allowing addition of networks that do not monitor
 #onramps of every other chain, nor require that each added network be monitored by
@@ -42,8 +44,10 @@ var network_info = {
 		"endpoint_contract": "0x39E98Ab623cf367462d049aB389E6f3083556dA8",
 		"monitored_tokens": [{"token_contract": "0xFd57b4ddBf88a4e07fF4e34C487b99af2Fe82a05", "token_balance": "0", "minimum": 0.00000001}], #BnM address
 		"minimum_gas_threshold": 0,
+		"maximum_gas_fee": "",
 		"latest_block": 0,
-		"order_processor": null
+		"order_processor": null,
+		"scan_url": "https://sepolia.etherscan.io/"
 		},
 		
 	"Arbitrum Sepolia": 
@@ -67,8 +71,10 @@ var network_info = {
 		"endpoint_contract": "0x1F325786Ed9B347D54BC24c21585239E77f9e466",
 		"monitored_tokens": [],
 		"minimum_gas_threshold": 0,
+		"maximum_gas_fee": "",
 		"latest_block": 0,
-		"order_processor": null
+		"order_processor": null,
+		"scan_url": "https://sepolia.arbiscan.io/"
 		},
 		
 	"Optimism Sepolia": {
@@ -91,8 +97,10 @@ var network_info = {
 		"endpoint_contract": "0x2e0d90fD5C983a5a76f5AB32698Db396Df066491",
 		"monitored_tokens": [{"token_contract": "0x8aF4204e30565DF93352fE8E1De78925F6664dA7", "token_balance": "0", "minimum": 0.00000001}], #BnM address
 		"minimum_gas_threshold": 0,
+		"maximum_gas_fee": "",
 		"latest_block": 0,
-		"order_processor": null
+		"order_processor": null,
+		"scan_url": "https://sepolia-optimism.etherscan.io/"
 	},
 	
 	"Polygon Mumbai": {},
@@ -102,25 +110,25 @@ var network_info = {
 func _ready():
 	check_keystore()
 	get_address()
-	get_gas_balances()
-	add_monitored_token(
+	#get_gas_balances()
+	#add_monitored_token(
 		#Serviced Network
-		"Arbitrum Sepolia",
+	#	"Arbitrum Sepolia",
 		#Local Token Contract (CCIP-BnM)
-		"0xA8C0c11bf64AF62CDCA6f93D3769B88BdD7cb93D",
+	#	"0xA8C0c11bf64AF62CDCA6f93D3769B88BdD7cb93D",
 		#Monitored Networks and Remote Token Contracts
-		{
-			"Ethereum Sepolia": "0xFd57b4ddBf88a4e07fF4e34C487b99af2Fe82a05", 
-			"Optimism Sepolia": "0x8aF4204e30565DF93352fE8E1De78925F6664dA7"
-		},
+	#	{
+	#		"Ethereum Sepolia": "0xFd57b4ddBf88a4e07fF4e34C487b99af2Fe82a05", 
+	#		"Optimism Sepolia": "0x8aF4204e30565DF93352fE8E1De78925F6664dA7"
+	#	},
 		#Endpoint Contract (to allow custom endpoints later)
-		"0x1F325786Ed9B347D54BC24c21585239E77f9e466",
+	#	"0x1F325786Ed9B347D54BC24c21585239E77f9e466",
 		#Minimum transfer threshold
-		0
-		)
+	#	0
+	#	)
 	
-	#temp	
-	active_monitored_tokens = monitorable_tokens
+	#DEBUG
+	#active_monitored_tokens = monitorable_tokens
 	
 	for network in networks:
 		var new_processor = order_processor.instance()
@@ -260,16 +268,20 @@ func get_erc20_balance(network, token_contract):
 	perform_ethereum_request(network, "eth_call", [{"to": token_contract, "input": calldata}, "latest"], {"function_name": "check_token_balance", "token_contract": token_contract})
 
 
-func add_monitored_token(serviced_network, local_token_contract, monitored_networks, endpoint_contract, minimum):	
-	var new_monitored_token = {
-		"local_token_contract": local_token_contract,
-		"monitored_networks": monitored_networks,
-#		{
-#			"network":"token_contract"
-#		}
-		"endpoint_contract": endpoint_contract,
-		"minimum": minimum
-	}
+#func add_monitored_token(serviced_network, local_token_contract, monitored_networks, endpoint_contract, minimum):	
+#	var new_monitored_token = {
+#		"local_token_contract": local_token_contract,
+#		"monitored_networks": monitored_networks,
+##		{
+##			"network":"token_contract"
+##		}
+#		"endpoint_contract": endpoint_contract,
+#		"minimum": minimum
+#	}
+func add_monitored_token(new_monitored_token):
+	var serviced_network = new_monitored_token["serviced_network"]
+	var local_token_contract = new_monitored_token["local_token_contract"]
+	var endpoint_contract = new_monitored_token["endpoint_contract"]
 	if !new_monitored_token in monitorable_tokens:
 		network_info[serviced_network]["monitored_tokens"].append(new_monitored_token)
 		monitorable_tokens.append(new_monitored_token)
