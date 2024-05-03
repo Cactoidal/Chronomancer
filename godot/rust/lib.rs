@@ -397,6 +397,14 @@ NewFuture(Ok(()))
 // HELPER FUNCTIONS //
 
 #[method]
+fn decode_hex_string (message: GodotString) -> GodotString {
+    let raw_hex: String = message.to_string();
+    let decoded: String = ethers::abi::AbiDecode::decode_hex(raw_hex).unwrap();
+    let return_string: GodotString = decoded.into();
+    return_string
+}
+
+#[method]
 fn decode_bool (message: GodotString) -> GodotString {
     let raw_hex: String = message.to_string();
     let decoded: bool = ethers::abi::AbiDecode::decode_hex(raw_hex).unwrap();
@@ -408,6 +416,14 @@ fn decode_bool (message: GodotString) -> GodotString {
 fn decode_address (message: GodotString) -> GodotString {
     let raw_hex: String = message.to_string();
     let decoded: Address = ethers::abi::AbiDecode::decode_hex(raw_hex).unwrap();
+    let return_string: GodotString = format!("{:?}", decoded).into();
+    return_string
+}
+
+#[method]
+fn decode_u256 (message: GodotString) -> GodotString {
+    let raw_hex: String = message.to_string();
+    let decoded: U256 = ethers::abi::AbiDecode::decode_hex(raw_hex).unwrap();
     let return_string: GodotString = format!("{:?}", decoded).into();
     return_string
 }
