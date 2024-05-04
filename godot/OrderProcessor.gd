@@ -27,7 +27,7 @@ func intake_message(message, from_network):
 	if is_new_message:
 		var network_info = main_script.network_info
 		print("got message")
-		print("going to " + network_info["rpc"])
+		print("going to " + network_info[network]["rpc"])
 		pending_messages.append(
 			{
 			"message": message,
@@ -50,10 +50,10 @@ func filter_orders():
 
 func compose_message(message, from_network):
 	var network_info = main_script.network_info
-	var rpc = network_info["rpc"]
-	var chain_id = int(network_info["chain_id"])
-	var endpoint_contract = network_info["endpoint_contract"]
-	var monitored_tokens = network_info["monitored_tokens"]
+	var rpc = network_info[network]["rpc"]
+	var chain_id = int(network_info[network]["chain_id"])
+	var endpoint_contract = network_info[network]["endpoint_contract"]
+	var monitored_tokens = network_info[network]["monitored_tokens"]
 	
 	var local_token_contracts: PoolStringArray
 	var remote_token_contracts: PoolStringArray
@@ -77,7 +77,7 @@ func compose_message(message, from_network):
 
 func perform_ethereum_request(method, params, extra_args={}):
 	var network_info = main_script.network_info
-	var rpc = network_info["rpc"]
+	var rpc = network_info[network]["rpc"]
 	
 	var tx = {"jsonrpc": "2.0", "method": method, "params": params, "id": 7}
 	

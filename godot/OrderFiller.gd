@@ -80,7 +80,7 @@ func handle_approvals():
 
 func perform_ethereum_request(method, params, extra_args={}):
 	var network_info = main_script.network_info
-	var rpc = network_info["rpc"]
+	var rpc = network_info[network]["rpc"]
 	
 	var tx = {"jsonrpc": "2.0", "method": method, "params": params, "id": 7}
 	
@@ -105,7 +105,7 @@ func check_gas_balance(get_result, response_code):
 		var balance = String(get_result["result"].hex_to_int())
 		#may need to be checked in rust
 		var network_info = main_script.network_info
-		if int(balance) > int(network_info["minimum_gas_threshold"]):
+		if int(balance) > int(network_info[network]["minimum_gas_threshold"]):
 			current_method = "eth_call"
 			if !needs_to_approve:
 				print("composing order")
@@ -121,10 +121,10 @@ func check_gas_balance(get_result, response_code):
 
 func compose_message(message, from_network):
 	var network_info = main_script.network_info
-	var rpc = network_info["rpc"]
-	var chain_id = int(network_info["chain_id"])
-	var endpoint_contract = network_info["endpoint_contract"]
-	var monitored_tokens = network_info["monitored_tokens"]
+	var rpc = network_info[network]["rpc"]
+	var chain_id = int(network_info[network]["chain_id"])
+	var endpoint_contract = network_info[network]["endpoint_contract"]
+	var monitored_tokens = network_info[network]["monitored_tokens"]
 	
 	var local_token_contracts: PoolStringArray
 	var remote_token_contracts: PoolStringArray
@@ -173,9 +173,9 @@ func get_gas_price(get_result, response_code):
 		current_method = "eth_sendRawTransaction"
 		
 		var network_info = main_script.network_info
-		var rpc = network_info["rpc"]
-		var chain_id = int(network_info["chain_id"])
-		var endpoint_contract = network_info["endpoint_contract"]
+		var rpc = network_info[network]["rpc"]
+		var chain_id = int(network_info[network]["chain_id"])
+		var endpoint_contract = network_info[network]["endpoint_contract"]
 		
 		mark_queued_order_as_checked()
 		

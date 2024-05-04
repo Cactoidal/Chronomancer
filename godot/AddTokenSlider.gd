@@ -13,7 +13,6 @@ var color_red = Color(1, 0, 0, 0.4)
 var color_green = Color(0, 1, 0, 0.4)
 
 var main_script
-var network_info
 var http 
 var scan_link
 var overlay
@@ -31,7 +30,7 @@ var previous_token_length = 0
 
 var new_token = {
 		"serviced_network": "",
-		"local_token_contract ": "",
+		"local_token_contract": "",
 		"token_name": "",
 		"monitored_networks": {
 		 #network : remote_token_contract
@@ -39,14 +38,14 @@ var new_token = {
 		"endpoint_contract":"",
 		"minimum": 0,
 		"gas_balance": 0,
-		"token_balance": 0
+		"token_balance": 0,
+		"token_node": ""
 }
 
 var pending_token = {}
 
 func _ready():
 	main_script = get_parent()
-	network_info = main_script.network_info
 	http = main_script.get_node("HTTP")
 	overlay = main_script.get_node("Overlay")
 	start_pos = rect_position
@@ -105,6 +104,7 @@ func start_new():
 
 func pick_network(network):
 	if choosing_service_network:
+		var network_info = main_script.network_info
 		pending_token["serviced_network"] = network
 		#for now, there is a default endpoint contract on each network
 		pending_token["endpoint_contract"] = network_info[network]["endpoint_contract"]
@@ -151,7 +151,7 @@ func confirm_choices():
 		choosing_minimum = false
 		confirming_choices = true
 	elif confirming_choices:
-		main_script.add_monitored_token(pending_token)
+		main_script.add_monitored_token(pending_token.duplicate())
 		slide()
 
 
@@ -183,6 +183,10 @@ func clear_all():
 	pending_token = new_token.duplicate()
 	wipe_buttons()
 	$AddressEntry.visible = true
+	for button in $NetworkButtons.get_children():
+		if button.name != "Frames":
+			button.get_node("Overlay").color = color_empty
+			
 
 func wipe_buttons():
 	for button in $NetworkButtons.get_children():
@@ -204,26 +208,29 @@ func highlight_button(network):
 			get_button_overlay(network).color = color_empty
 	
 func get_erc20_name(network, token_contract):
-	var chain_id = network_info[network]["chain_id"]
+	var network_info = main_script.network_info
+	var chain_id = int(network_info[network]["chain_id"])
 	var rpc = network_info[network]["rpc"]
 	var file = File.new()
-	file.open("user://keystore", File.READ)
+	file.open_encrypted_with_pass("user://encrypted_keystore", File.READ, main_script.password)
 	var content = file.get_buffer(32)
 	file.close()
 	var calldata = FastCcipBot.get_token_name(content, chain_id, rpc, token_contract)
 	perform_ethereum_request(network, "eth_call", [{"to": token_contract, "input": calldata}, "latest"], {"function_name": "get_token_name", "token_contract": token_contract})
 	
 func get_erc20_balance(network, token_contract):
-	var chain_id = network_info[network]["chain_id"]
+	var network_info = main_script.network_info
+	var chain_id = int(network_info[network]["chain_id"])
 	var rpc = network_info[network]["rpc"]
 	var file = File.new()
-	file.open("user://keystore", File.READ)
+	file.open_encrypted_with_pass("user://encrypted_keystore", File.READ, main_script.password)
 	var content = file.get_buffer(32)
 	file.close()
 	var calldata = FastCcipBot.check_token_balance(content, chain_id, rpc, token_contract)
 	perform_ethereum_request(network, "eth_call", [{"to": token_contract, "input": calldata}, "latest"], {"function_name": "check_token_balance", "token_contract": token_contract})
 
 func perform_ethereum_request(network, method, params, extra_args={}):
+	var network_info = main_script.network_info
 	var rpc = network_info[network]["rpc"]
 	
 	var http_request = eth_http_request.instance()
@@ -259,6 +266,7 @@ func load_token_data(network, get_result, extra_args):
 		if "result" in get_result.keys():
 			if get_result["result"] != "0x":
 				$TokenLabel.text = FastCcipBot.decode_hex_string(get_result["result"])
+				var network_info = main_script.network_info
 				scan_link = network_info[network]["scan_url"] + "address/" + $AddressEntry.text
 				$ScanLink.visible = true
 				

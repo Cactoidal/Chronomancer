@@ -45,7 +45,7 @@ var default_network_info = {
 			
 		],
 		"endpoint_contract": "0x39E98Ab623cf367462d049aB389E6f3083556dA8",
-		"monitored_tokens": [{"token_contract": "0xFd57b4ddBf88a4e07fF4e34C487b99af2Fe82a05", "token_balance": "0", "minimum": 0.00000001}], #BnM address
+		"monitored_tokens": [], 
 		"minimum_gas_threshold": 0,
 		"maximum_gas_fee": "",
 		"latest_block": 0,
@@ -100,7 +100,7 @@ var default_network_info = {
 			
 		],
 		"endpoint_contract": "0x2e0d90fD5C983a5a76f5AB32698Db396Df066491",
-		"monitored_tokens": [{"token_contract": "0x8aF4204e30565DF93352fE8E1De78925F6664dA7", "token_balance": "0", "minimum": 0.00000001}], #BnM address
+		"monitored_tokens": [],
 		"minimum_gas_threshold": 0,
 		"maximum_gas_fee": "",
 		"latest_block": 0,
@@ -252,13 +252,15 @@ func add_monitored_token(new_monitored_token):
 	var local_token_contract = new_monitored_token["local_token_contract"]
 	var endpoint_contract = new_monitored_token["endpoint_contract"]
 
-	#well, it still doesn't filter quite right, but that will get sorted out
-	if !new_monitored_token in monitorable_tokens:
-		save_token(new_monitored_token)
+	save_token(new_monitored_token)
+	
+	if !check_for_token_match(new_monitored_token):
+		
+		var instanced_monitorable_token = monitorable_token.instance()
+		new_monitored_token["token_node"] = instanced_monitorable_token
 		network_info[serviced_network]["monitored_tokens"].append(new_monitored_token)
 		monitorable_tokens.append(new_monitored_token)
 		
-		var instanced_monitorable_token = monitorable_token.instance()
 		instanced_monitorable_token.load_info(self, new_monitored_token)
 		
 		#position sorting needed
@@ -289,28 +291,62 @@ func load_transaction(transaction):
 	return new_transaction
 
 func save_token(token):
-	var delete = File.new()
-	delete.open("user://saved_tokens", File.WRITE)
-	delete.close()
-	
-	var content
+	var new_content = {"tokens": []}
+	var prev_content
 	var file = File.new()
 	if file.file_exists("user://saved_tokens"):
 		file.open("user://saved_tokens", File.READ)
-		content = parse_json(file.get_as_text())
+		prev_content = parse_json(file.get_as_text())
 		file.close()
 	
 	var file2 = File.new()
 	file.open("user://saved_tokens", File.WRITE)
 	
-	if content != null:
-		if !token in content["tokens"]:
-			content["tokens"].append(token)
+	if prev_content != null:
+		if !prev_content["tokens"].empty():
+			var token_address = token["local_token_contract"]
+			var token_network = token["serviced_network"]
+			var match_found = false
+			for saved_token in prev_content["tokens"]:
+				if saved_token["local_token_contract"] == token_address && saved_token["serviced_network"] == token_network:
+					new_content["tokens"].append(token)
+					match_found = true
+				else:
+					new_content["tokens"].append(saved_token)
+			if !match_found:
+				new_content["tokens"].append(token)
+		else:
+			new_content["tokens"].append(token)
 	else:
-		content = {"tokens": [token]}
+			new_content["tokens"].append(token)
 	
-	file.store_string(JSON.print(content))
+	file.store_string(JSON.print(new_content))
 	file.close()
+#	var content
+#	var file = File.new()
+#	if file.file_exists("user://saved_tokens"):
+#		file.open("user://saved_tokens", File.READ)
+#		content = parse_json(file.get_as_text())
+#		file.close()
+#
+#	var file2 = File.new()
+#	file.open("user://saved_tokens", File.WRITE)
+#
+#	if content != null:
+#		var token_address = token["local_token_contract"]
+#		var token_network = token["serviced_network"]
+#		var match_found = false
+#		for saved_token in content["tokens"]:
+#			if saved_token["local_token_contract"] == token_address && saved_token["serviced_network"] == token_network:
+#				saved_token = token
+#				match_found = true
+#		if !match_found:
+#			content["tokens"].append(token)
+#	else:
+#		content = {"tokens": [token]}
+#
+#	file.store_string(JSON.print(content))
+#	file.close()
 	
 
 func load_saved_tokens():
@@ -318,10 +354,25 @@ func load_saved_tokens():
 	if file.file_exists("user://saved_tokens"):
 		file.open("user://saved_tokens", File.READ)
 		var content = parse_json(file.get_as_text())
-		for token in content["tokens"]:
-			add_monitored_token(token)
+		if content != null:
+			for token in content["tokens"]:
+				add_monitored_token(token)
 		file.close()
-	
+
+func check_for_token_match(token):
+	var token_address = token["local_token_contract"]
+	var token_network = token["serviced_network"]
+	for monitored_token in monitorable_tokens:
+		if monitored_token["local_token_contract"] == token_address && monitored_token["serviced_network"] == token_network:
+			var token_node = monitored_token["token_node"]
+			monitored_token = token
+			monitored_token["token_node"] = token_node
+			token_node.load_info(self, monitored_token)
+			for network_token in network_info[token_network]["monitored_tokens"]:
+				if network_token["local_token_contract"] == token_address:
+					network_token = monitored_token
+			return true
+	return false
 
 func update_balance(network, get_result):
 	var balance = String(get_result["result"].hex_to_int())
