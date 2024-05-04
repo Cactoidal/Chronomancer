@@ -1,4 +1,4 @@
-[gd_scene load_steps=12 format=2]
+[gd_scene load_steps=14 format=2]
 
 [ext_resource path="res://Main.gd" type="Script" id=1]
 [ext_resource path="res://assets/Polygon.png" type="Texture" id=2]
@@ -9,8 +9,10 @@
 [ext_resource path="res://assets/Ethereum.png" type="Texture" id=7]
 [ext_resource path="res://AddTokenSlider.gd" type="Script" id=8]
 [ext_resource path="res://MonitoredTokenList.tscn" type="PackedScene" id=9]
-[ext_resource path="res://ChronomancerLogo.tscn" type="PackedScene" id=10]
+[ext_resource path="res://SettingsSlider.gd" type="Script" id=10]
 [ext_resource path="res://SentTransactionsList.tscn" type="PackedScene" id=11]
+[ext_resource path="res://assets/Chainlink.png" type="Texture" id=12]
+[ext_resource path="res://ChronomancerLogo.tscn" type="PackedScene" id=13]
 
 [node name="Coordinator" type="Control"]
 margin_right = 40.0
@@ -383,26 +385,384 @@ margin_top = 147.0
 margin_right = -12.0
 margin_bottom = 382.0
 
-[node name="Control" type="Control" parent="Main"]
-margin_left = 448.0
-margin_top = 75.0
-margin_right = 488.0
-margin_bottom = 115.0
-
-[node name="SlideTween" type="Tween" parent="Main/Control"]
-
-[node name="NetworkButtons" type="Panel" parent="Main/Control"]
-margin_left = 560.0
-margin_top = 42.0
-margin_right = 933.0
-margin_bottom = 525.0
-
 [node name="Settings" type="Button" parent="Main"]
-margin_left = 929.0
+margin_left = 931.0
 margin_top = 548.0
-margin_right = 1008.0
+margin_right = 1010.0
 margin_bottom = 598.0
 mouse_default_cursor_shape = 2
 text = "Settings"
+script = ExtResource( 10 )
 
-[node name="ChronomancerLogo" parent="." instance=ExtResource( 10 )]
+[node name="SlideTween" type="Tween" parent="Main/Settings"]
+
+[node name="NetworkButtons" type="Panel" parent="Main/Settings"]
+margin_left = 79.0
+margin_top = -431.0
+margin_right = 452.0
+margin_bottom = 52.0
+
+[node name="Frames" type="Control" parent="Main/Settings/NetworkButtons"]
+margin_left = 21.0
+margin_top = 340.0
+margin_right = 61.0
+margin_bottom = 380.0
+
+[node name="EmptyFrame" type="TextureRect" parent="Main/Settings/NetworkButtons/Frames"]
+margin_right = 100.0
+margin_bottom = 100.0
+rect_scale = Vector2( 0.7, 0.7 )
+texture = ExtResource( 3 )
+
+[node name="EmptyFrame2" type="TextureRect" parent="Main/Settings/NetworkButtons/Frames"]
+margin_left = 70.0
+margin_right = 170.0
+margin_bottom = 100.0
+rect_scale = Vector2( 0.7, 0.7 )
+texture = ExtResource( 3 )
+
+[node name="EmptyFrame3" type="TextureRect" parent="Main/Settings/NetworkButtons/Frames"]
+margin_left = 140.0
+margin_right = 240.0
+margin_bottom = 100.0
+rect_scale = Vector2( 0.7, 0.7 )
+texture = ExtResource( 3 )
+
+[node name="EmptyFrame4" type="TextureRect" parent="Main/Settings/NetworkButtons/Frames"]
+margin_left = 210.0
+margin_right = 310.0
+margin_bottom = 100.0
+rect_scale = Vector2( 0.7, 0.7 )
+texture = ExtResource( 3 )
+
+[node name="EmptyFrame5" type="TextureRect" parent="Main/Settings/NetworkButtons/Frames"]
+margin_left = 280.0
+margin_right = 380.0
+margin_bottom = 100.0
+rect_scale = Vector2( 0.7, 0.7 )
+texture = ExtResource( 3 )
+
+[node name="EmptyFrame6" type="TextureRect" parent="Main/Settings/NetworkButtons/Frames"]
+margin_top = 70.0
+margin_right = 100.0
+margin_bottom = 170.0
+rect_scale = Vector2( 0.7, 0.7 )
+texture = ExtResource( 3 )
+
+[node name="EmptyFrame7" type="TextureRect" parent="Main/Settings/NetworkButtons/Frames"]
+margin_left = 70.0
+margin_top = 70.0
+margin_right = 170.0
+margin_bottom = 170.0
+rect_scale = Vector2( 0.7, 0.7 )
+texture = ExtResource( 3 )
+
+[node name="EmptyFrame8" type="TextureRect" parent="Main/Settings/NetworkButtons/Frames"]
+margin_left = 140.0
+margin_top = 70.0
+margin_right = 240.0
+margin_bottom = 170.0
+rect_scale = Vector2( 0.7, 0.7 )
+texture = ExtResource( 3 )
+
+[node name="EmptyFrame9" type="TextureRect" parent="Main/Settings/NetworkButtons/Frames"]
+margin_left = 210.0
+margin_top = 70.0
+margin_right = 310.0
+margin_bottom = 170.0
+rect_scale = Vector2( 0.7, 0.7 )
+texture = ExtResource( 3 )
+
+[node name="EmptyFrame10" type="TextureRect" parent="Main/Settings/NetworkButtons/Frames"]
+margin_left = 280.0
+margin_top = 70.0
+margin_right = 380.0
+margin_bottom = 170.0
+rect_scale = Vector2( 0.7, 0.7 )
+texture = ExtResource( 3 )
+
+[node name="Chainlink" type="TextureButton" parent="Main/Settings/NetworkButtons"]
+margin_left = 32.0
+margin_top = 351.0
+margin_right = 82.0
+margin_bottom = 418.0
+rect_scale = Vector2( 1, 0.8 )
+mouse_filter = 1
+mouse_default_cursor_shape = 2
+texture_normal = ExtResource( 12 )
+
+[node name="Overlay" type="ColorRect" parent="Main/Settings/NetworkButtons/Chainlink"]
+margin_left = -11.0
+margin_top = -11.25
+margin_right = 89.0
+margin_bottom = 106.75
+rect_scale = Vector2( 0.7, 0.7 )
+mouse_filter = 1
+color = Color( 1, 1, 1, 0 )
+
+[node name="Ethereum Sepolia" type="TextureButton" parent="Main/Settings/NetworkButtons"]
+margin_left = 107.0
+margin_top = 346.0
+margin_right = 147.0
+margin_bottom = 413.0
+rect_scale = Vector2( 1, 0.8 )
+mouse_filter = 1
+mouse_default_cursor_shape = 2
+texture_normal = ExtResource( 7 )
+
+[node name="Overlay" type="ColorRect" parent="Main/Settings/NetworkButtons/Ethereum Sepolia"]
+margin_left = -15.0
+margin_top = -6.0
+margin_right = 85.0
+margin_bottom = 112.0
+rect_scale = Vector2( 0.7, 0.7 )
+mouse_filter = 1
+color = Color( 1, 1, 1, 0 )
+
+[node name="Arbitrum Sepolia" type="TextureButton" parent="Main/Settings/NetworkButtons"]
+margin_left = 171.0
+margin_top = 345.0
+margin_right = 221.0
+margin_bottom = 400.0
+mouse_filter = 1
+mouse_default_cursor_shape = 2
+texture_normal = ExtResource( 5 )
+
+[node name="Overlay" type="ColorRect" parent="Main/Settings/NetworkButtons/Arbitrum Sepolia"]
+margin_left = -10.0
+margin_top = -4.0
+margin_right = 87.0
+margin_bottom = 93.0
+rect_scale = Vector2( 0.7, 0.7 )
+mouse_filter = 1
+color = Color( 1, 1, 1, 0 )
+
+[node name="Optimism Sepolia" type="TextureButton" parent="Main/Settings/NetworkButtons"]
+margin_left = 242.0
+margin_top = 348.0
+margin_right = 292.0
+margin_bottom = 403.0
+mouse_filter = 1
+mouse_default_cursor_shape = 2
+texture_normal = ExtResource( 4 )
+
+[node name="Overlay" type="ColorRect" parent="Main/Settings/NetworkButtons/Optimism Sepolia"]
+margin_left = -10.0
+margin_top = -9.0
+margin_right = 90.0
+margin_bottom = 91.0
+rect_scale = Vector2( 0.7, 0.7 )
+mouse_filter = 1
+color = Color( 1, 1, 1, 0 )
+
+[node name="Avalanche Fuji" type="TextureButton" parent="Main/Settings/NetworkButtons"]
+visible = false
+margin_left = 311.0
+margin_top = 351.0
+margin_right = 361.0
+margin_bottom = 406.0
+mouse_filter = 1
+mouse_default_cursor_shape = 2
+texture_normal = ExtResource( 6 )
+
+[node name="Overlay" type="ColorRect" parent="Main/Settings/NetworkButtons/Avalanche Fuji"]
+margin_left = -10.0
+margin_top = -9.0
+margin_right = 90.0
+margin_bottom = 91.0
+rect_scale = Vector2( 0.7, 0.7 )
+mouse_filter = 1
+color = Color( 1, 1, 1, 0 )
+
+[node name="Polygon Mumbai" type="TextureButton" parent="Main/Settings/NetworkButtons"]
+visible = false
+margin_left = 32.0
+margin_top = 418.0
+margin_right = 82.0
+margin_bottom = 473.0
+mouse_filter = 1
+mouse_default_cursor_shape = 2
+texture_normal = ExtResource( 2 )
+
+[node name="Overlay" type="ColorRect" parent="Main/Settings/NetworkButtons/Polygon Mumbai"]
+margin_left = -10.0
+margin_top = -10.0
+margin_right = 90.0
+margin_bottom = 90.0
+rect_scale = Vector2( 0.7, 0.7 )
+mouse_filter = 1
+color = Color( 1, 1, 1, 0 )
+
+[node name="NetworkInfo" type="Control" parent="Main/Settings"]
+margin_left = 114.0
+margin_top = -365.0
+margin_right = 154.0
+margin_bottom = -325.0
+
+[node name="Chainlink" type="Control" parent="Main/Settings/NetworkInfo"]
+visible = false
+margin_right = 40.0
+margin_bottom = 40.0
+
+[node name="Label" type="Label" parent="Main/Settings/NetworkInfo/Chainlink"]
+margin_left = 2.0
+margin_top = -57.0
+margin_right = 58.0
+margin_bottom = -43.0
+text = "Address:"
+
+[node name="Address" type="LineEdit" parent="Main/Settings/NetworkInfo/Chainlink"]
+margin_top = -39.0
+margin_right = 326.0
+margin_bottom = -14.0
+editable = false
+
+[node name="Label2" type="Label" parent="Main/Settings/NetworkInfo/Chainlink"]
+margin_left = 2.0
+margin_top = 3.0
+margin_right = 77.0
+margin_bottom = 17.0
+text = "Private Key:"
+
+[node name="PrivateKey" type="LineEdit" parent="Main/Settings/NetworkInfo/Chainlink"]
+margin_top = 21.0
+margin_right = 326.0
+margin_bottom = 46.0
+editable = false
+
+[node name="Label3" type="Label" parent="Main/Settings/NetworkInfo/Chainlink"]
+margin_left = 2.0
+margin_top = 51.0
+margin_right = 103.0
+margin_bottom = 65.0
+text = "Enter password:"
+
+[node name="Password" type="LineEdit" parent="Main/Settings/NetworkInfo/Chainlink"]
+margin_top = 69.0
+margin_right = 326.0
+margin_bottom = 94.0
+secret = true
+
+[node name="ShowKey" type="Button" parent="Main/Settings/NetworkInfo/Chainlink"]
+margin_left = 99.0
+margin_top = 100.0
+margin_right = 219.0
+margin_bottom = 120.0
+mouse_default_cursor_shape = 2
+text = "Show Private Key"
+
+[node name="Label4" type="Label" parent="Main/Settings/NetworkInfo/Chainlink"]
+margin_left = 2.0
+margin_top = 143.0
+margin_right = 93.0
+margin_bottom = 157.0
+text = "Old password:"
+
+[node name="OldPassword" type="LineEdit" parent="Main/Settings/NetworkInfo/Chainlink"]
+margin_top = 161.0
+margin_right = 326.0
+margin_bottom = 186.0
+secret = true
+
+[node name="Label5" type="Label" parent="Main/Settings/NetworkInfo/Chainlink"]
+margin_left = 2.0
+margin_top = 191.0
+margin_right = 103.0
+margin_bottom = 205.0
+text = "New password:"
+
+[node name="NewPassword" type="LineEdit" parent="Main/Settings/NetworkInfo/Chainlink"]
+margin_top = 209.0
+margin_right = 326.0
+margin_bottom = 234.0
+secret = true
+
+[node name="ChangePassword" type="Button" parent="Main/Settings/NetworkInfo/Chainlink"]
+margin_left = 99.0
+margin_top = 240.0
+margin_right = 221.0
+margin_bottom = 260.0
+mouse_default_cursor_shape = 2
+text = "Change Password"
+
+[node name="Network" type="Control" parent="Main/Settings/NetworkInfo"]
+visible = false
+margin_right = 40.0
+margin_bottom = 40.0
+
+[node name="Save" type="Button" parent="Main/Settings/NetworkInfo/Network"]
+margin_left = 103.0
+margin_top = -34.0
+margin_right = 219.0
+margin_bottom = -14.0
+mouse_default_cursor_shape = 2
+text = "Save Changes"
+
+[node name="RestoreDefaults" type="Button" parent="Main/Settings/NetworkInfo/Network"]
+margin_left = 73.0
+margin_top = 234.0
+margin_right = 248.0
+margin_bottom = 254.0
+mouse_default_cursor_shape = 2
+text = "Restore Network Defaults"
+
+[node name="Network" type="Label" parent="Main/Settings/NetworkInfo/Network"]
+margin_left = 108.0
+margin_top = 6.0
+margin_right = 215.0
+margin_bottom = 20.0
+text = "Network"
+align = 1
+
+[node name="Label" type="Label" parent="Main/Settings/NetworkInfo/Network"]
+margin_left = 2.0
+margin_top = 30.0
+margin_right = 59.0
+margin_bottom = 44.0
+text = "RPC URL:"
+
+[node name="RPC" type="LineEdit" parent="Main/Settings/NetworkInfo/Network"]
+margin_top = 48.0
+margin_right = 326.0
+margin_bottom = 73.0
+
+[node name="Label2" type="Label" parent="Main/Settings/NetworkInfo/Network"]
+margin_left = 2.0
+margin_top = 86.0
+margin_right = 125.0
+margin_bottom = 100.0
+text = "Maximum Gas Fee:"
+
+[node name="GasFee" type="LineEdit" parent="Main/Settings/NetworkInfo/Network"]
+margin_top = 104.0
+margin_right = 326.0
+margin_bottom = 129.0
+
+[node name="Label3" type="Label" parent="Main/Settings/NetworkInfo/Network"]
+margin_left = 2.0
+margin_top = 141.0
+margin_right = 125.0
+margin_bottom = 155.0
+text = "Endpoint Contract:"
+
+[node name="Endpoint" type="LineEdit" parent="Main/Settings/NetworkInfo/Network"]
+margin_top = 159.0
+margin_right = 326.0
+margin_bottom = 184.0
+
+[node name="ScanLink" type="RichTextLabel" parent="Main/Settings/NetworkInfo/Network"]
+margin_left = 53.0
+margin_top = 192.0
+margin_right = 262.0
+margin_bottom = 207.0
+bbcode_enabled = true
+bbcode_text = "[center][u]Scanner Link[/u][/center]"
+text = "Scanner Link"
+
+[node name="ScanLink" type="TextureButton" parent="Main/Settings/NetworkInfo/Network/ScanLink"]
+margin_left = 64.0
+margin_right = 143.0
+margin_bottom = 15.0
+mouse_default_cursor_shape = 2
+
+[node name="ChronomancerLogo" parent="." instance=ExtResource( 13 )]

@@ -110,6 +110,7 @@ margin_left = 327.0
 margin_top = 433.0
 margin_right = 700.0
 margin_bottom = 458.0
+secret = true
 
 [node name="Button" type="Button" parent="Login"]
 margin_left = 134.0

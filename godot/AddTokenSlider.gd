@@ -16,6 +16,7 @@ var main_script
 var http 
 var scan_link
 var overlay
+var settings_slider
 
 var header = "Content-Type: application/json"
 
@@ -48,9 +49,10 @@ func _ready():
 	main_script = get_parent()
 	http = main_script.get_node("HTTP")
 	overlay = main_script.get_node("Overlay")
+	settings_slider = main_script.get_node("Settings")
 	start_pos = rect_position
 	slide_pos = rect_position
-	slide_pos.x += 355
+	slide_pos.x += 353
 	pending_token = new_token.duplicate()
 	self.connect("pressed", self, "slide")
 	$Confirm.connect("pressed", self, "confirm_choices")
@@ -70,7 +72,8 @@ func slide():
 		$SlideTween.interpolate_property(self, "rect_position", start_pos, slide_pos, 1, Tween.TRANS_QUAD, Tween.EASE_OUT, 0)
 		$SlideTween.start()
 	elif slid_out && !sliding:
-		overlay.visible = false
+		if !settings_slider.slid_out:
+			overlay.visible = false
 		slid_out = false
 		sliding = true
 		$SlideTween.interpolate_property(self, "rect_position", slide_pos, start_pos, 1, Tween.TRANS_QUAD, Tween.EASE_OUT, 0)
@@ -138,6 +141,7 @@ func confirm_choices():
 		$AddNetwork.visible = false
 		choosing_minimum = true
 		choosing_monitored_networks = false
+		$AddressEntry.text = "0"
 		$Prompt.text = "Set the transfer minimum."
 	elif choosing_minimum && $AddressEntry.text.is_valid_float():
 		pending_token["minimum"] = int($AddressEntry.text)

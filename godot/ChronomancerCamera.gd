@@ -123,7 +123,7 @@ func check_keystore():
 func check_network_info():
 	var file = File.new()
 	if file.file_exists("user://network_info") != true:
-		var network_info = main_script.default_network_info
+		var network_info = main_script.default_network_info.duplicate()
 		main_script.network_info = network_info
 		file.open("user://network_info", File.WRITE)
 		file.store_string(JSON.print(network_info))

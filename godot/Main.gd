@@ -224,13 +224,6 @@ func get_address():
 	user_address = FastCcipBot.get_address(content)
 	file.close()
 
-func export_key():
-	var file = File.new()
-	file.open_encrypted_with_pass("user://encrypted_keystore", File.READ, password)
-	var content = file.get_buffer(32)
-	#Copy and paste this string into a wallet importer:
-	print(content.hex_encode())
-
 func get_gas_balances():
 	for network in networks:
 		perform_ethereum_request(network, "eth_getBalance", [user_address, "latest"])
@@ -299,7 +292,6 @@ func save_token(token):
 		prev_content = parse_json(file.get_as_text())
 		file.close()
 	
-	var file2 = File.new()
 	file.open("user://saved_tokens", File.WRITE)
 	
 	if prev_content != null:
@@ -322,31 +314,6 @@ func save_token(token):
 	
 	file.store_string(JSON.print(new_content))
 	file.close()
-#	var content
-#	var file = File.new()
-#	if file.file_exists("user://saved_tokens"):
-#		file.open("user://saved_tokens", File.READ)
-#		content = parse_json(file.get_as_text())
-#		file.close()
-#
-#	var file2 = File.new()
-#	file.open("user://saved_tokens", File.WRITE)
-#
-#	if content != null:
-#		var token_address = token["local_token_contract"]
-#		var token_network = token["serviced_network"]
-#		var match_found = false
-#		for saved_token in content["tokens"]:
-#			if saved_token["local_token_contract"] == token_address && saved_token["serviced_network"] == token_network:
-#				saved_token = token
-#				match_found = true
-#		if !match_found:
-#			content["tokens"].append(token)
-#	else:
-#		content = {"tokens": [token]}
-#
-#	file.store_string(JSON.print(content))
-#	file.close()
 	
 
 func load_saved_tokens():
