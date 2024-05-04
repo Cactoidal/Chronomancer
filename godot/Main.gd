@@ -3,7 +3,9 @@ extends Control
 var eth_http_request = preload("res://EthRequest.tscn")
 var order_processor = preload("res://OrderProcessor.tscn")
 var monitorable_token = preload("res://MonitorableToken.tscn")
+var sent_transaction = preload("res://SentTransaction.tscn")
 
+var password
 var user_address
 var header = "Content-Type: application/json"
 
@@ -11,8 +13,6 @@ var networks = ["Ethereum Sepolia", "Arbitrum Sepolia", "Optimism Sepolia"]
 
 var monitorable_tokens = []
 var active_monitored_tokens = []
-
-var ccip_explorer_url = "https://ccip.chain.link/msg/" # + messageId, NOT tx hash
 
 #the ability to add tokens, networks, onramps, and endpoint contracts would be nice
 #I may need to be flexible in allowing addition of networks that do not monitor
@@ -48,7 +48,7 @@ var network_info = {
 		"maximum_gas_fee": "",
 		"latest_block": 0,
 		"order_processor": null,
-		"scan_url": "https://sepolia.etherscan.io/",
+		"scan_url": "https://sepolia.etherscan.io/tx/",
 		"logo": preload("res://assets/Ethereum.png")
 		},
 		
@@ -76,7 +76,7 @@ var network_info = {
 		"maximum_gas_fee": "",
 		"latest_block": 0,
 		"order_processor": null,
-		"scan_url": "https://sepolia.arbiscan.io/",
+		"scan_url": "https://sepolia.arbiscan.io/tx/",
 		"logo": preload("res://assets/Arbitrum.png")
 		},
 		
@@ -103,7 +103,7 @@ var network_info = {
 		"maximum_gas_fee": "",
 		"latest_block": 0,
 		"order_processor": null,
-		"scan_url": "https://sepolia-optimism.etherscan.io/",
+		"scan_url": "https://sepolia-optimism.etherscan.io/tx/",
 		"logo": preload("res://assets/Optimism.png")
 	},
 	
@@ -138,6 +138,7 @@ func _ready():
 	for network in networks:
 		var new_processor = order_processor.instance()
 		network_info[network]["order_processor"] = new_processor
+		new_processor.network = network
 		new_processor.network_info = network_info[network].duplicate()
 		new_processor.main_script = self
 		new_processor.user_address = user_address
@@ -218,11 +219,14 @@ func check_endpoint_allowance(network, get_result, extra_args):
 		order_filler.pending_approvals.append(
 			{
 				"endpoint_contract": endpoint_contract, 
-				"local_token_contract": local_token_contract
+				"local_token_contract": local_token_contract,
+				"monitorable_token": extra_args["monitorable_token"]
 			}
 		)
+		extra_args["monitorable_token"].get_node("MainPanel/Monitor").text = "Approving..."
 	else:
 		print(network + " endpoint " + endpoint_contract + " has allowance to spend local token " + local_token_contract)
+		extra_args["monitorable_token"].approved = true
 
 func ethereum_request_failed(network, method, extra_args):
 	pass
@@ -273,7 +277,7 @@ func get_erc20_balance(network, token_contract):
 	perform_ethereum_request(network, "eth_call", [{"to": token_contract, "input": calldata}, "latest"], {"function_name": "check_token_balance", "token_contract": token_contract})
 
 #DEBUG
-var downshift = 0
+var token_downshift = 0
 func add_monitored_token(new_monitored_token):
 	var serviced_network = new_monitored_token["serviced_network"]
 	var local_token_contract = new_monitored_token["local_token_contract"]
@@ -281,7 +285,7 @@ func add_monitored_token(new_monitored_token):
 	#DEBUG
 	#if !new_monitored_token in monitorable_tokens:
 	
-	if downshift < 8734237864782: #nonsense value, delete and replace with commented if above
+	if token_downshift < 8734237864782: #nonsense value, delete and replace with commented if above
 		save_token(new_monitored_token)
 		network_info[serviced_network]["monitored_tokens"].append(new_monitored_token)
 		monitorable_tokens.append(new_monitored_token)
@@ -291,8 +295,8 @@ func add_monitored_token(new_monitored_token):
 		
 		#position sorting needed
 		$MonitoredTokenList/MonitoredTokenScroll/MonitoredTokenContainer.add_child(instanced_monitorable_token)
-		instanced_monitorable_token.rect_position.y += downshift
-		downshift += 270
+		instanced_monitorable_token.rect_position.y += token_downshift
+		token_downshift += 270
 		$MonitoredTokenList/MonitoredTokenScroll/MonitoredTokenContainer.rect_min_size.y += 270
 		
 		#check token approval
@@ -304,6 +308,17 @@ func add_monitored_token(new_monitored_token):
 		file.close()
 		var calldata = FastCcipBot.check_endpoint_allowance(content, chain_id, rpc, local_token_contract, endpoint_contract)
 		perform_ethereum_request(serviced_network, "eth_call", [{"to": local_token_contract, "input": calldata}, "latest"], {"function_name": "check_endpoint_allowance", "local_token_contract": local_token_contract, "endpoint_contract": endpoint_contract, "monitorable_token": instanced_monitorable_token})
+
+
+var transaction_downshift = 0
+func load_transaction(transaction):
+	var new_transaction = sent_transaction.instance()
+	new_transaction.load_info(self, transaction)
+	$SentTransactionsList/SentTransactionsScroll/SentTransactionsContainer.add_child(new_transaction)
+	new_transaction.rect_position.y += transaction_downshift
+	transaction_downshift += 101
+	$SentTransactionsList/SentTransactionsScroll/SentTransactionsContainer.rect_min_size.y += 101
+	return new_transaction
 
 func save_token(token):
 	var delete = File.new()

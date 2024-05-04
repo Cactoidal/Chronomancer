@@ -2,6 +2,7 @@ extends HTTPRequest
 
 var header = "Content-Type: application/json"
 
+var network
 var main_script
 var network_info
 var user_address

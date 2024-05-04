@@ -34,19 +34,19 @@ func load_info(main, token):
 	
 	$MainPanel/Label.text = "Providing fast transfers of\n" + token_name + "\non " + network + ".  Minimum value: " + String(minimum) + "\n\nMonitoring transfers from:"
 	$MainPanel/GasBalance.text = network + " Gas Balance: " + gas_balance
-	$MainPanel/TokenBalance.text = token_name + " Balance: " + token_balance
+	$MainPanel/TokenBalance.text = token_name + " Balance:\n" + token_balance
 	
 func toggle_monitor():
 	if !approved:
 		return
 		
 	if !monitoring:
-		$Monitor.text = "Stop Monitoring"
+		$MainPanel/Monitor.text = "Stop Monitoring"
 		monitoring = true
 		main_script.active_monitored_tokens.append(monitorable_token)
 	
-	if monitoring:
-		$Monitor.text = "Start Monitoring"
+	elif monitoring:
+		$MainPanel/Monitor.text = "Start Monitoring"
 		monitoring = false
 		main_script.active_monitored_tokens.erase(monitorable_token)
 
@@ -59,7 +59,6 @@ func cancel_close():
 #will also need to add in position sorting
 
 func confirm_close():
-	print(monitorable_token)
 	var network = monitorable_token["serviced_network"]
 	if monitoring:
 		toggle_monitor()

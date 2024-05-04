@@ -2,6 +2,7 @@ extends HTTPRequest
 
 var header = "Content-Type: application/json"
 
+var network
 var main_script
 var network_info
 var user_address
@@ -11,11 +12,15 @@ var order_filling_paused = false
 
 var order_in_queue
 var approval_in_queue
+var current_tx_type
 var current_method
 var tx_count
 var gas_price
 var tx_function_name
 var tx_hash
+
+var pending_approval
+var pending_tx
 
 var checking_for_tx_receipt = false
 var tx_receipt_poll_timer = 4
@@ -28,6 +33,7 @@ var needs_to_approve = false
 #double check how the tx hash and tx receipt are structured
 
 func _ready():
+	network = get_parent().network
 	main_script = get_parent().main_script
 	network_info = get_parent().network_info
 	user_address = get_parent().user_address
@@ -177,9 +183,11 @@ func get_gas_price(get_result, response_code):
 		var content = file.get_buffer(32)
 		file.close()
 		if !needs_to_approve:
+			current_tx_type = "order"
 			var local_token = FastCcipBot.decode_address(order_in_queue["local_token"])
 			FastCcipBot.fill_order(content, chain_id, endpoint_contract, rpc, gas_price, tx_count, order_in_queue["message"], local_token, self)
 		else:
+			current_tx_type = "approval"
 			var local_token_contract = approval_in_queue["local_token_contract"]
 			print("approving endpoint " + endpoint_contract + " allowance to spend local token " + local_token_contract)
 			FastCcipBot.approve_endpoint_allowance(content, chain_id, endpoint_contract, rpc, gas_price, tx_count, local_token_contract, self)
@@ -198,6 +206,16 @@ func get_transaction_hash(get_result, response_code):
 		checking_for_tx_receipt = true
 		current_method = "eth_getTransactionReceipt"
 		tx_receipt_poll_timer = 4
+		
+		var transaction = {
+		"network": network,
+		"type": current_tx_type,
+		"hash": tx_hash
+		}
+		
+		pending_tx = main_script.load_transaction(transaction)
+		
+		
 	else:
 		rpc_error()
 
@@ -219,10 +237,16 @@ func check_transaction_receipt(get_result, response_code):
 					print("order filled")
 					checking_for_tx_receipt = false	
 					order_filling_paused = false
+					var block_number = get_result["result"]["blockNumber"]
+					pending_tx.was_successful(true, network, block_number)
+					if current_tx_type == "approval":
+						approval_in_queue["monitorable_token"].get_node("MainPanel/Monitor").text = "Start Monitoring"
+						approval_in_queue["monitorable_token"].approved = true
 				else:
 					print("failed to fill order")
 					checking_for_tx_receipt = false	
 					order_filling_paused = false
+					pending_tx.was_successful(false, network)
 	else:
 		checking_for_tx_receipt = false	
 		rpc_error()

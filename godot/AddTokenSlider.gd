@@ -16,6 +16,7 @@ var main_script
 var network_info
 var http 
 var scan_link
+var overlay
 
 var header = "Content-Type: application/json"
 
@@ -36,7 +37,9 @@ var new_token = {
 		 #network : remote_token_contract
 		},
 		"endpoint_contract":"",
-		"minimum_transfer": 0
+		"minimum": 0,
+		"gas_balance": 0,
+		"token_balance": 0
 }
 
 var pending_token = {}
@@ -45,6 +48,7 @@ func _ready():
 	main_script = get_parent()
 	network_info = main_script.network_info
 	http = main_script.get_node("HTTP")
+	overlay = main_script.get_node("Overlay")
 	start_pos = rect_position
 	slide_pos = rect_position
 	slide_pos.x += 355
@@ -61,11 +65,13 @@ func _ready():
 
 func slide():
 	if !slid_out && !sliding:
+		overlay.visible = true
 		slid_out = true
 		sliding = true
 		$SlideTween.interpolate_property(self, "rect_position", start_pos, slide_pos, 1, Tween.TRANS_QUAD, Tween.EASE_OUT, 0)
 		$SlideTween.start()
 	elif slid_out && !sliding:
+		overlay.visible = false
 		slid_out = false
 		sliding = true
 		$SlideTween.interpolate_property(self, "rect_position", slide_pos, start_pos, 1, Tween.TRANS_QUAD, Tween.EASE_OUT, 0)
@@ -244,7 +250,9 @@ func resolve_ethereum_request(network, method, get_result, extra_args):
 
 func load_network_gas(network, get_result):
 	if "result" in get_result.keys():
-		$GasBalance.text = "Balance: " + String(get_result["result"].hex_to_int())
+		var balance = String(get_result["result"].hex_to_int())
+		$GasBalance.text = "Balance: " + balance
+		pending_token["gas_balance"] = balance
 	
 func load_token_data(network, get_result, extra_args):
 	if extra_args["function_name"] == "get_token_name":
@@ -256,9 +264,14 @@ func load_token_data(network, get_result, extra_args):
 				
 	if extra_args["function_name"] == "check_token_balance":
 		if "result" in get_result.keys():
-			$TokenBalance.text = "Balance: " + FastCcipBot.decode_u256(get_result["result"])
+			var balance = FastCcipBot.decode_u256(get_result["result"])
+			$TokenBalance.text = "Balance: " + balance
+			pending_token["token_balance"] = balance
 		else:
 			$TokenBalance.text = "Balance: 0"
 
 func open_scanner_link():
 	OS.shell_open(scan_link)
+
+func ethereum_request_failed(network, request_type, extra_args):
+	pass

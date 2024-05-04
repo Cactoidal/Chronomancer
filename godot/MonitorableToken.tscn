@@ -70,15 +70,15 @@ mouse_filter = 2
 
 [node name="CloseOverlay" type="ColorRect" parent="."]
 visible = false
-margin_right = 468.0
-margin_bottom = 230.0
+margin_right = 358.0
+margin_bottom = 269.0
 color = Color( 0, 0, 0, 0.392157 )
 
 [node name="ClosePanel" type="Panel" parent="CloseOverlay"]
-margin_left = 161.0
-margin_top = 66.0
-margin_right = 323.0
-margin_bottom = 153.0
+margin_left = 107.0
+margin_top = 88.0
+margin_right = 269.0
+margin_bottom = 175.0
 
 [node name="Prompt" type="Label" parent="CloseOverlay/ClosePanel"]
 margin_left = 11.0

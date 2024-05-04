@@ -4,9 +4,9 @@
 
 [node name="MonitoredTokenScroll" type="ScrollContainer" parent="."]
 margin_left = 40.0
-margin_top = 88.0
+margin_top = 72.0
 margin_right = 388.0
-margin_bottom = 545.0
+margin_bottom = 529.0
 scroll_horizontal_enabled = false
 
 [node name="MonitoredTokenContainer" type="ColorRect" parent="MonitoredTokenScroll"]
@@ -14,4 +14,4 @@ margin_right = 348.0
 margin_bottom = 457.0
 size_flags_horizontal = 3
 size_flags_vertical = 3
-color = Color( 0.0627451, 0.533333, 0.658824, 0.133333 )
+color = Color( 0.00784314, 0.0627451, 0.0784314, 0.133333 )

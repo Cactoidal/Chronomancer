@@ -1,4 +1,4 @@
-[gd_scene load_steps=11 format=2]
+[gd_scene load_steps=12 format=2]
 
 [ext_resource path="res://Main.gd" type="Script" id=1]
 [ext_resource path="res://assets/Polygon.png" type="Texture" id=2]
@@ -10,6 +10,7 @@
 [ext_resource path="res://AddTokenSlider.gd" type="Script" id=8]
 [ext_resource path="res://MonitoredTokenList.tscn" type="PackedScene" id=9]
 [ext_resource path="res://ChronomancerLogo.tscn" type="PackedScene" id=10]
+[ext_resource path="res://SentTransactionsList.tscn" type="PackedScene" id=11]
 
 [node name="Coordinator" type="Control"]
 margin_right = 40.0
@@ -93,10 +94,10 @@ margin_right = 40.0
 margin_bottom = 40.0
 
 [node name="LoadSavedTokens" type="Button" parent="Main"]
-margin_left = 255.0
-margin_top = 64.0
-margin_right = 387.0
-margin_bottom = 84.0
+margin_left = 254.0
+margin_top = 49.0
+margin_right = 386.0
+margin_bottom = 69.0
 mouse_default_cursor_shape = 2
 text = "Load Saved Tokens"
 
@@ -260,6 +261,7 @@ mouse_filter = 1
 color = Color( 1, 1, 1, 0 )
 
 [node name="Avalanche Fuji" type="TextureButton" parent="Main/AddToken/NetworkButtons"]
+visible = false
 margin_left = 220.0
 margin_top = 9.0
 margin_right = 270.0
@@ -278,6 +280,7 @@ mouse_filter = 1
 color = Color( 1, 1, 1, 0 )
 
 [node name="Polygon Mumbai" type="TextureButton" parent="Main/AddToken/NetworkButtons"]
+visible = false
 margin_left = 290.0
 margin_top = 10.0
 margin_right = 340.0
@@ -377,5 +380,29 @@ margin_left = -357.0
 margin_top = 147.0
 margin_right = -12.0
 margin_bottom = 382.0
+
+[node name="Control" type="Control" parent="Main"]
+margin_left = 448.0
+margin_top = 75.0
+margin_right = 488.0
+margin_bottom = 115.0
+
+[node name="SlideTween" type="Tween" parent="Main/Control"]
+
+[node name="NetworkButtons" type="Panel" parent="Main/Control"]
+margin_left = 560.0
+margin_top = 42.0
+margin_right = 933.0
+margin_bottom = 525.0
+
+[node name="Settings" type="Button" parent="Main"]
+margin_left = 929.0
+margin_top = 548.0
+margin_right = 1008.0
+margin_bottom = 598.0
+mouse_default_cursor_shape = 2
+text = "Settings"
+
+[node name="SentTransactionsList" parent="Main" instance=ExtResource( 11 )]
 
 [node name="ChronomancerLogo" parent="." instance=ExtResource( 10 )]

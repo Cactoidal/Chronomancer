@@ -1,0 +1,17 @@
+[gd_scene format=2]
+
+[node name="SentTransactionsList" type="Control"]
+
+[node name="SentTransactionsScroll" type="ScrollContainer" parent="."]
+margin_left = 633.0
+margin_top = 72.0
+margin_right = 981.0
+margin_bottom = 529.0
+scroll_horizontal_enabled = false
+
+[node name="SentTransactionsContainer" type="ColorRect" parent="SentTransactionsScroll"]
+margin_right = 348.0
+margin_bottom = 457.0
+size_flags_horizontal = 3
+size_flags_vertical = 3
+color = Color( 0.00784314, 0.0627451, 0.0784314, 0.133333 )
