@@ -4,7 +4,6 @@ var header = "Content-Type: application/json"
 
 var network
 var main_script
-var network_info
 var user_address
 
 var pending_messages = []
@@ -26,6 +25,7 @@ func intake_message(message, from_network):
 			if pending_message["message"] == message:
 				is_new_message = false
 	if is_new_message:
+		var network_info = main_script.network_info
 		print("got message")
 		print("going to " + network_info["rpc"])
 		pending_messages.append(
@@ -49,8 +49,9 @@ func filter_orders():
 				print("composing message")
 
 func compose_message(message, from_network):
+	var network_info = main_script.network_info
 	var rpc = network_info["rpc"]
-	var chain_id = network_info["chain_id"]
+	var chain_id = int(network_info["chain_id"])
 	var endpoint_contract = network_info["endpoint_contract"]
 	var monitored_tokens = network_info["monitored_tokens"]
 	
@@ -65,7 +66,7 @@ func compose_message(message, from_network):
 		token_minimum_list.append("0")
 		
 	var file = File.new()
-	file.open("user://keystore", File.READ)
+	file.open_encrypted_with_pass("user://encrypted_keystore", File.READ, main_script.password)
 	var content = file.get_buffer(32)
 	file.close()
 	
@@ -75,6 +76,7 @@ func compose_message(message, from_network):
 	
 
 func perform_ethereum_request(method, params, extra_args={}):
+	var network_info = main_script.network_info
 	var rpc = network_info["rpc"]
 	
 	var tx = {"jsonrpc": "2.0", "method": method, "params": params, "id": 7}

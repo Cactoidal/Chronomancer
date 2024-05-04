@@ -28,16 +28,16 @@ Token
 on Network."
 
 [node name="StatusIndicator" type="ColorRect" parent="MainPanel"]
-margin_left = 304.0
-margin_top = 20.0
-margin_right = 344.0
-margin_bottom = 60.0
+margin_left = 295.0
+margin_top = 24.0
+margin_right = 335.0
+margin_bottom = 64.0
 
 [node name="StatusLabel" type="Label" parent="MainPanel"]
-margin_left = 297.0
-margin_top = 68.0
-margin_right = 348.0
-margin_bottom = 82.0
+margin_left = 288.0
+margin_top = 72.0
+margin_right = 339.0
+margin_bottom = 86.0
 text = "Pending"
 align = 1
 

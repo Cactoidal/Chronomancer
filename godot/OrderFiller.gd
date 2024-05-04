@@ -4,7 +4,6 @@ var header = "Content-Type: application/json"
 
 var network
 var main_script
-var network_info
 var user_address
 
 var pending_orders = []
@@ -35,7 +34,6 @@ var needs_to_approve = false
 func _ready():
 	network = get_parent().network
 	main_script = get_parent().main_script
-	network_info = get_parent().network_info
 	user_address = get_parent().user_address
 	self.connect("request_completed", self, "resolve_ethereum_request")
 
@@ -81,6 +79,7 @@ func handle_approvals():
 			order_filling_paused = false
 
 func perform_ethereum_request(method, params, extra_args={}):
+	var network_info = main_script.network_info
 	var rpc = network_info["rpc"]
 	
 	var tx = {"jsonrpc": "2.0", "method": method, "params": params, "id": 7}
@@ -105,6 +104,7 @@ func check_gas_balance(get_result, response_code):
 	if response_code == 200:
 		var balance = String(get_result["result"].hex_to_int())
 		#may need to be checked in rust
+		var network_info = main_script.network_info
 		if int(balance) > int(network_info["minimum_gas_threshold"]):
 			current_method = "eth_call"
 			if !needs_to_approve:
@@ -120,9 +120,9 @@ func check_gas_balance(get_result, response_code):
 
 
 func compose_message(message, from_network):
-	
+	var network_info = main_script.network_info
 	var rpc = network_info["rpc"]
-	var chain_id = network_info["chain_id"]
+	var chain_id = int(network_info["chain_id"])
 	var endpoint_contract = network_info["endpoint_contract"]
 	var monitored_tokens = network_info["monitored_tokens"]
 	
@@ -137,7 +137,7 @@ func compose_message(message, from_network):
 		token_minimum_list.append("0")
 		
 	var file = File.new()
-	file.open("user://keystore", File.READ)
+	file.open_encrypted_with_pass("user://encrypted_keystore", File.READ, main_script.password)
 	var content = file.get_buffer(32)
 	file.close()
 	
@@ -172,14 +172,15 @@ func get_gas_price(get_result, response_code):
 		#adjustable filter for gas spikes
 		current_method = "eth_sendRawTransaction"
 		
+		var network_info = main_script.network_info
 		var rpc = network_info["rpc"]
-		var chain_id = network_info["chain_id"]
+		var chain_id = int(network_info["chain_id"])
 		var endpoint_contract = network_info["endpoint_contract"]
 		
 		mark_queued_order_as_checked()
 		
 		var file = File.new()
-		file.open("user://keystore", File.READ)
+		file.open_encrypted_with_pass("user://encrypted_keystore", File.READ, main_script.password)
 		var content = file.get_buffer(32)
 		file.close()
 		if !needs_to_approve:

@@ -74,6 +74,12 @@ skeleton = NodePath("../..")
 
 [node name="LogoDownshiftTween" type="Tween" parent="LogoPivot"]
 
+[node name="LoginTween" type="Tween" parent="LogoPivot"]
+
+[node name="TitleTween" type="Tween" parent="LogoPivot"]
+
+[node name="MainTween" type="Tween" parent="LogoPivot"]
+
 [node name="WorldEnvironment" type="WorldEnvironment" parent="."]
 environment = SubResource( 5 )
 
@@ -87,6 +93,7 @@ mesh = SubResource( 7 )
 [node name="Overlay" type="ColorRect" parent="."]
 anchor_right = 1.0
 anchor_bottom = 1.0
+mouse_filter = 2
 color = Color( 0.686275, 0.94902, 1, 1 )
 
 [node name="Title" type="TextureRect" parent="."]

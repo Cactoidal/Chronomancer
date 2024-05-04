@@ -9,7 +9,6 @@ var network
 var extra_args = {}
 
 var potential_order
-var network_info
 
 
 func _ready():
@@ -17,16 +16,17 @@ func _ready():
 	
 
 func check_order_validity():
+	var network_info = main_script.network_info
 	var network = potential_order["network"]
 	var message = potential_order["message"]
 	var rpc = network_info[network]["rpc"]
-	var chain_id = network_info[network]["chain_id"]
+	var chain_id = int(network_info[network]["chain_id"])
 	var destination_selector = network_info[network]["chain_selector"]
 	var token_contract = network_info[network]["monitored_tokens"][0]["token_contract"]
 	var endpoint_contract = network_info[network]["monitored_tokens"][0]["endpoint_contract"]
 				
 	var file = File.new()
-	file.open("user://keystore", File.READ)
+	file.open_encrypted_with_pass("user://encrypted_keystore", File.READ, main_script.password)
 	var content = file.get_buffer(32)
 	file.close()
 	var calldata = FastCcipBot.filter_order(content, chain_id, endpoint_contract, rpc, message, token_contract)

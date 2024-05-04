@@ -34,8 +34,8 @@ func load_info(main, transaction):
 	var tx_hash = transaction["hash"]
 	var network_info = main_script.network_info
 	
-	scan_link = network_info[network]["scan_url"] + tx_hash
-	$MainPanel/NetworkLogo.texture = network_info[network]["logo"]
+	scan_link = network_info[network]["scan_url"] + "tx/" + tx_hash
+	$MainPanel/NetworkLogo.texture = load(network_info[network]["logo"])
 	
 	if tx_type == "order":
 		$MainPanel/Info.text = "Filing order on " + network

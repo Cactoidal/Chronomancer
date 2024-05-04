@@ -22,12 +22,12 @@ func load_info(main, token):
 	var token_balance = monitorable_token["token_balance"]
 	var network_info = main_script.network_info
 	
-	$MainPanel/NetworkLogo.texture = network_info[network]["logo"]
+	$MainPanel/NetworkLogo.texture = load(network_info[network]["logo"])
 	
 	var shift = 0
 	for monitored_network in monitored_networks:
 		var new_logo = TextureRect.new()
-		new_logo.texture = network_info[monitored_network]["logo"]
+		new_logo.texture = load(network_info[monitored_network]["logo"])
 		$MonitoredNetworks.add_child(new_logo)
 		new_logo.rect_position.x += shift
 		shift += 75

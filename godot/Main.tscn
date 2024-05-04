@@ -103,6 +103,8 @@ text = "Load Saved Tokens"
 
 [node name="MonitoredTokenList" parent="Main" instance=ExtResource( 9 )]
 
+[node name="SentTransactionsList" parent="Main" instance=ExtResource( 11 )]
+
 [node name="Overlay" type="ColorRect" parent="Main"]
 visible = false
 anchor_right = 1.0
@@ -402,7 +404,5 @@ margin_right = 1008.0
 margin_bottom = 598.0
 mouse_default_cursor_shape = 2
 text = "Settings"
-
-[node name="SentTransactionsList" parent="Main" instance=ExtResource( 11 )]
 
 [node name="ChronomancerLogo" parent="." instance=ExtResource( 10 )]

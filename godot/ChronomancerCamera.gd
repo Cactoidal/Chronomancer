@@ -22,6 +22,7 @@ var login_appeared = false
 var logging_in = false
 var main_faded_in = false
 
+var detected_message = preload("res://DetectedMessage.tscn")
 
 func _ready():
 	logo = $ChainlinkMesh
@@ -84,8 +85,50 @@ func _process(delta):
 	
 func login():
 	if login_appeared:
-		logging_in = true
-		$LoginTween.interpolate_property(login, "modulate", login.modulate, Color(1,1,1,0), 1.4, Tween.TRANS_QUAD, Tween.EASE_OUT, 0)
-		$LoginTween.start()
-		$TitleTween.interpolate_property(title, "modulate", title.modulate, Color(1,1,1,0), 1.4, Tween.TRANS_QUAD, Tween.EASE_OUT, 0)
-		$TitleTween.start()
+		
+		if check_keystore():
+			check_network_info()
+			main_script.initialize()
+			logging_in = true
+			$LoginTween.interpolate_property(login, "modulate", login.modulate, Color(1,1,1,0), 1.4, Tween.TRANS_QUAD, Tween.EASE_OUT, 0)
+			$LoginTween.start()
+			$TitleTween.interpolate_property(title, "modulate", title.modulate, Color(1,1,1,0), 1.4, Tween.TRANS_QUAD, Tween.EASE_OUT, 0)
+			$TitleTween.start()
+
+func spawn_message():
+	var new_message = detected_message.instance()
+	$CrystalBall.add_child(new_message)
+
+
+func check_keystore():
+	var file = File.new()
+	var password = get_parent().get_node("Login").text
+	if file.file_exists("user://encrypted_keystore") != true:
+		var bytekey = Crypto.new()
+		var content = bytekey.generate_random_bytes(32)
+		file.open_encrypted_with_pass("user://encrypted_keystore", File.WRITE, password)
+		file.store_buffer(content)
+		file.close()
+		main_script.password = password
+		return true
+	else:
+		var error = file.open_encrypted_with_pass("user://encrypted_keystore", File.READ, password)
+		file.close()
+		if error == 0:
+			main_script.password = password
+			return true
+		else:
+			return false
+
+func check_network_info():
+	var file = File.new()
+	if file.file_exists("user://network_info") != true:
+		var network_info = main_script.default_network_info
+		main_script.network_info = network_info
+		file.open("user://network_info", File.WRITE)
+		file.store_string(JSON.print(network_info))
+		file.close()
+	else:
+		file.open("user://network_info", File.READ)
+		var network_info = parse_json(file.get_as_text())
+		main_script.network_info = network_info

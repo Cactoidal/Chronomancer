@@ -5,6 +5,8 @@ var order_processor = preload("res://OrderProcessor.tscn")
 var monitorable_token = preload("res://MonitorableToken.tscn")
 var sent_transaction = preload("res://SentTransaction.tscn")
 
+var crystal_ball
+
 var password
 var user_address
 var header = "Content-Type: application/json"
@@ -21,8 +23,8 @@ var active_monitored_tokens = []
 
 #eventually let's move this data blob somewhere else
 # so it's not cluttering the top of this script
-
-var network_info = {
+var network_info = {}
+var default_network_info = {
 	
 	"Ethereum Sepolia": 
 		{
@@ -48,8 +50,8 @@ var network_info = {
 		"maximum_gas_fee": "",
 		"latest_block": 0,
 		"order_processor": null,
-		"scan_url": "https://sepolia.etherscan.io/tx/",
-		"logo": preload("res://assets/Ethereum.png")
+		"scan_url": "https://sepolia.etherscan.io/",
+		"logo": "res://assets/Ethereum.png"
 		},
 		
 	"Arbitrum Sepolia": 
@@ -76,8 +78,8 @@ var network_info = {
 		"maximum_gas_fee": "",
 		"latest_block": 0,
 		"order_processor": null,
-		"scan_url": "https://sepolia.arbiscan.io/tx/",
-		"logo": preload("res://assets/Arbitrum.png")
+		"scan_url": "https://sepolia.arbiscan.io/",
+		"logo": "res://assets/Arbitrum.png"
 		},
 		
 	"Optimism Sepolia": {
@@ -103,43 +105,25 @@ var network_info = {
 		"maximum_gas_fee": "",
 		"latest_block": 0,
 		"order_processor": null,
-		"scan_url": "https://sepolia-optimism.etherscan.io/tx/",
-		"logo": preload("res://assets/Optimism.png")
+		"scan_url": "https://sepolia-optimism.etherscan.io/",
+		"logo": "res://assets/Optimism.png"
 	},
 	
 	"Polygon Mumbai": {},
 	"Base Testnet": {}
 }
 
-func _ready():
-	check_keystore()
+
+#func _ready():
+func initialize():
 	get_address()
-	#get_gas_balances()
-	#add_monitored_token(
-		#Serviced Network
-	#	"Arbitrum Sepolia",
-		#Local Token Contract (CCIP-BnM)
-	#	"0xA8C0c11bf64AF62CDCA6f93D3769B88BdD7cb93D",
-		#Monitored Networks and Remote Token Contracts
-	#	{
-	#		"Ethereum Sepolia": "0xFd57b4ddBf88a4e07fF4e34C487b99af2Fe82a05", 
-	#		"Optimism Sepolia": "0x8aF4204e30565DF93352fE8E1De78925F6664dA7"
-	#	},
-		#Endpoint Contract (to allow custom endpoints later)
-	#	"0x1F325786Ed9B347D54BC24c21585239E77f9e466",
-		#Minimum transfer threshold
-	#	0
-	#	)
-	
-	#DEBUG
-	#active_monitored_tokens = monitorable_tokens
-	
+	#get_gas_balances()	
+	crystal_ball = get_parent().get_node("ChronomancerLogo/LogoPivot")
 	$LoadSavedTokens.connect("pressed", self, "load_saved_tokens")
 	for network in networks:
 		var new_processor = order_processor.instance()
 		network_info[network]["order_processor"] = new_processor
 		new_processor.network = network
-		new_processor.network_info = network_info[network].duplicate()
 		new_processor.main_script = self
 		new_processor.user_address = user_address
 		$HTTP.add_child(new_processor)
@@ -205,6 +189,7 @@ func check_for_ccip_messages(from_network, get_result):
 					to_network = network["network"]
 			
 			if to_network != null:
+				crystal_ball.spawn_message()
 				network_info[to_network]["order_processor"].intake_message(message, from_network)
 
 func check_endpoint_allowance(network, get_result, extra_args):
@@ -231,46 +216,30 @@ func check_endpoint_allowance(network, get_result, extra_args):
 func ethereum_request_failed(network, method, extra_args):
 	pass
 
-func check_keystore():
-	var file = File.new()
-	if file.file_exists("user://keystore") != true:
-		var bytekey = Crypto.new()
-		var content = bytekey.generate_random_bytes(32)
-		file.open("user://keystore", File.WRITE)
-		file.store_buffer(content)
-		file.close()
 
 func get_address():
 	var file = File.new()
-	file.open("user://keystore", File.READ)
+	file.open_encrypted_with_pass("user://encrypted_keystore", File.READ, password)
 	var content = file.get_buffer(32)
 	user_address = FastCcipBot.get_address(content)
-	$Address.text = user_address
 	file.close()
 
 func export_key():
 	var file = File.new()
-	file.open("user://keystore", File.READ)
+	file.open_encrypted_with_pass("user://encrypted_keystore", File.READ, password)
 	var content = file.get_buffer(32)
 	#Copy and paste this string into a wallet importer:
 	print(content.hex_encode())
-
-func import_key():
-	var file = File.new()
-	file.open("user://keystore", File.READ)
-	var content = file.get_buffer(32)
-	#Unfortunately Godot 3.5 seems to struggle with hex decode,
-	#so I will need to use Rust to get the buffer.
 
 func get_gas_balances():
 	for network in networks:
 		perform_ethereum_request(network, "eth_getBalance", [user_address, "latest"])
 
 func get_erc20_balance(network, token_contract):
-	var chain_id = network_info[network]["chain_id"]
+	var chain_id = int(network_info[network]["chain_id"])
 	var rpc = network_info[network]["rpc"]
 	var file = File.new()
-	file.open("user://keystore", File.READ)
+	file.open_encrypted_with_pass("user://encrypted_keystore", File.READ, password)
 	var content = file.get_buffer(32)
 	file.close()
 	var calldata = FastCcipBot.check_token_balance(content, chain_id, rpc, token_contract)
@@ -282,10 +251,9 @@ func add_monitored_token(new_monitored_token):
 	var serviced_network = new_monitored_token["serviced_network"]
 	var local_token_contract = new_monitored_token["local_token_contract"]
 	var endpoint_contract = new_monitored_token["endpoint_contract"]
-	#DEBUG
-	#if !new_monitored_token in monitorable_tokens:
-	
-	if token_downshift < 8734237864782: #nonsense value, delete and replace with commented if above
+
+	#well, it still doesn't filter quite right, but that will get sorted out
+	if !new_monitored_token in monitorable_tokens:
 		save_token(new_monitored_token)
 		network_info[serviced_network]["monitored_tokens"].append(new_monitored_token)
 		monitorable_tokens.append(new_monitored_token)
@@ -300,10 +268,10 @@ func add_monitored_token(new_monitored_token):
 		$MonitoredTokenList/MonitoredTokenScroll/MonitoredTokenContainer.rect_min_size.y += 270
 		
 		#check token approval
-		var chain_id = network_info[serviced_network]["chain_id"]
+		var chain_id = int(network_info[serviced_network]["chain_id"])
 		var rpc = network_info[serviced_network]["rpc"]
 		var file = File.new()
-		file.open("user://keystore", File.READ)
+		file.open_encrypted_with_pass("user://encrypted_keystore", File.READ, password)
 		var content = file.get_buffer(32)
 		file.close()
 		var calldata = FastCcipBot.check_endpoint_allowance(content, chain_id, rpc, local_token_contract, endpoint_contract)
