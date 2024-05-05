@@ -124,7 +124,7 @@ contract FastCCIPEndpoint is CCIPReceiver {
     }
 
     // Used by bots to determine order validity off-chain before submitting a transaction
-    function filterOrder(bytes calldata _message, address _endpoint, address _filler, address[] calldata _localTokenList, address[] calldata _remoteTokenList, uint64[] calldata _tokenMinimums) public view returns (address) {
+    function filterOrder(bytes calldata _message, address _endpoint, address _filler, address[] calldata _localTokenList, address[] calldata _remoteTokenList, uint256[] calldata _tokenMinimums) public view returns (address) {
         Internal.EVM2EVMMessage memory message = abi.decode(_message, (Internal.EVM2EVMMessage));
 
         address receiver = message.receiver;
@@ -140,8 +140,8 @@ contract FastCCIPEndpoint is CCIPReceiver {
         // of the matching local token
         for (uint i = 0; i < _remoteTokenList.length; i++) {
             if (token == _remoteTokenList[i]) {
-                if (message.tokenAmounts[0].amount < IERC20(_localTokenList[i]).balanceOf(_filler)) {
-                    if (message.tokenAmounts[0].amount > _tokenMinimums[i]) {
+                if (message.tokenAmounts[0].amount <= IERC20(_localTokenList[i]).balanceOf(_filler)) {
+                    if (message.tokenAmounts[0].amount >= _tokenMinimums[i]) {
                         return _localTokenList[i];
                         }
                     }
