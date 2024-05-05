@@ -8,6 +8,7 @@ use tokio::task::LocalSet;
 use tokio::macros::support::{Pin, Poll};
 use futures::Future;
 use hex::*;
+use num_bigint::BigUint;
 
 thread_local! {
     static EXECUTOR: &'static SharedLocalPool = {
@@ -212,35 +213,17 @@ let minimums_vec = &token_minimums.to_vec();
 
 let string_minimums_vec: Vec<String> = minimums_vec.iter().map(|e| e.to_string() as String).collect();
 
-let u64_minimums_vec: Vec<u64> = string_minimums_vec.iter().map(|e|e.parse::<u64>().unwrap() as u64).collect();
+let biguint_minimums_vec: Vec<BigUint> = string_minimums_vec.iter().map(|e|e.parse::<BigUint>().unwrap() as BigUint).collect();
 
-let calldata = contract.filter_order(message_vec.into(), contract_address, user_address, local_token_address_vec, remote_token_address_vec, u64_minimums_vec).calldata().unwrap();
+let u256_minimums_vec: Vec<U256> = biguint_minimums_vec.iter().map(|e|U256::from_big_endian(e.to_bytes_be().as_slice()) as U256).collect();
+
+let calldata = contract.filter_order(message_vec.into(), contract_address, user_address, local_token_address_vec, remote_token_address_vec, u256_minimums_vec).calldata().unwrap();
 
 let return_string: GodotString = calldata.to_string().into();
 
 return_string
 
 }
-
-
-#[method]
-fn encode_big_number(amount_string: GodotString, exponent: u64) -> GodotString {
-
-    let number_string: String = amount_string.to_string();
-
-    let amount = number_string.parse::<u64>().unwrap();
-
-    let big_number = U256::exp10(exponent as usize) * amount;
-
-    godot_print!("{:?}", big_number);
-
-    let big_number_string: GodotString = ethers::abi::AbiEncode::encode_hex(big_number).into();
-
-    big_number_string
-
-}
-
-
 
 
 //  ERC20 FUNCTIONS //
@@ -419,6 +402,7 @@ fn decode_address (message: GodotString) -> GodotString {
     let return_string: GodotString = format!("{:?}", decoded).into();
     return_string
 }
+
 
 #[method]
 fn decode_u256 (message: GodotString) -> GodotString {
