@@ -103,9 +103,10 @@ func resolve_ethereum_request(result, response_code, headers, body):
 func check_gas_balance(get_result, response_code):
 	if response_code == 200:
 		var balance = String(get_result["result"].hex_to_int())
+		balance = main_script.convert_to_smallnum(balance)
 		#may need to be checked in rust
 		var network_info = main_script.network_info
-		if int(balance) > int(network_info[network]["minimum_gas_threshold"]):
+		if float(balance) > float(network_info[network]["minimum_gas_threshold"]):
 			current_method = "eth_call"
 			if !needs_to_approve:
 				print("composing order")
@@ -134,7 +135,8 @@ func compose_message(message, from_network):
 		local_token_contracts.append(token["local_token_contract"])
 		remote_token_contracts.append(token["monitored_networks"][from_network])
 		#allow custom minimum
-		token_minimum_list.append("0")
+		token_minimum_list.append(token["minimum"])
+		#token_minimum_list.append("0")
 		
 	var file = File.new()
 	file.open_encrypted_with_pass("user://encrypted_keystore", File.READ, main_script.password)
@@ -184,6 +186,7 @@ func get_gas_price(get_result, response_code):
 		var content = file.get_buffer(32)
 		file.close()
 		if !needs_to_approve:
+			main_script.crystal_ball.spawn_message()
 			current_tx_type = "order"
 			var local_token = FastCcipBot.decode_address(order_in_queue["local_token"])
 			FastCcipBot.fill_order(content, chain_id, endpoint_contract, rpc, gas_price, tx_count, order_in_queue["message"], local_token, self)
@@ -194,6 +197,8 @@ func get_gas_price(get_result, response_code):
 			FastCcipBot.approve_endpoint_allowance(content, chain_id, endpoint_contract, rpc, gas_price, tx_count, local_token_contract, self)
 	else:
 		rpc_error()
+
+#it would be good to perform a gas estimate instead of relying on a minimum gas threshold
 
 func set_signed_data(var signature):
 	var signed_data = "".join(["0x", signature])
@@ -248,6 +253,8 @@ func check_transaction_receipt(get_result, response_code):
 					checking_for_tx_receipt = false	
 					order_filling_paused = false
 					pending_tx.was_successful(false, network)
+				#perhaps would be wise to have a more targeted "get_gas_balance" function
+				main_script.get_gas_balances()
 	else:
 		checking_for_tx_receipt = false	
 		rpc_error()

@@ -38,12 +38,13 @@ margin_bottom = 62.0
 
 [node name="Label" type="Label" parent="MainPanel"]
 margin_left = 77.0
-margin_top = 17.0
+margin_top = 6.0
 margin_right = 278.0
-margin_bottom = 99.0
+margin_bottom = 105.0
 text = "Providing fast transfers of
 Token
-on Network.  Minimum value: 0
+on Network.  
+Minimum: 0
 
 Monitoring transfers from:"
 

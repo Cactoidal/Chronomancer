@@ -1,9 +1,13 @@
 extends Control
 
 var main_script
+var http
 var monitorable_token
 var approved = false
 var monitoring = false
+var eth_http_request = preload("res://EthRequest.tscn")
+
+var header = "Content-Type: application/json"
 
 func _ready():
 	$MainPanel/Monitor.connect("pressed", self, "toggle_monitor")
@@ -14,10 +18,11 @@ func _ready():
 func load_info(main, token):
 	monitorable_token = token
 	main_script = main
+	http = main_script.get_node("HTTP")
 	var network = monitorable_token["serviced_network"]
 	var token_name = monitorable_token["token_name"]
 	var monitored_networks = monitorable_token["monitored_networks"]
-	var minimum = monitorable_token["minimum"]
+	var minimum = main_script.convert_to_smallnum(monitorable_token["minimum"])
 	var gas_balance = monitorable_token["gas_balance"]
 	var token_balance = monitorable_token["token_balance"]
 	var network_info = main_script.network_info
@@ -35,9 +40,8 @@ func load_info(main, token):
 		new_logo.rect_position.x += shift
 		shift += 75
 	
-	$MainPanel/Label.text = "Providing fast transfers of\n" + token_name + "\non " + network + ".  Minimum value: " + String(minimum) + "\n\nMonitoring transfers from:"
-	$MainPanel/GasBalance.text = network + " Gas Balance: " + gas_balance
-	$MainPanel/TokenBalance.text = token_name + " Balance:\n" + token_balance
+	$MainPanel/Label.text = "Providing fast transfers of\n" + token_name + "\non " + network + ". \nMinimum: " + String(minimum) + "\n\nMonitoring transfers from:"
+
 	
 func toggle_monitor():
 	if !approved:
@@ -58,8 +62,6 @@ func close():
 
 func cancel_close():
 	$CloseOverlay.visible = false
-
-#will also need to add in position sorting
 
 func confirm_close():
 	var network = monitorable_token["serviced_network"]
@@ -90,9 +92,57 @@ func confirm_close():
 		node["token_node"].rect_position.y += main_script.token_downshift
 		main_script.token_downshift += 270
 		main_script.get_node("MonitoredTokenList/MonitoredTokenScroll/MonitoredTokenContainer").rect_min_size.y += 270
-	#main_script.monitorable_tokens.erase(monitorable_token)
-	#main_script.network_info[network]["monitored_tokens"].erase(monitorable_token)
-	
-	
 	
 	queue_free()
+
+func update_balances(balance):
+	monitorable_token["gas_balance"] = balance
+	$MainPanel/GasBalance.text = monitorable_token["serviced_network"] + " Gas Balance: " + main_script.convert_to_smallnum(balance)
+	get_erc20_balance(monitorable_token["serviced_network"], monitorable_token["local_token_contract"])
+	
+	
+
+
+func get_erc20_balance(network, token_contract):
+	var chain_id = int(main_script.network_info[network]["chain_id"])
+	var rpc = main_script.network_info[network]["rpc"]
+	var file = File.new()
+	file.open_encrypted_with_pass("user://encrypted_keystore", File.READ, main_script.password)
+	var content = file.get_buffer(32)
+	file.close()
+	var calldata = FastCcipBot.check_token_balance(content, chain_id, rpc, token_contract)
+	perform_ethereum_request(network, "eth_call", [{"to": token_contract, "input": calldata}, "latest"], {"function_name": "check_token_balance", "token_contract": token_contract})
+
+func perform_ethereum_request(network, method, params, extra_args={}):
+	var rpc = main_script.network_info[network]["rpc"]
+	
+	var http_request = eth_http_request.instance()
+	http.add_child(http_request)
+	http_request.network = network
+	http_request.request_type = method
+	http_request.main_script = self
+	http_request.extra_args = extra_args
+	http_request.connect("request_completed", http_request, "resolve_ethereum_request")
+	
+	var tx = {"jsonrpc": "2.0", "method": method, "params": params, "id": 7}
+	
+	http_request.request(rpc, 
+	[header], 
+	true, 
+	HTTPClient.METHOD_POST, 
+	JSON.print(tx))
+
+func resolve_ethereum_request(network, method, get_result, extra_args):
+	match method:
+		"eth_call": update_erc20_balance(get_result)
+
+func update_erc20_balance(get_result):
+	if "result" in get_result.keys():
+		var balance = FastCcipBot.decode_u256(get_result["result"])
+		monitorable_token["token_balance"] = balance
+		$MainPanel/TokenBalance.text = monitorable_token["token_name"] + " Balance:\n" + main_script.convert_to_smallnum(balance)
+		
+
+
+func ethereum_request_failed(network, method, extra_args):
+	pass

@@ -46,7 +46,7 @@ var default_network_info = {
 		],
 		"endpoint_contract": "0x39E98Ab623cf367462d049aB389E6f3083556dA8",
 		"monitored_tokens": [], 
-		"minimum_gas_threshold": 0,
+		"minimum_gas_threshold": 0.0002,
 		"maximum_gas_fee": "",
 		"latest_block": 0,
 		"order_processor": null,
@@ -72,9 +72,9 @@ var default_network_info = {
 				}
 			
 		],
-		"endpoint_contract": "0x1F325786Ed9B347D54BC24c21585239E77f9e466",
+		"endpoint_contract": "0x69487b0e0CF57Ad6b4339cda70a45b4aDB8eef08",
 		"monitored_tokens": [],
-		"minimum_gas_threshold": 0,
+		"minimum_gas_threshold": 0.0002,
 		"maximum_gas_fee": "",
 		"latest_block": 0,
 		"order_processor": null,
@@ -101,7 +101,7 @@ var default_network_info = {
 		],
 		"endpoint_contract": "0x2e0d90fD5C983a5a76f5AB32698Db396Df066491",
 		"monitored_tokens": [],
-		"minimum_gas_threshold": 0,
+		"minimum_gas_threshold": 0.0002,
 		"maximum_gas_fee": "",
 		"latest_block": 0,
 		"order_processor": null,
@@ -131,6 +131,7 @@ func initialize():
 var log_timer = 1
 
 func _process(delta):
+	
 	log_timer -= delta
 	if log_timer < 0:
 		log_timer = 1
@@ -189,7 +190,6 @@ func check_for_ccip_messages(from_network, get_result):
 					to_network = network["network"]
 			
 			if to_network != null:
-				crystal_ball.spawn_message()
 				network_info[to_network]["order_processor"].intake_message(message, from_network)
 
 func check_endpoint_allowance(network, get_result, extra_args):
@@ -271,7 +271,7 @@ func add_monitored_token(new_monitored_token):
 		file.close()
 		var calldata = FastCcipBot.check_endpoint_allowance(content, chain_id, rpc, local_token_contract, endpoint_contract)
 		perform_ethereum_request(serviced_network, "eth_call", [{"to": local_token_contract, "input": calldata}, "latest"], {"function_name": "check_endpoint_allowance", "local_token_contract": local_token_contract, "endpoint_contract": endpoint_contract, "monitorable_token": instanced_monitorable_token})
-
+		get_gas_balances()
 
 var transaction_downshift = 0
 func load_transaction(transaction):
@@ -344,9 +344,44 @@ func check_for_token_match(token):
 func update_balance(network, get_result):
 	var balance = String(get_result["result"].hex_to_int())
 	network_info[network]["gas_balance"] = balance
+	for token in monitorable_tokens:
+		if token["serviced_network"] == network:
+			var node = token["token_node"]
+			node.update_balances(balance)
 	$GasBalances.get_node(network).text = balance
 
 func update_block_number(network, get_result):
 	var latest_block = get_result["result"].hex_to_int()
 	network_info[network]["latest_block"] = latest_block
+
+func convert_to_smallnum(bignum):
+	var size = bignum.length()
+	var new_smallnum = ""
+	if size <= 18:
+		new_smallnum = "0."
+		var fill_length = 18 - size
+		for zero in range(fill_length):
+			new_smallnum += "0"
+		new_smallnum += String(bignum)
+	elif size > 18:
+		new_smallnum = bignum
+		var decimal_index = size - 18
+		new_smallnum = new_smallnum.insert(decimal_index, ".")
+	
+	var index = 0
+	var zero_parse_index = 0
+	var prune = false
+	for digit in new_smallnum:
+		if digit == "0":
+			if !prune:
+				zero_parse_index = index
+				prune = true
+		else:
+			prune = false
+		index += 1
+	if prune:
+		new_smallnum = new_smallnum.left(zero_parse_index).trim_suffix(".")
+	
+	return new_smallnum
+		
 

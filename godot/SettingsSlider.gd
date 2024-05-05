@@ -16,7 +16,6 @@ var color_green = Color(0, 1, 0, 0.4)
 
 var main_script
 var http 
-var scan_link
 var overlay
 var add_token_slider
 
@@ -127,7 +126,6 @@ func load_network_info(network):
 	$NetworkInfo/Network/RPC.text = network_info[network]["rpc"]
 	$NetworkInfo/Network/GasFee.text = network_info[network]["maximum_gas_fee"]
 	$NetworkInfo/Network/Endpoint.text = network_info[network]["endpoint_contract"]
-	scan_link = network_info[network]["scan_url"] + "address/" +  network_info[network]["endpoint_contract"]
 
 func save_changes():
 	var network = picked_network
@@ -192,6 +190,7 @@ func dehighlight_button(network):
 		get_button_overlay(network).color = color_empty
 
 func open_scanner_link():
+	var scan_link = network_info[picked_network]["scan_url"] + "address/" +  $NetworkInfo/Network/Endpoint.text
 	OS.shell_open(scan_link)
 
 func ethereum_request_failed(network, request_type, extra_args):

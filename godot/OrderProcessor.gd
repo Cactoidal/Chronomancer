@@ -63,13 +63,15 @@ func compose_message(message, from_network):
 		local_token_contracts.append(token["local_token_contract"])
 		remote_token_contracts.append(token["monitored_networks"][from_network])
 		#allow custom minimum
-		token_minimum_list.append("0")
+		token_minimum_list.append(token["minimum"])
+		#token_minimum_list.append("0")
 		
 	var file = File.new()
 	file.open_encrypted_with_pass("user://encrypted_keystore", File.READ, main_script.password)
 	var content = file.get_buffer(32)
 	file.close()
 	
+	print("I am checking this order RIGHT NOW")
 	var calldata = FastCcipBot.filter_order(content, chain_id, endpoint_contract, rpc, message, local_token_contracts, remote_token_contracts, token_minimum_list)
 	
 	perform_ethereum_request("eth_call", [{"to": endpoint_contract, "input": calldata}, "latest"])

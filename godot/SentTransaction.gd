@@ -38,7 +38,7 @@ func load_info(main, transaction):
 	$MainPanel/NetworkLogo.texture = load(network_info[network]["logo"])
 	
 	if tx_type == "order":
-		$MainPanel/Info.text = "Filing order on " + network
+		$MainPanel/Info.text = "Filling order on " + network
 		#ccip_explorer_link = ccip_explorer_url + tx_hash
 		
 		#$MainPanel/CCIPExplorerLink.visible = true

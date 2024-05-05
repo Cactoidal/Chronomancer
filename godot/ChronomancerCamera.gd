@@ -34,8 +34,6 @@ func _ready():
 	main_script = get_parent().get_parent().get_node("Main")
 	login.get_node("Button").connect("pressed", self, "login")
 
-
-
 var start_time = 0.2
 func _process(delta):
 	
