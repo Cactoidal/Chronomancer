@@ -33,6 +33,7 @@ var new_token = {
 		"serviced_network": "",
 		"local_token_contract": "",
 		"token_name": "",
+		"token_decimals": "",
 		"monitored_networks": {
 		 #network : remote_token_contract
 		},
@@ -88,6 +89,7 @@ func _process(delta):
 			get_erc20_name($NetworkLabel.text, $AddressEntry.text)
 			if choosing_service_network:
 				get_erc20_balance($NetworkLabel.text, $AddressEntry.text)
+				get_erc20_decimals($NetworkLabel.text, $AddressEntry.text)
 		else:
 			$TokenLabel.text = ""
 	
@@ -104,10 +106,16 @@ func _process(delta):
 func start_new():
 	pending_token = new_token.duplicate()
 	choosing_service_network = true
+	pending_token["monitored_networks"] = {}
+	print("new_token:")
+	print(new_token)
+	print("pending_token:")
+	print(pending_token)
+	
 
 func pick_network(network):
 	if choosing_service_network:
-		var network_info = main_script.network_info
+		var network_info = main_script.network_info.duplicate()
 		pending_token["serviced_network"] = network
 		#for now, there is a default endpoint contract on each network
 		pending_token["endpoint_contract"] = network_info[network]["endpoint_contract"]
@@ -122,13 +130,13 @@ func pick_network(network):
 		get_button_overlay(network).color = color_green
 		$NetworkLabel.text = network
 		if network in pending_token["monitored_networks"].keys():
-			$AddressEntry.text = pending_token["monitored_networks"][network]
+			$AddressEntry.text = pending_token["monitored_networks"].duplicate()[network]
 			get_erc20_name(network, $AddressEntry.text)
 
 
 func confirm_choices():
 	if choosing_service_network:
-		if pending_token["serviced_network"] != "" && $TokenLabel.text != "" && $AddressEntry.text.length() == 42 && int($GasBalance.text.right(9)) > 0 && int($TokenBalance.text.right(9)) > 0:
+		if pending_token["serviced_network"] != "" && $TokenLabel.text != "" && $AddressEntry.text.length() == 42 && float($GasBalance.text.right(9)) > 0 && float($TokenBalance.text.right(9)) > 0:
 			pending_token["local_token_contract"] = $AddressEntry.text
 			pending_token["token_name"] = $TokenLabel.text
 			clear_text()
@@ -144,19 +152,25 @@ func confirm_choices():
 		$AddressEntry.text = "0"
 		$Prompt.text = "Set the transfer minimum."
 	elif choosing_minimum && $AddressEntry.text.is_valid_float():
-		pending_token["minimum"] = int($AddressEntry.text)
+		var minimum = $AddressEntry.text
+		var token_decimals = pending_token["token_decimals"]
+		var error = filter_decimals(minimum, token_decimals)
+		if error:
+			return
+		pending_token["minimum"] = get_biguint(minimum, token_decimals)
 		clear_text()
 		$AddressEntry.visible = false
 		$Prompt.text = ""
 		var network_list_string = ""
-		for network in pending_token["monitored_networks"].keys():
+		for network in pending_token["monitored_networks"].duplicate().keys():
 			network_list_string += network + "\n"
-		$FinalConfirm.text = "You will provide fast transfers to " + pending_token["serviced_network"] + ",\nby monitoring incoming traffic from:\n\n" + network_list_string + "\nAnd will only serve transactions with a \nminimum transfer of " + String(pending_token["minimum"]) + " tokens."
+		$FinalConfirm.text = "You will provide fast transfers to " + pending_token["serviced_network"] + ",\nby monitoring incoming traffic from:\n\n" + network_list_string + "\nAnd will only serve transactions with a \nminimum transfer of " + minimum + " tokens."
 		choosing_minimum = false
 		confirming_choices = true
 	elif confirming_choices:
 		main_script.add_monitored_token(pending_token.duplicate())
 		slide()
+
 
 
 func add_monitored_network():
@@ -185,6 +199,7 @@ func clear_all():
 	choosing_minimum = false
 	confirming_choices = false
 	pending_token = new_token.duplicate()
+	pending_token["monitored_tokens"] = {}
 	wipe_buttons()
 	$AddressEntry.visible = true
 	for button in $NetworkButtons.get_children():
@@ -212,7 +227,7 @@ func highlight_button(network):
 			get_button_overlay(network).color = color_empty
 	
 func get_erc20_name(network, token_contract):
-	var network_info = main_script.network_info
+	var network_info = main_script.network_info.duplicate()
 	var chain_id = int(network_info[network]["chain_id"])
 	var rpc = network_info[network]["rpc"]
 	var file = File.new()
@@ -223,7 +238,7 @@ func get_erc20_name(network, token_contract):
 	perform_ethereum_request(network, "eth_call", [{"to": token_contract, "input": calldata}, "latest"], {"function_name": "get_token_name", "token_contract": token_contract})
 	
 func get_erc20_balance(network, token_contract):
-	var network_info = main_script.network_info
+	var network_info = main_script.network_info.duplicate()
 	var chain_id = int(network_info[network]["chain_id"])
 	var rpc = network_info[network]["rpc"]
 	var file = File.new()
@@ -233,8 +248,19 @@ func get_erc20_balance(network, token_contract):
 	var calldata = FastCcipBot.check_token_balance(content, chain_id, rpc, token_contract)
 	perform_ethereum_request(network, "eth_call", [{"to": token_contract, "input": calldata}, "latest"], {"function_name": "check_token_balance", "token_contract": token_contract})
 
+func get_erc20_decimals(network, token_contract):
+	var network_info = main_script.network_info.duplicate()
+	var chain_id = int(network_info[network]["chain_id"])
+	var rpc = network_info[network]["rpc"]
+	var file = File.new()
+	file.open_encrypted_with_pass("user://encrypted_keystore", File.READ, main_script.password)
+	var content = file.get_buffer(32)
+	file.close()
+	var calldata = FastCcipBot.get_token_decimals(content, chain_id, rpc, token_contract)
+	perform_ethereum_request(network, "eth_call", [{"to": token_contract, "input": calldata}, "latest"], {"function_name": "get_token_decimals", "token_contract": token_contract})
+
 func perform_ethereum_request(network, method, params, extra_args={}):
-	var network_info = main_script.network_info
+	var network_info = main_script.network_info.duplicate()
 	var rpc = network_info[network]["rpc"]
 	
 	var http_request = eth_http_request.instance()
@@ -262,28 +288,75 @@ func resolve_ethereum_request(network, method, get_result, extra_args):
 func load_network_gas(network, get_result):
 	if "result" in get_result.keys():
 		var balance = String(get_result["result"].hex_to_int())
-		$GasBalance.text = "Balance: " + balance
 		pending_token["gas_balance"] = balance
+		$GasBalance.text = "Balance: " + main_script.convert_to_smallnum(balance, 18)
+		
 	
 func load_token_data(network, get_result, extra_args):
 	if extra_args["function_name"] == "get_token_name":
 		if "result" in get_result.keys():
 			if get_result["result"] != "0x":
 				$TokenLabel.text = FastCcipBot.decode_hex_string(get_result["result"])
-				var network_info = main_script.network_info
+				var network_info = main_script.network_info.duplicate()
 				scan_link = network_info[network]["scan_url"] + "address/" + $AddressEntry.text
 				$ScanLink.visible = true
 				
 	if extra_args["function_name"] == "check_token_balance":
 		if "result" in get_result.keys():
-			var balance = FastCcipBot.decode_u256(get_result["result"])
-			$TokenBalance.text = "Balance: " + balance
-			pending_token["token_balance"] = balance
+			if get_result["result"] != "0x":
+				var balance = FastCcipBot.decode_u256(get_result["result"])
+				pending_token["token_balance"] = balance
+				var token_decimals = pending_token["token_decimals"]
+				$TokenBalance.text = "Balance: " + main_script.convert_to_smallnum(balance, token_decimals)
+			else:
+				$TokenBalance.text = ""
 		else:
-			$TokenBalance.text = "Balance: 0"
+			$TokenBalance.text = ""
+	
+	if extra_args["function_name"] == "get_token_decimals":
+		if "result" in get_result.keys():
+			if get_result["result"] != "0x":
+				var token_decimals = FastCcipBot.decode_u8(get_result["result"])
+				pending_token["token_decimals"] = token_decimals
 
 func open_scanner_link():
 	OS.shell_open(scan_link)
 
 func ethereum_request_failed(network, request_type, extra_args):
 	pass
+
+func filter_decimals(minimum, token_decimals):
+	var decimal_index = minimum.find(".")
+	if decimal_index != -1:
+		if minimum.right(decimal_index).length() > token_decimals:
+			return true
+	return false
+
+func get_biguint(minimum, token_decimals):
+	if minimum.begins_with("."):
+		minimum = "0" + minimum
+		
+	var zero_filler = int(token_decimals)
+	var decimal_index = minimum.find(".")
+	var big_uint = minimum
+	if decimal_index != -1:
+		zero_filler -= minimum.right(decimal_index+1).length()
+		big_uint.erase(decimal_index,decimal_index)
+			
+	
+	for zero in range(zero_filler):
+		big_uint += "0"
+	
+	var zero_parse_index = 0
+	if big_uint.begins_with("0"):
+		for digit in big_uint:
+			if digit == "0":
+				zero_parse_index += 1
+			else:
+				break
+	big_uint = big_uint.right(zero_parse_index)
+
+	if big_uint == "":
+		big_uint = "0"
+
+	return big_uint

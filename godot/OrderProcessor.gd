@@ -25,7 +25,7 @@ func intake_message(message, from_network):
 			if pending_message["message"] == message:
 				is_new_message = false
 	if is_new_message:
-		var network_info = main_script.network_info
+		var network_info = main_script.network_info.duplicate()
 		print("got message")
 		print("going to " + network_info[network]["rpc"])
 		pending_messages.append(
@@ -49,7 +49,7 @@ func filter_orders():
 				print("composing message")
 
 func compose_message(message, from_network):
-	var network_info = main_script.network_info
+	var network_info = main_script.network_info.duplicate()
 	var rpc = network_info[network]["rpc"]
 	var chain_id = int(network_info[network]["chain_id"])
 	var endpoint_contract = network_info[network]["endpoint_contract"]
@@ -78,7 +78,7 @@ func compose_message(message, from_network):
 	
 
 func perform_ethereum_request(method, params, extra_args={}):
-	var network_info = main_script.network_info
+	var network_info = main_script.network_info.duplicate()
 	var rpc = network_info[network]["rpc"]
 	
 	var tx = {"jsonrpc": "2.0", "method": method, "params": params, "id": 7}

@@ -354,12 +354,12 @@ func update_block_number(network, get_result):
 	var latest_block = get_result["result"].hex_to_int()
 	network_info[network]["latest_block"] = latest_block
 
-func convert_to_smallnum(bignum):
+func convert_to_smallnum(bignum, token_decimals):
 	var size = bignum.length()
 	var new_smallnum = ""
-	if size <= 18:
+	if size <= int(token_decimals):
 		new_smallnum = "0."
-		var fill_length = 18 - size
+		var fill_length = int(token_decimals) - size
 		for zero in range(fill_length):
 			new_smallnum += "0"
 		new_smallnum += String(bignum)
@@ -383,5 +383,3 @@ func convert_to_smallnum(bignum):
 		new_smallnum = new_smallnum.left(zero_parse_index).trim_suffix(".")
 	
 	return new_smallnum
-		
-

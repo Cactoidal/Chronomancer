@@ -79,7 +79,7 @@ func handle_approvals():
 			order_filling_paused = false
 
 func perform_ethereum_request(method, params, extra_args={}):
-	var network_info = main_script.network_info
+	var network_info = main_script.network_info.duplicate()
 	var rpc = network_info[network]["rpc"]
 	
 	var tx = {"jsonrpc": "2.0", "method": method, "params": params, "id": 7}
@@ -103,9 +103,9 @@ func resolve_ethereum_request(result, response_code, headers, body):
 func check_gas_balance(get_result, response_code):
 	if response_code == 200:
 		var balance = String(get_result["result"].hex_to_int())
-		balance = main_script.convert_to_smallnum(balance)
+		balance = main_script.convert_to_smallnum(balance, 18)
 		#may need to be checked in rust
-		var network_info = main_script.network_info
+		var network_info = main_script.network_info.duplicate()
 		if float(balance) > float(network_info[network]["minimum_gas_threshold"]):
 			current_method = "eth_call"
 			if !needs_to_approve:
@@ -121,7 +121,7 @@ func check_gas_balance(get_result, response_code):
 
 
 func compose_message(message, from_network):
-	var network_info = main_script.network_info
+	var network_info = main_script.network_info.duplicate()
 	var rpc = network_info[network]["rpc"]
 	var chain_id = int(network_info[network]["chain_id"])
 	var endpoint_contract = network_info[network]["endpoint_contract"]
@@ -174,7 +174,7 @@ func get_gas_price(get_result, response_code):
 		#adjustable filter for gas spikes
 		current_method = "eth_sendRawTransaction"
 		
-		var network_info = main_script.network_info
+		var network_info = main_script.network_info.duplicate()
 		var rpc = network_info[network]["rpc"]
 		var chain_id = int(network_info[network]["chain_id"])
 		var endpoint_contract = network_info[network]["endpoint_contract"]
