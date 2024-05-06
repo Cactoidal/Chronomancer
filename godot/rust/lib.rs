@@ -269,8 +269,6 @@ let prewallet : LocalWallet = LocalWallet::from_bytes(&keyset).unwrap();
         
 let wallet: LocalWallet = prewallet.with_chain_id(chain_id);
         
-let user_address = wallet.address();
-        
 let provider = Provider::<Http>::try_from(rpc.to_string()).expect("could not instantiate HTTP Provider");
         
 let token_address: Address = token_contract.to_string().parse().unwrap();
@@ -286,6 +284,34 @@ let return_string: GodotString = calldata.to_string().into();
 return_string
 
 }
+
+#[method]
+fn get_token_decimals(key: PoolArray<u8>, chain_id: u64, rpc: GodotString, token_contract: GodotString) -> GodotString {
+
+let vec = &key.to_vec();
+
+let keyset = &vec[..]; 
+             
+let prewallet : LocalWallet = LocalWallet::from_bytes(&keyset).unwrap();
+        
+let wallet: LocalWallet = prewallet.with_chain_id(chain_id);
+        
+let provider = Provider::<Http>::try_from(rpc.to_string()).expect("could not instantiate HTTP Provider");
+        
+let token_address: Address = token_contract.to_string().parse().unwrap();
+        
+let client = SignerMiddleware::new(provider, wallet.clone());
+        
+let contract = ERC20ABI::new(token_address.clone(), Arc::new(client.clone()));
+
+let calldata = contract.decimals().calldata().unwrap();
+
+let return_string: GodotString = calldata.to_string().into();
+
+return_string
+
+}
+
 
 #[method]
 fn check_endpoint_allowance(key: PoolArray<u8>, chain_id: u64, rpc: GodotString, token_contract: GodotString, endpoint_contract: GodotString) -> GodotString {
@@ -396,6 +422,14 @@ fn decode_bool (message: GodotString) -> GodotString {
 }
 
 #[method]
+fn decode_u8 (message: GodotString) -> GodotString {
+    let raw_hex: String = message.to_string();
+    let decoded: u8 = ethers::abi::AbiDecode::decode_hex(raw_hex).unwrap();
+    let return_string: GodotString = format!("{:?}", decoded).into();
+    return_string
+}
+
+#[method]
 fn decode_address (message: GodotString) -> GodotString {
     let raw_hex: String = message.to_string();
     let decoded: Address = ethers::abi::AbiDecode::decode_hex(raw_hex).unwrap();
@@ -411,6 +445,8 @@ fn decode_u256 (message: GodotString) -> GodotString {
     let return_string: GodotString = format!("{:?}", decoded).into();
     return_string
 }
+
+
 
 
 
