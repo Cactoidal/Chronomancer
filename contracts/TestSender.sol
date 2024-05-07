@@ -271,6 +271,28 @@ contract TestSender is CCIPReceiver, OwnerIsCreator {
         return messageId;
     }
 
+    function getNativeFeeValue
+        (uint64 _destinationChainSelector, 
+        address _endpoint,
+        address _recipient,
+        bytes calldata _data,
+        address _token,
+        uint256 _amount) external view returns (uint256) {
+
+            Client.EVM2AnyMessage memory evm2AnyMessage = _buildCCIPMessage(
+            _endpoint,
+            _recipient,
+            _data,
+            _token,
+            _amount,
+            address(0)
+            );
+
+            IRouterClient router = IRouterClient(this.getRouter());
+            uint256 fee = router.getFee(_destinationChainSelector, evm2AnyMessage);
+            return fee + (fee / 10);
+    }
+
     /**
      * @notice Returns the details of the last CCIP received message.
      * @dev This function retrieves the ID, text, token address, and token amount of the last received CCIP message.
