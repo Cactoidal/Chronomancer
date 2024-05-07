@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.18;
+pragma solidity 0.8.20;
 
 import {CCIPReceiver} from "@chainlink/contracts-ccip/src/v0.8/ccip/applications/CCIPReceiver.sol";
 import {Client} from "@chainlink/contracts-ccip/src/v0.8/ccip/libraries/Client.sol";
@@ -21,10 +21,8 @@ contract FastCCIPEndpoint is CCIPReceiver {
     address immutable ROUTER;
     address immutable CHAINLINK;
 
-    //uint256 constant FEE = 1000000000000000;
-    // For testing:
-    uint256 constant FEE = 0;
-
+    uint256 constant FEE = 1000;
+  
     // An order path consists of:
     // CCIP message ID => Recipient Address => Token Address => Token Amount => Data => Filler Address
     mapping(bytes32 => mapping(address => mapping(address => mapping(uint256 => mapping(bytes => address))))) filledOrderPaths;
@@ -51,7 +49,7 @@ contract FastCCIPEndpoint is CCIPReceiver {
         address token = _local_token;
 
         // The submitted amount must include the fee (0.1%)
-        uint amount = message.tokenAmounts[0].amount - (message.tokenAmounts[0].amount * FEE);
+        uint amount = message.tokenAmounts[0].amount - (message.tokenAmounts[0].amount / FEE);
        
         if (messageArrived[messageId]) {
             revert OrderAlreadyArrived();
@@ -100,7 +98,7 @@ contract FastCCIPEndpoint is CCIPReceiver {
 
         (address recipient, bytes memory data) = abi.decode(message.data, (address, bytes));
 
-        address orderFiller = filledOrderPaths[message.messageId][recipient][token][amount - (amount * FEE)][data];
+        address orderFiller = filledOrderPaths[message.messageId][recipient][token][amount - (amount / FEE)][data];
 
         if (orderFiller != address(0)) {
             IERC20(token).transfer(orderFiller, amount);
@@ -162,7 +160,7 @@ contract FastCCIPEndpoint is CCIPReceiver {
         address token = message.tokenAmounts[0].token;
 
         // The submitted amount must include the fee (0.1%)
-        uint amount = message.tokenAmounts[0].amount - (message.tokenAmounts[0].amount * FEE);
+        uint amount = message.tokenAmounts[0].amount - (message.tokenAmounts[0].amount / FEE);
        
         if (filledOrderPaths[messageId][recipient][token][amount][data] != address(0)) {
             return true;
