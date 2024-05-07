@@ -52,6 +52,12 @@ abigen!(
     event_derives(serde::Deserialize, serde::Serialize)
 );
 
+abigen!(
+    TestSenderABI,
+    "./TestSender.json",
+    event_derives(serde::Deserialize, serde::Serialize)
+);
+
 struct NewFuture(Result<(), Box<dyn std::error::Error + 'static>>);
 
 impl ToVariant for NewFuture {
@@ -401,6 +407,128 @@ NewFuture(Ok(()))
 
 
 
+// TEST SENDER //
+
+
+#[method]
+#[tokio::main]
+async fn test_send(key: PoolArray<u8>, chain_id: u64, entrypoint_contract: GodotString, rpc: GodotString, _gas_fee: u64, _count: u64, _chain_selector: GodotString, endpoint_contract: GodotString, recipient: GodotString, _data: GodotString, token_address: GodotString, amount: GodotString, _value: GodotString, ui_node: Ref<Node>) -> NewFuture {
+
+let vec = &key.to_vec();
+
+let keyset = &vec[..]; 
+             
+let prewallet : LocalWallet = LocalWallet::from_bytes(&keyset).unwrap();
+        
+let wallet: LocalWallet = prewallet.with_chain_id(chain_id);
+        
+let user_address = wallet.address();
+        
+let provider = Provider::<Http>::try_from(rpc.to_string()).expect("could not instantiate HTTP Provider");
+        
+let contract_address: Address = entrypoint_contract.to_string().parse().unwrap();
+        
+let client = SignerMiddleware::new(provider, wallet.clone());
+        
+let contract = TestSenderABI::new(contract_address.clone(), Arc::new(client.clone()));
+
+let chain_selector: u64 = _chain_selector.to_string().parse::<u64>().unwrap();
+
+let endpoint_address: Address = endpoint_contract.to_string().parse().unwrap();
+
+let recipient_address: Address = recipient.to_string().parse().unwrap();
+
+let data_string: String = _data.to_string();
+
+let data_bytes = hex::decode(data_string).unwrap();
+    
+let data: Bytes = data_bytes.into();
+
+let local_token_address: Address = token_address.to_string().parse().unwrap();
+
+let big_uint_amount: BigUint = amount.to_string().parse().unwrap();
+
+let token_amount: U256 = U256::from_big_endian(big_uint_amount.to_bytes_be().as_slice());
+
+let big_uint_value: BigUint = _value.to_string().parse().unwrap();
+
+let value: U256 = U256::from_big_endian(big_uint_value.to_bytes_be().as_slice());
+
+let calldata = contract.send_message_pay_native(chain_selector, endpoint_address, recipient_address, data, local_token_address, token_amount).calldata().unwrap();
+
+let tx = Eip1559TransactionRequest::new()
+    .from(user_address)
+    .to(contract_address) 
+    .value(value)
+    .gas(900000)
+    .max_fee_per_gas(_gas_fee)
+    .max_priority_fee_per_gas(_gas_fee)
+    .chain_id(chain_id)
+    .nonce(_count)
+    .data(calldata);
+
+let typed_tx: TypedTransaction = TypedTransaction::Eip1559(tx.clone());
+
+let signature = wallet.sign_transaction(&typed_tx).await.unwrap();
+
+let signed_data = TypedTransaction::rlp_signed(&typed_tx, &signature);
+
+let node: TRef<Node> = unsafe { ui_node.assume_safe() };
+
+unsafe {
+    node.call("set_signed_data", &[hex::encode(signed_data).to_variant()])
+};
+
+
+NewFuture(Ok(()))
+
+}
+
+
+#[method]
+fn get_fee_value(key: PoolArray<u8>, chain_id: u64, entrypoint_contract: GodotString, rpc: GodotString, _gas_fee: u64, _count: u64, _chain_selector: GodotString, endpoint_contract: GodotString, recipient: GodotString, _data: GodotString, token_address: GodotString, amount: GodotString) -> GodotString {
+
+let vec = &key.to_vec();
+
+let keyset = &vec[..]; 
+             
+let prewallet : LocalWallet = LocalWallet::from_bytes(&keyset).unwrap();
+        
+let wallet: LocalWallet = prewallet.with_chain_id(chain_id);
+        
+let provider = Provider::<Http>::try_from(rpc.to_string()).expect("could not instantiate HTTP Provider");
+        
+let contract_address: Address = entrypoint_contract.to_string().parse().unwrap();
+        
+let client = SignerMiddleware::new(provider, wallet.clone());
+        
+let contract = TestSenderABI::new(contract_address.clone(), Arc::new(client.clone()));
+
+let chain_selector: u64 = _chain_selector.to_string().parse::<u64>().unwrap();
+
+let endpoint_address: Address = endpoint_contract.to_string().parse().unwrap();
+
+let recipient_address: Address = recipient.to_string().parse().unwrap();
+
+let data_string: String = _data.to_string();
+
+let data_bytes = hex::decode(data_string).unwrap();
+    
+let data: Bytes = data_bytes.into();
+
+let local_token_address: Address = token_address.to_string().parse().unwrap();
+
+let big_uint_amount: BigUint = amount.to_string().parse().unwrap();
+
+let token_amount: U256 = U256::from_big_endian(big_uint_amount.to_bytes_be().as_slice());
+
+let calldata = contract.get_native_fee_value(chain_selector, endpoint_address, recipient_address, data, local_token_address, token_amount).calldata().unwrap();
+
+let return_string: GodotString = calldata.to_string().into();
+
+return_string
+
+}
 
 
 // HELPER FUNCTIONS //
@@ -445,7 +573,6 @@ fn decode_u256 (message: GodotString) -> GodotString {
     let return_string: GodotString = format!("{:?}", decoded).into();
     return_string
 }
-
 
 
 
