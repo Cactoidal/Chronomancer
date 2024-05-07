@@ -11,6 +11,7 @@ var color_empty = Color(1, 1, 1, 0)
 var color_white = Color(1, 1, 1, 0.4)
 var color_red = Color(1, 0, 0, 0.4)
 var color_green = Color(0, 1, 0, 0.4)
+var color_yellow = Color(1, 1, 0, 0.4)
 
 var main_script
 var http 
@@ -88,7 +89,6 @@ func _process(delta):
 		if previous_token_length == 42 && $NetworkLabel.text != "":
 			get_erc20_name($NetworkLabel.text, $AddressEntry.text)
 			if choosing_service_network:
-				get_erc20_balance($NetworkLabel.text, $AddressEntry.text)
 				get_erc20_decimals($NetworkLabel.text, $AddressEntry.text)
 		else:
 			$TokenLabel.text = ""
@@ -127,7 +127,8 @@ func pick_network(network):
 	elif choosing_monitored_networks && network != pending_token["serviced_network"]:
 		wipe_buttons()
 		clear_text()
-		get_button_overlay(network).color = color_green
+		if get_button_overlay(network).color != color_green:
+			get_button_overlay(network).color = color_yellow
 		$NetworkLabel.text = network
 		if network in pending_token["monitored_networks"].keys():
 			$AddressEntry.text = pending_token["monitored_networks"].duplicate()[network]
@@ -177,6 +178,7 @@ func add_monitored_network():
 	var network = $NetworkLabel.text
 	var token_name = $TokenLabel.text
 	if network != "" && token_name != "" && $AddressEntry.text.length() == 42 && token_name == pending_token["token_name"]:
+		get_button_overlay(network).color = color_green
 		pending_token["monitored_networks"][network] = $AddressEntry.text
 		clear_text()
 
@@ -223,7 +225,7 @@ func highlight_button(network):
 		if get_button_overlay(network).color == color_empty:
 			#wipe_buttons()
 			get_button_overlay(network).color = color_white
-		elif get_button_overlay(network).color != color_green:
+		elif get_button_overlay(network).color != color_yellow:
 			get_button_overlay(network).color = color_empty
 	
 func get_erc20_name(network, token_contract):
@@ -300,6 +302,13 @@ func load_token_data(network, get_result, extra_args):
 				var network_info = main_script.network_info.duplicate()
 				scan_link = network_info[network]["scan_url"] + "address/" + $AddressEntry.text
 				$ScanLink.visible = true
+	
+	if extra_args["function_name"] == "get_token_decimals":
+		if "result" in get_result.keys():
+			if get_result["result"] != "0x":
+				var token_decimals = FastCcipBot.decode_u8(get_result["result"])
+				pending_token["token_decimals"] = token_decimals
+				get_erc20_balance($NetworkLabel.text, $AddressEntry.text)
 				
 	if extra_args["function_name"] == "check_token_balance":
 		if "result" in get_result.keys():
@@ -313,11 +322,7 @@ func load_token_data(network, get_result, extra_args):
 		else:
 			$TokenBalance.text = ""
 	
-	if extra_args["function_name"] == "get_token_decimals":
-		if "result" in get_result.keys():
-			if get_result["result"] != "0x":
-				var token_decimals = FastCcipBot.decode_u8(get_result["result"])
-				pending_token["token_decimals"] = token_decimals
+	
 
 func open_scanner_link():
 	OS.shell_open(scan_link)

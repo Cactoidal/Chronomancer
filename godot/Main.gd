@@ -11,7 +11,6 @@ var password
 var user_address
 var header = "Content-Type: application/json"
 
-var networks = ["Ethereum Sepolia", "Arbitrum Sepolia", "Optimism Sepolia"]
 
 var monitorable_tokens = []
 var active_monitored_tokens = []
@@ -50,7 +49,7 @@ var default_network_info = {
 		"monitored_tokens": [], 
 		"minimum_gas_threshold": 0.0002,
 		"maximum_gas_fee": "",
-		"latest_block": 0,
+		"latest_block": "latest",
 		"order_processor": null,
 		"scan_url": "https://sepolia.etherscan.io/",
 		"logo": "res://assets/Ethereum.png"
@@ -78,7 +77,7 @@ var default_network_info = {
 		"monitored_tokens": [],
 		"minimum_gas_threshold": 0.0002,
 		"maximum_gas_fee": "",
-		"latest_block": 0,
+		"latest_block": "latest",
 		"order_processor": null,
 		"scan_url": "https://sepolia.arbiscan.io/",
 		"logo": "res://assets/Arbitrum.png"
@@ -105,14 +104,14 @@ var default_network_info = {
 		"monitored_tokens": [],
 		"minimum_gas_threshold": 0.0002,
 		"maximum_gas_fee": "",
-		"latest_block": 0,
+		"latest_block": "latest",
 		"order_processor": null,
 		"scan_url": "https://sepolia-optimism.etherscan.io/",
 		"logo": "res://assets/Optimism.png"
-	},
+	}
 	
-	"Polygon Mumbai": {},
-	"Base Testnet": {}
+#	"Polygon Mumbai": {},
+#	"Base Testnet": {}
 }
 
 
@@ -124,7 +123,7 @@ func initialize():
 	crystal_ball = get_parent().get_node("ChronomancerLogo/LogoPivot")
 	$LoadSavedTokens.connect("pressed", self, "load_saved_tokens")
 	$LoadDemo.connect("pressed", self, "load_demo")
-	for network in networks:
+	for network in network_info.keys():
 		var new_processor = order_processor.instance()
 		network_info[network]["order_processor"] = new_processor
 		new_processor.network = network
@@ -138,7 +137,7 @@ func _process(delta):
 	if active:
 		log_timer -= delta
 		if log_timer < 0:
-			log_timer = 1
+			log_timer = 4
 			get_logs()
 
 func get_logs():
@@ -150,7 +149,9 @@ func get_logs():
 				network_list.append(network)
 	
 	for network in network_list:
-		perform_ethereum_request(network, "eth_getLogs", [{"fromBlock": "latest", "address": network_info[network]["onramp_contracts"].duplicate(), "topics": ["0xd0c3c799bf9e2639de44391e7f524d229b2b55f5b1ea94b2bf7da42f7243dddd"]}])
+		print("getting block")
+		perform_ethereum_request(network, "eth_blockNumber", [])
+		#perform_ethereum_request(network, "eth_getLogs", [{"fromBlock": "latest", "address": network_info[network]["onramp_contracts"].duplicate(), "topics": ["0xd0c3c799bf9e2639de44391e7f524d229b2b55f5b1ea94b2bf7da42f7243dddd"]}])
 
 func perform_ethereum_request(network, method, params, extra_args={}):
 	var rpc = network_info[network]["rpc"]
@@ -230,7 +231,7 @@ func get_address():
 	file.close()
 
 func get_gas_balances():
-	for network in networks:
+	for network in network_info.keys():
 		perform_ethereum_request(network, "eth_getBalance", [user_address, "latest"])
 
 func get_erc20_balance(network, token_contract):
@@ -355,7 +356,12 @@ func update_balance(network, get_result):
 	$GasBalances.get_node(network).text = balance
 
 func update_block_number(network, get_result):
-	var latest_block = get_result["result"].hex_to_int()
+	var latest_block = get_result["result"]
+	var previous_block = network_info[network]["latest_block"] 
+	var params = {"fromBlock": previous_block, "address": network_info[network]["onramp_contracts"].duplicate(), "topics": ["0xd0c3c799bf9e2639de44391e7f524d229b2b55f5b1ea94b2bf7da42f7243dddd"]}
+	if previous_block != "latest":
+		params["toBlock"] = latest_block
+		perform_ethereum_request(network, "eth_getLogs", [params])
 	network_info[network]["latest_block"] = latest_block
 
 func convert_to_smallnum(bignum, token_decimals):

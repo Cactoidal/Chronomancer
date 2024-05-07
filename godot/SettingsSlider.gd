@@ -23,12 +23,6 @@ var header = "Content-Type: application/json"
 
 var picked_network
 
-var choosing_service_network = false
-var choosing_monitored_networks = false
-var choosing_minimum = false
-var confirming_choices = false
-
-var previous_token_length = 0
 
 #it would be nice to have the option of setting a custom endpoint
 
