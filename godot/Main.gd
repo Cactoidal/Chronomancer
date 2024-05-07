@@ -16,6 +16,8 @@ var networks = ["Ethereum Sepolia", "Arbitrum Sepolia", "Optimism Sepolia"]
 var monitorable_tokens = []
 var active_monitored_tokens = []
 
+var active = false
+
 #the ability to add tokens, networks, onramps, and endpoint contracts would be nice
 #I may need to be flexible in allowing addition of networks that do not monitor
 #onramps of every other chain, nor require that each added network be monitored by
@@ -40,11 +42,11 @@ var default_network_info = {
 				},
 				{
 					"network": "Optimism Sepolia",
-					"contract": "0xx69CaB5A0a08a12BaFD8f5B195989D709E396Ed4d"
+					"contract": "0x69CaB5A0a08a12BaFD8f5B195989D709E396Ed4d"
 				}
 			
 		],
-		"endpoint_contract": "0x39E98Ab623cf367462d049aB389E6f3083556dA8",
+		"endpoint_contract": "0xD9E254783C240ece646C00e2D3c1Fb6Eb0215749",
 		"monitored_tokens": [], 
 		"minimum_gas_threshold": 0.0002,
 		"maximum_gas_fee": "",
@@ -99,7 +101,7 @@ var default_network_info = {
 				}
 			
 		],
-		"endpoint_contract": "0x2e0d90fD5C983a5a76f5AB32698Db396Df066491",
+		"endpoint_contract": "0x8b98E266f5983084Fe5813E3d729391056c15692",
 		"monitored_tokens": [],
 		"minimum_gas_threshold": 0.0002,
 		"maximum_gas_fee": "",
@@ -116,10 +118,12 @@ var default_network_info = {
 
 #func _ready():
 func initialize():
+	active = true
 	get_address()
 	#get_gas_balances()	
 	crystal_ball = get_parent().get_node("ChronomancerLogo/LogoPivot")
 	$LoadSavedTokens.connect("pressed", self, "load_saved_tokens")
+	$LoadDemo.connect("pressed", self, "load_demo")
 	for network in networks:
 		var new_processor = order_processor.instance()
 		network_info[network]["order_processor"] = new_processor
@@ -131,11 +135,11 @@ func initialize():
 var log_timer = 1
 
 func _process(delta):
-	
-	log_timer -= delta
-	if log_timer < 0:
-		log_timer = 1
-		get_logs()
+	if active:
+		log_timer -= delta
+		if log_timer < 0:
+			log_timer = 1
+			get_logs()
 
 func get_logs():
 	var network_list = []
@@ -146,7 +150,7 @@ func get_logs():
 				network_list.append(network)
 	
 	for network in network_list:
-		perform_ethereum_request(network, "eth_getLogs", [{"fromBlock": "latest", "address": network_info[network]["onramp_contracts"], "topics": ["0xd0c3c799bf9e2639de44391e7f524d229b2b55f5b1ea94b2bf7da42f7243dddd"]}])
+		perform_ethereum_request(network, "eth_getLogs", [{"fromBlock": "latest", "address": network_info[network]["onramp_contracts"].duplicate(), "topics": ["0xd0c3c799bf9e2639de44391e7f524d229b2b55f5b1ea94b2bf7da42f7243dddd"]}])
 
 func perform_ethereum_request(network, method, params, extra_args={}):
 	var rpc = network_info[network]["rpc"]
@@ -190,6 +194,7 @@ func check_for_ccip_messages(from_network, get_result):
 					to_network = network["network"]
 			
 			if to_network != null:
+				print(from_network + " sent message to " + to_network)
 				network_info[to_network]["order_processor"].intake_message(message, from_network)
 
 func check_endpoint_allowance(network, get_result, extra_args):
@@ -314,7 +319,6 @@ func save_token(token):
 	
 	file.store_string(JSON.print(new_content))
 	file.close()
-	
 
 func load_saved_tokens():
 	var file = File.new()
@@ -383,3 +387,62 @@ func convert_to_smallnum(bignum, token_decimals):
 		new_smallnum = new_smallnum.left(zero_parse_index).trim_suffix(".")
 	
 	return new_smallnum
+
+func load_demo():
+	var tokens = []
+	var new_token = {
+		"serviced_network": "Ethereum Sepolia",
+		"local_token_contract": "0xFd57b4ddBf88a4e07fF4e34C487b99af2Fe82a05",
+		"token_name": "CCIP-BnM",
+		"token_decimals": "18",
+		"monitored_networks": {
+			"Optimism Sepolia": "0x8aF4204e30565DF93352fE8E1De78925F6664dA7",
+			"Arbitrum Sepolia": "0xA8C0c11bf64AF62CDCA6f93D3769B88BdD7cb93D"
+		},
+		"endpoint_contract":"0xD9E254783C240ece646C00e2D3c1Fb6Eb0215749",
+		"minimum": "0",
+		"gas_balance": "0",
+		"token_balance": "0",
+		"token_node": ""
+	}
+	
+	tokens.append(new_token.duplicate())
+	
+	var new_token2 = {
+		"serviced_network": "Optimism Sepolia",
+		"local_token_contract": "0x8aF4204e30565DF93352fE8E1De78925F6664dA7",
+		"token_name": "CCIP-BnM",
+		"token_decimals": "18",
+		"monitored_networks": {
+			"Ethereum Sepolia": "0xFd57b4ddBf88a4e07fF4e34C487b99af2Fe82a05",
+			"Arbitrum Sepolia": "0xA8C0c11bf64AF62CDCA6f93D3769B88BdD7cb93D"
+		},
+		"endpoint_contract":"0x8b98E266f5983084Fe5813E3d729391056c15692",
+		"minimum": "0",
+		"gas_balance": "0",
+		"token_balance": "0",
+		"token_node": ""
+	}
+	
+	tokens.append(new_token2.duplicate())
+	
+	var new_token3 = {
+		"serviced_network": "Arbitrum Sepolia",
+		"local_token_contract": "0xA8C0c11bf64AF62CDCA6f93D3769B88BdD7cb93D",
+		"token_name": "CCIP-BnM",
+		"token_decimals": "18",
+		"monitored_networks": {
+			"Ethereum Sepolia": "0xFd57b4ddBf88a4e07fF4e34C487b99af2Fe82a05",
+			"Optimism Sepolia": "0x8aF4204e30565DF93352fE8E1De78925F6664dA7"
+		},
+		"endpoint_contract":"0x69487b0e0CF57Ad6b4339cda70a45b4aDB8eef08",
+		"minimum": "0",
+		"gas_balance": "0",
+		"token_balance": "0",
+		"token_node": ""
+	}
+	
+	tokens.append(new_token3.duplicate())
+	
+	for token in tokens:
+		add_monitored_token(token.duplicate())

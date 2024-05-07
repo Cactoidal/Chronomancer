@@ -22,10 +22,11 @@ func load_info(main, token):
 	var network = monitorable_token["serviced_network"]
 	var token_name = monitorable_token["token_name"]
 	var monitored_networks = monitorable_token["monitored_networks"]
-	var minimum = main_script.convert_to_smallnum(monitorable_token["minimum"])
+	var token_decimals = monitorable_token["token_decimals"] 
+	var minimum = main_script.convert_to_smallnum(monitorable_token["minimum"], token_decimals)
 	var gas_balance = monitorable_token["gas_balance"]
 	var token_balance = monitorable_token["token_balance"]
-	var network_info = main_script.network_info
+	var network_info = main_script.network_info.duplicate()
 	
 	$MainPanel/NetworkLogo.texture = load(network_info[network]["logo"])
 	
@@ -97,15 +98,16 @@ func confirm_close():
 
 func update_balances(balance):
 	monitorable_token["gas_balance"] = balance
-	$MainPanel/GasBalance.text = monitorable_token["serviced_network"] + " Gas Balance: " + main_script.convert_to_smallnum(balance)
+	$MainPanel/GasBalance.text = monitorable_token["serviced_network"] + " Gas Balance: " + main_script.convert_to_smallnum(balance, 18)
 	get_erc20_balance(monitorable_token["serviced_network"], monitorable_token["local_token_contract"])
 	
 	
 
 
 func get_erc20_balance(network, token_contract):
-	var chain_id = int(main_script.network_info[network]["chain_id"])
-	var rpc = main_script.network_info[network]["rpc"]
+	var network_info = main_script.network_info.duplicate()
+	var rpc = network_info[network]["rpc"]
+	var chain_id = int(network_info[network]["chain_id"])
 	var file = File.new()
 	file.open_encrypted_with_pass("user://encrypted_keystore", File.READ, main_script.password)
 	var content = file.get_buffer(32)
@@ -114,7 +116,8 @@ func get_erc20_balance(network, token_contract):
 	perform_ethereum_request(network, "eth_call", [{"to": token_contract, "input": calldata}, "latest"], {"function_name": "check_token_balance", "token_contract": token_contract})
 
 func perform_ethereum_request(network, method, params, extra_args={}):
-	var rpc = main_script.network_info[network]["rpc"]
+	var network_info = main_script.network_info.duplicate()
+	var rpc = network_info[network]["rpc"]
 	
 	var http_request = eth_http_request.instance()
 	http.add_child(http_request)
@@ -140,7 +143,8 @@ func update_erc20_balance(get_result):
 	if "result" in get_result.keys():
 		var balance = FastCcipBot.decode_u256(get_result["result"])
 		monitorable_token["token_balance"] = balance
-		$MainPanel/TokenBalance.text = monitorable_token["token_name"] + " Balance:\n" + main_script.convert_to_smallnum(balance)
+		var token_decimals = monitorable_token["token_decimals"]
+		$MainPanel/TokenBalance.text = monitorable_token["token_name"] + " Balance:\n" + main_script.convert_to_smallnum(balance, token_decimals)
 		
 
 

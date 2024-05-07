@@ -104,7 +104,6 @@ func check_gas_balance(get_result, response_code):
 	if response_code == 200:
 		var balance = String(get_result["result"].hex_to_int())
 		balance = main_script.convert_to_smallnum(balance, 18)
-		#may need to be checked in rust
 		var network_info = main_script.network_info.duplicate()
 		if float(balance) > float(network_info[network]["minimum_gas_threshold"]):
 			current_method = "eth_call"
@@ -171,7 +170,7 @@ func get_tx_count(get_result, response_code):
 func get_gas_price(get_result, response_code):
 	if response_code == 200:
 		gas_price = int(ceil((get_result["result"].hex_to_int() * 1.1))) #adjusted up
-		#adjustable filter for gas spikes
+	
 		current_method = "eth_sendRawTransaction"
 		
 		var network_info = main_script.network_info.duplicate()
@@ -180,6 +179,15 @@ func get_gas_price(get_result, response_code):
 		var endpoint_contract = network_info[network]["endpoint_contract"]
 		
 		mark_queued_order_as_checked()
+		
+		var maximum_gas_fee = network_info[network]["maximum_gas_fee"]
+		
+		print("gas price:")
+		print(String(gas_price))
+		if maximum_gas_fee != "":
+			if gas_price > int(maximum_gas_fee):
+				gas_fee_too_high()
+				return
 		
 		var file = File.new()
 		file.open_encrypted_with_pass("user://encrypted_keystore", File.READ, main_script.password)
@@ -205,22 +213,26 @@ func set_signed_data(var signature):
 	perform_ethereum_request("eth_sendRawTransaction", [signed_data])
 
 func get_transaction_hash(get_result, response_code):
-	if response_code == 200 && get_result.has("result"):
-		print("sent tx")
-		print(get_result)
-		tx_hash = get_result["result"]
-		checking_for_tx_receipt = true
-		current_method = "eth_getTransactionReceipt"
-		tx_receipt_poll_timer = 4
+	if response_code == 200:
+		if typeof(get_result) != 4:
+			if get_result.has("result"):
+				print("sent tx")
+				print(get_result)
+				tx_hash = get_result["result"]
+				checking_for_tx_receipt = true
+				current_method = "eth_getTransactionReceipt"
+				tx_receipt_poll_timer = 4
+				
+				var transaction = {
+				"network": network,
+				"type": current_tx_type,
+				"hash": tx_hash
+				}
+				
+				pending_tx = main_script.load_transaction(transaction)
 		
-		var transaction = {
-		"network": network,
-		"type": current_tx_type,
-		"hash": tx_hash
-		}
-		
-		pending_tx = main_script.load_transaction(transaction)
-		
+		else:
+			rpc_error()
 		
 	else:
 		rpc_error()
@@ -267,6 +279,11 @@ func rpc_error():
 func gas_error():
 	order_filling_paused = false
 	print("insufficient gas")
+
+func gas_fee_too_high():
+	order_filling_paused = false
+	print("gas fee too high")
+	
 
 func invalid_order():
 	mark_queued_order_as_checked()

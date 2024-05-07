@@ -103,6 +103,14 @@ margin_bottom = 69.0
 mouse_default_cursor_shape = 2
 text = "Load Saved Tokens"
 
+[node name="LoadDemo" type="Button" parent="Main"]
+margin_left = 143.0
+margin_top = 49.0
+margin_right = 232.0
+margin_bottom = 69.0
+mouse_default_cursor_shape = 2
+text = "Load Demo"
+
 [node name="MonitoredTokenList" parent="Main" instance=ExtResource( 9 )]
 
 [node name="SentTransactionsList" parent="Main" instance=ExtResource( 11 )]
