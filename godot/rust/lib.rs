@@ -565,6 +565,13 @@ fn decode_address (message: GodotString) -> GodotString {
     return_string
 }
 
+#[method]
+fn decode_bytes (message: GodotString) -> GodotString {
+    let raw_hex: String = message.to_string();
+    let decoded: Bytes = ethers::abi::AbiDecode::decode_hex(raw_hex).unwrap();
+    let return_string: GodotString = format!("{:?}", decoded).into();
+    return_string
+}
 
 #[method]
 fn decode_u256 (message: GodotString) -> GodotString {
@@ -573,6 +580,214 @@ fn decode_u256 (message: GodotString) -> GodotString {
     let return_string: GodotString = format!("{:?}", decoded).into();
     return_string
 }
+
+
+
+#[method]
+fn decode_u256_array (message: GodotString) -> GodotString {
+    let raw_hex: String = message.to_string();
+    let decoded: Vec<U256> = ethers::abi::AbiDecode::decode_hex(raw_hex).unwrap();
+    let return_string: GodotString = format!("{:?}", decoded).into();
+    return_string
+}
+
+
+#[method]
+fn decode_u256_array_from_bytes (message: GodotString) -> GodotString {
+    let raw_hex: String = message.to_string();
+    //let bytes: Bytes = ethers::abi::AbiDecode::decode_hex(raw_hex).unwrap();
+    let decoded_bytes: [U256; 5] = ethers::abi::AbiDecode::decode_hex(raw_hex).unwrap();
+    godot_print!("{:?}", decoded_bytes);
+    let return_string: GodotString = format!("{:?}", decoded_bytes).into();
+    return_string
+}
+
+
+
+
+//  EXPERIMENTAL //
+#[method]
+fn get_function_selector(function_bytes: PoolArray<u8>) -> GodotString {
+    let selector_bytes = ethers::utils::keccak256(&function_bytes.to_vec()[..]);
+    
+    let selector = hex::encode(selector_bytes);
+    
+    selector.to_string().into()
+
+}
+
+
+
+#[method]
+#[tokio::main]
+async fn get_signed_calldata(key: PoolArray<u8>, chain_id: u64, _gas_limit: GodotString, _gas_fee: u64, _count: u64, _contract_address: GodotString, _value: GodotString, _calldata: String, ui_node: Ref<Node>) -> NewFuture {
+             
+let wallet : LocalWallet = LocalWallet::from_bytes(&key.to_vec()[..]).unwrap().with_chain_id(chain_id);
+                
+let user_address = wallet.address();
+        
+let contract_address: Address = _contract_address.to_string().parse().unwrap();
+
+let big_uint_gas_limit: BigUint = _gas_limit.to_string().parse().unwrap();
+
+let gas_limit: U256 = U256::from_big_endian(big_uint_gas_limit.to_bytes_be().as_slice());
+
+let big_uint_value: BigUint = _value.to_string().parse().unwrap();
+
+let value: U256 = U256::from_big_endian(big_uint_value.to_bytes_be().as_slice());
+
+let calldata_bytes = hex::decode(_calldata).unwrap();
+
+let calldata: Bytes = calldata_bytes.into();
+
+let tx = Eip1559TransactionRequest::new()
+    .from(user_address)
+    .to(contract_address) 
+    .value(value)
+    .gas(gas_limit) //recommend 900000
+    .max_fee_per_gas(_gas_fee)
+    .max_priority_fee_per_gas(_gas_fee)
+    .chain_id(chain_id)
+    .nonce(_count)
+    .data(calldata);
+
+let typed_tx: TypedTransaction = TypedTransaction::Eip1559(tx.clone());
+
+let signature = wallet.sign_transaction(&typed_tx).await.unwrap();
+
+let signed_data = TypedTransaction::rlp_signed(&typed_tx, &signature);
+
+let node: TRef<Node> = unsafe { ui_node.assume_safe() };
+
+unsafe {
+    node.call("set_signed_data", &[hex::encode(signed_data).to_variant()])
+};
+
+NewFuture(Ok(()))
+
+}
+
+#[method]
+fn encode_address (_address: GodotString) -> GodotString {
+    let address: Address = _address.to_string().parse().unwrap();
+    let encoded = ethers::abi::AbiEncode::encode(address);
+    let return_string: GodotString = hex::encode(encoded).into();
+    return_string
+}
+
+#[method]
+fn encode_u256 (_big_uint: GodotString) -> GodotString {
+    let big_uint: BigUint = _big_uint.to_string().parse().unwrap();
+    let u256: U256 = U256::from_big_endian(big_uint.to_bytes_be().as_slice());
+    let encoded = ethers::abi::AbiEncode::encode(u256);
+    let return_string: GodotString = hex::encode(encoded).into();
+    return_string
+}
+
+#[method]
+fn encode_u256_array (_big_uints: PoolArray<GodotString>) -> GodotString {
+
+    let big_uint_strings: Vec<String> = _big_uints.to_vec().iter().map(|e| e.to_string() as String).collect();
+
+    let big_uint_vec: Vec<BigUint> = big_uint_strings.iter().map(|e|e.parse::<BigUint>().unwrap() as BigUint).collect();
+
+    let u256_vec: Vec<U256> = big_uint_vec.iter().map(|e|U256::from_big_endian(e.to_bytes_be().as_slice()) as U256).collect();
+
+    let encoded = ethers::abi::AbiEncode::encode_hex(u256_vec);
+
+    let return_string: GodotString = format!("{:?}", encoded).into();
+
+    return_string
+}
+
+#[method]
+fn encode_bytes (message: GodotString) -> GodotString {
+
+    godot_print!("message: {:?}", message);
+
+    let hex_message = hex::encode(message.to_string());
+
+    godot_print!("hex message: {:?}", hex_message);
+
+    let bytes: Bytes = hex::decode(hex_message).unwrap().into();
+
+    godot_print!("bytes: {:?}", bytes);
+
+    let encoded = ethers::abi::AbiEncode::encode_hex(bytes);
+
+    let return_string: GodotString = format!("{:?}", encoded).into();
+
+    return_string
+}
+
+
+
+#[method]
+fn get_hex_bytes (message: GodotString) -> PoolArray<u8> {
+
+    let message_vec = hex::decode(message.to_string()).unwrap();
+
+    let mut pool_byte_array = PoolArray::<u8>::new();
+  
+    pool_byte_array.resize(message_vec.len() as i32);
+  
+    for (i, byte) in message_vec.iter().enumerate() {
+        pool_byte_array.set(i as i32, *byte);
+    }
+ 
+    pool_byte_array.into()
+
+
+}
+
+#[method]
+fn old_encode_bytes (byte_array: PoolArray<u8>) -> GodotString {
+
+    let bytes: Bytes = byte_array.to_vec().into();
+
+    let encoded = ethers::abi::AbiEncode::encode(bytes);
+
+    let return_string: GodotString = hex::encode(encoded).into();
+
+    return_string
+}
+
+#[method]
+fn another_encode_bytes (byte_array: PoolArray<u8>) -> GodotString {
+
+    let bytes: Bytes = byte_array.to_vec().into();
+
+    let abi_bytes = ethers::abi::AbiEncode::encode(bytes);
+
+    let hex = hex::encode(abi_bytes);
+
+    hex.into()
+
+}
+
+#[method]
+fn yet_another_encode_bytes (byte_array: PoolArray<u8>) -> GodotString {
+
+    let abi_bytes = ethers::abi::encode_packed(&[ethers::abi::Token::Bytes(byte_array.to_vec())]).unwrap();
+
+    let hex = hex::encode(abi_bytes);
+
+    hex.into()
+
+}
+
+#[method]
+fn also_encode_string (_string: GodotString) -> GodotString {
+
+    let abi_bytes = ethers::abi::encode_packed(&[ethers::abi::Token::String(_string.to_string())]).unwrap();
+
+    let hex = hex::encode(abi_bytes);
+
+    hex.into()
+
+}
+
+
 
 
 
