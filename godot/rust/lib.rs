@@ -7,7 +7,7 @@ use hex::*;
 use num_bigint::{BigUint, BigInt};
 
 
-// Declare your ABIs here
+// Declare ABIs here
 
 abigen!(
     FastCCIPBotABI,
@@ -29,7 +29,7 @@ abigen!(
 
 fn init(handle: InitHandle) {
     
-    // Name of your Godot Class for the GDNative Library
+    // Name of the Godot Class for the GDNative Library
     handle.add_class::<FastCCIPBot>();
 }
 
@@ -389,7 +389,7 @@ fn decode_u256_array_from_bytes (message: GodotString) -> GodotString {
 }
 
 
-// Initializes all the Godot class methods you defined above
+// Initializes all the Godot class methods defined above
 
 godot_init!(init);
 
