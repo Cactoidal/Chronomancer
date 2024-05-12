@@ -120,7 +120,7 @@ func check_keystore():
 
 func check_network_info():
 	var file = File.new()
-	if file.file_exists("user://network_info") == true:
+	if file.file_exists("user://network_info") != true:
 		var network_info = Network.default_network_info.duplicate()
 		Network.network_info = network_info
 		file.open("user://network_info", File.WRITE)
