@@ -1,18 +1,12 @@
-extends HTTPRequest
+extends Node
 
-var header = "Content-Type: application/json"
-
-var network
 var main_script
-var user_address
+var network
 
 var pending_messages = []
 var message_filtering_paused = false
 
 var message_in_queue
-
-func _ready():
-	self.connect("request_completed", self, "resolve_ethereum_request")
 
 func _process(delta):
 	filter_orders()
@@ -25,9 +19,8 @@ func intake_message(message, from_network):
 			if pending_message["message"] == message:
 				is_new_message = false
 	if is_new_message:
-		var network_info = main_script.network_info.duplicate()
-		print("got message")
-		print("going to " + network_info[network]["rpc"])
+		var network_info = Network.network_info.duplicate()
+		
 		pending_messages.append(
 			{
 			"message": message,
@@ -46,10 +39,9 @@ func filter_orders():
 				pending_message["checked"] = true
 				message_in_queue = pending_message
 				compose_message(pending_message["message"], pending_message["from_network"])
-				print("composing message")
 
 func compose_message(message, from_network):
-	var network_info = main_script.network_info.duplicate()
+	var network_info = Network.network_info.duplicate()
 	var rpc = network_info[network]["rpc"]
 	var chain_id = int(network_info[network]["chain_id"])
 	var endpoint_contract = network_info[network]["endpoint_contract"]
@@ -62,52 +54,41 @@ func compose_message(message, from_network):
 	for token in monitored_tokens:
 		local_token_contracts.append(token["local_token_contract"])
 		remote_token_contracts.append(token["monitored_networks"][from_network])
-		#allow custom minimum
 		token_minimum_list.append(token["minimum"])
-		#token_minimum_list.append("0")
 		
-	var file = File.new()
-	file.open_encrypted_with_pass("user://encrypted_keystore", File.READ, main_script.password)
-	var content = file.get_buffer(32)
-	file.close()
+	var key = Ethers.get_key()
+
+	var calldata = FastCcipBot.filter_order(
+		key, 
+		chain_id, 
+		endpoint_contract, 
+		rpc, 
+		message, 
+		local_token_contracts, 
+		remote_token_contracts, 
+		token_minimum_list
+		)
 	
-	print("I am checking this order RIGHT NOW")
-	var calldata = FastCcipBot.filter_order(content, chain_id, endpoint_contract, rpc, message, local_token_contracts, remote_token_contracts, token_minimum_list)
-	
-	perform_ethereum_request("eth_call", [{"to": endpoint_contract, "input": calldata}, "latest"])
+	Ethers.perform_request(
+		"eth_call", 
+		[{"to": endpoint_contract, "input": calldata}, "latest"], 
+		rpc, 
+		0, 
+		self, 
+		"check_message_validity", 
+		{}
+		)
 	
 
-func perform_ethereum_request(method, params, extra_args={}):
-	var network_info = main_script.network_info.duplicate()
-	var rpc = network_info[network]["rpc"]
-	
-	var tx = {"jsonrpc": "2.0", "method": method, "params": params, "id": 7}
-	
-	request(rpc, 
-	[header], 
-	true, 
-	HTTPClient.METHOD_POST, 
-	JSON.print(tx))
-
-func resolve_ethereum_request(result, response_code, headers, body):
-	var get_result = parse_json(body.get_string_from_ascii())
-	
-	print(get_result)
-	if response_code == 200 && get_result.has("result"):
-		print("checked validity:")
-		print(get_result)
-		var valid = get_result["result"]
-		#var valid = FastCcipBot.decode_bool(get_result["result"])
+func check_message_validity(callback):
+	if callback["success"]:
+		var valid = callback["result"]
 		if valid != "0x0000000000000000000000000000000000000000000000000000000000000000":
 			message_in_queue["local_token"] = valid
 			$OrderFiller.intake_order(message_in_queue.duplicate())
-			print("sent order to filler")
-		else:
-			print("invalid order")
-	else:
-		print("invalid order")
 	
 	message_filtering_paused = false
+
 
 func prune_pending_messages(delta):
 	if !pending_messages.empty():
@@ -118,6 +99,5 @@ func prune_pending_messages(delta):
 				deletion_queue.append(pending_message)
 		if !deletion_queue.empty():
 			for deletable in deletion_queue:
-				print("old message timed out")
 				pending_messages.erase(deletable)
 	

@@ -1,135 +1,28 @@
 extends Control
 
-var eth_http_request = preload("res://EthRequest.tscn")
+
 var order_processor = preload("res://OrderProcessor.tscn")
 var monitorable_token = preload("res://MonitorableToken.tscn")
 var sent_transaction = preload("res://SentTransaction.tscn")
 
 var crystal_ball
 
-var password
-var user_address
-var header = "Content-Type: application/json"
-
-
 var monitorable_tokens = []
 var active_monitored_tokens = []
 
 var active = false
 
-#the ability to add tokens, networks, onramps, and endpoint contracts would be nice
-#I may need to be flexible in allowing addition of networks that do not monitor
-#onramps of every other chain, nor require that each added network be monitored by
-#each other chain
-
-#eventually let's move this data blob somewhere else
-# so it's not cluttering the top of this script
-var network_info = {}
-var default_network_info = {
-	
-	"Ethereum Sepolia": 
-		{
-		"chain_id": 11155111,
-		"rpc": "https://endpoints.omniatech.io/v1/eth/sepolia/public",
-		"gas_balance": "0", 
-		"onramp_contracts": ["0xe4Dd3B16E09c016402585a8aDFdB4A18f772a07e", "0x69CaB5A0a08a12BaFD8f5B195989D709E396Ed4d"],
-		"onramp_contracts_by_network": 
-			[
-				{
-					"network": "Arbitrum Sepolia",
-					"contract": "0xe4Dd3B16E09c016402585a8aDFdB4A18f772a07e"
-				},
-				{
-					"network": "Optimism Sepolia",
-					"contract": "0x69CaB5A0a08a12BaFD8f5B195989D709E396Ed4d"
-				}
-			
-		],
-		"endpoint_contract": "0xD9E254783C240ece646C00e2D3c1Fb6Eb0215749",
-		"monitored_tokens": [], 
-		"minimum_gas_threshold": 0.0002,
-		"maximum_gas_fee": "",
-		"latest_block": "latest",
-		"order_processor": null,
-		"scan_url": "https://sepolia.etherscan.io/",
-		"logo": "res://assets/Ethereum.png"
-		},
-		
-	"Arbitrum Sepolia": 
-		{
-		"chain_id": 421614,
-		"rpc": "https://sepolia-rollup.arbitrum.io/rpc",
-		"gas_balance": "0", 
-		"onramp_contracts": ["0x4205E1Ca0202A248A5D42F5975A8FE56F3E302e9", "0x701Fe16916dd21EFE2f535CA59611D818B017877"],
-		"onramp_contracts_by_network": 
-			[
-				{
-					"network": "Ethereum Sepolia",
-					"contract": "0x4205E1Ca0202A248A5D42F5975A8FE56F3E302e9"
-				},
-				{
-					"network": "Optimism Sepolia",
-					"contract": "0x701Fe16916dd21EFE2f535CA59611D818B017877"
-				}
-			
-		],
-		"endpoint_contract": "0x69487b0e0CF57Ad6b4339cda70a45b4aDB8eef08",
-		"monitored_tokens": [],
-		"minimum_gas_threshold": 0.0002,
-		"maximum_gas_fee": "",
-		"latest_block": "latest",
-		"order_processor": null,
-		"scan_url": "https://sepolia.arbiscan.io/",
-		"logo": "res://assets/Arbitrum.png"
-		},
-		
-	"Optimism Sepolia": {
-		"chain_id": 11155420,
-		"rpc": "https://sepolia.optimism.io",
-		"gas_balance": "0", 
-		"onramp_contracts": ["0xC8b93b46BF682c39B3F65Aa1c135bC8A95A5E43a", "0x1a86b29364D1B3fA3386329A361aA98A104b2742"],
-		"onramp_contracts_by_network": 
-			[
-				{
-					"network": "Ethereum Sepolia",
-					"contract": "0xC8b93b46BF682c39B3F65Aa1c135bC8A95A5E43a"
-				},
-				{
-					"network": "Arbitrum Sepolia",
-					"contract": "0x1a86b29364D1B3fA3386329A361aA98A104b2742"
-				}
-			
-		],
-		"endpoint_contract": "0x8b98E266f5983084Fe5813E3d729391056c15692",
-		"monitored_tokens": [],
-		"minimum_gas_threshold": 0.0002,
-		"maximum_gas_fee": "",
-		"latest_block": "latest",
-		"order_processor": null,
-		"scan_url": "https://sepolia-optimism.etherscan.io/",
-		"logo": "res://assets/Optimism.png"
-	}
-	
-#	"Polygon Mumbai": {},
-#	"Base Testnet": {}
-}
-
-
-#func _ready():
 func initialize():
 	active = true
-	get_address()
-	#get_gas_balances()	
 	crystal_ball = get_parent().get_node("ChronomancerLogo/LogoPivot")
 	$LoadSavedTokens.connect("pressed", self, "load_saved_tokens")
 	$LoadDemo.connect("pressed", self, "load_demo")
-	for network in network_info.keys():
+	for network in Network.network_info.keys():
 		var new_processor = order_processor.instance()
-		network_info[network]["order_processor"] = new_processor
+		Network.network_info[network]["order_processor"] = new_processor
 		new_processor.network = network
 		new_processor.main_script = self
-		new_processor.user_address = user_address
-		$HTTP.add_child(new_processor)
+		$OrderProcessors.add_child(new_processor)
 
 var log_timer = 1
 
@@ -137,7 +30,7 @@ func _process(delta):
 	if active:
 		log_timer -= delta
 		if log_timer < 0:
-			log_timer = 4
+			log_timer = 1
 			get_logs()
 
 func get_logs():
@@ -149,44 +42,27 @@ func get_logs():
 				network_list.append(network)
 	
 	for network in network_list:
-		print("getting block")
-		perform_ethereum_request(network, "eth_blockNumber", [])
-		#perform_ethereum_request(network, "eth_getLogs", [{"fromBlock": "latest", "address": network_info[network]["onramp_contracts"].duplicate(), "topics": ["0xd0c3c799bf9e2639de44391e7f524d229b2b55f5b1ea94b2bf7da42f7243dddd"]}])
-
-func perform_ethereum_request(network, method, params, extra_args={}):
-	var rpc = network_info[network]["rpc"]
-	
-	var http_request = eth_http_request.instance()
-	$HTTP.add_child(http_request)
-	http_request.network = network
-	http_request.request_type = method
-	http_request.main_script = self
-	http_request.extra_args = extra_args
-	http_request.connect("request_completed", http_request, "resolve_ethereum_request")
-	
-	var tx = {"jsonrpc": "2.0", "method": method, "params": params, "id": 7}
-	
-	http_request.request(rpc, 
-	[header], 
-	true, 
-	HTTPClient.METHOD_POST, 
-	JSON.print(tx))
-
-func resolve_ethereum_request(network, method, get_result, extra_args):
-	match method:
-		"eth_getBalance": update_balance(network, get_result)
-		"eth_blockNumber": update_block_number(network, get_result)
-		"eth_getLogs": check_for_ccip_messages(network, get_result)
-		"eth_call": check_endpoint_allowance(network, get_result, extra_args)
-
-func check_for_ccip_messages(from_network, get_result):
-	if get_result["result"] != []:
-		for event in get_result["result"]:
+		Ethers.perform_request(
+			"eth_blockNumber", 
+			[], 
+			Network.network_info[network]["rpc"], 
+			0, 
+			self, 
+			"update_block_number", 
+			{"network": network}
+			)
+		
+func check_for_ccip_messages(callback):
+	if callback["success"]:
+		
+		var from_network = callback["callback_args"]["network"]
+		
+		for event in callback["result"]:
 			
 			var message = event["data"].right(2)
 			var onramp = event["address"]
 				
-			var onramp_list = network_info[from_network]["onramp_contracts_by_network"].duplicate()
+			var onramp_list = Network.network_info[from_network]["onramp_contracts_by_network"].duplicate()
 			var to_network
 			for network in onramp_list:
 				if network["contract"] != onramp:
@@ -196,55 +72,45 @@ func check_for_ccip_messages(from_network, get_result):
 			
 			if to_network != null:
 				print(from_network + " sent message to " + to_network)
-				network_info[to_network]["order_processor"].intake_message(message, from_network)
+				Network.network_info[to_network]["order_processor"].intake_message(message, from_network)
 
-func check_endpoint_allowance(network, get_result, extra_args):
-	var local_token_contract = extra_args["local_token_contract"]
-	var endpoint_contract = extra_args["endpoint_contract"]
+
+func check_endpoint_allowance(callback):
+	var network = callback["callback_args"]["network"]
+	var local_token_contract = callback["callback_args"]["local_token_contract"]
+	var endpoint_contract = callback["callback_args"]["endpoint_contract"]
 	
-	var allowance = get_result["result"]
+	var allowance = callback["result"]
 	if allowance != "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff":
-		var order_filler = network_info[network]["order_processor"].get_node("OrderFiller")
+		var order_filler = Network.network_info[network]["order_processor"].get_node("OrderFiller")
 		print(network + " endpoint " + endpoint_contract + " needs approval to spend local token " + local_token_contract)
 		order_filler.needs_to_approve = true
 		order_filler.pending_approvals.append(
 			{
 				"endpoint_contract": endpoint_contract, 
 				"local_token_contract": local_token_contract,
-				"monitorable_token": extra_args["monitorable_token"]
+				"monitorable_token": callback["callback_args"]["monitorable_token"]
 			}
 		)
-		extra_args["monitorable_token"].get_node("MainPanel/Monitor").text = "Approving..."
+		callback["callback_args"]["monitorable_token"].get_node("MainPanel/Monitor").text = "Approving..."
 	else:
 		print(network + " endpoint " + endpoint_contract + " has allowance to spend local token " + local_token_contract)
-		extra_args["monitorable_token"].approved = true
+		callback["callback_args"]["monitorable_token"].approved = true
 
-func ethereum_request_failed(network, method, extra_args):
-	pass
-
-
-func get_address():
-	var file = File.new()
-	file.open_encrypted_with_pass("user://encrypted_keystore", File.READ, password)
-	var content = file.get_buffer(32)
-	user_address = FastCcipBot.get_address(content)
-	file.close()
 
 func get_gas_balances():
-	for network in network_info.keys():
-		perform_ethereum_request(network, "eth_getBalance", [user_address, "latest"])
+	for network in Network.network_info.keys():
+		Ethers.perform_request(
+			"eth_getBalance", 
+			[Ethers.user_address, "latest"], 
+			Network.network_info[network]["rpc"], 
+			0, 
+			self, 
+			"update_balance", 
+			{"network": network}
+			)
 
-func get_erc20_balance(network, token_contract):
-	var chain_id = int(network_info[network]["chain_id"])
-	var rpc = network_info[network]["rpc"]
-	var file = File.new()
-	file.open_encrypted_with_pass("user://encrypted_keystore", File.READ, password)
-	var content = file.get_buffer(32)
-	file.close()
-	var calldata = FastCcipBot.check_token_balance(content, chain_id, rpc, token_contract)
-	perform_ethereum_request(network, "eth_call", [{"to": token_contract, "input": calldata}, "latest"], {"function_name": "check_token_balance", "token_contract": token_contract})
 
-#DEBUG
 var token_downshift = 0
 func add_monitored_token(new_monitored_token):
 	var serviced_network = new_monitored_token["serviced_network"]
@@ -257,27 +123,43 @@ func add_monitored_token(new_monitored_token):
 		
 		var instanced_monitorable_token = monitorable_token.instance()
 		new_monitored_token["token_node"] = instanced_monitorable_token
-		network_info[serviced_network]["monitored_tokens"].append(new_monitored_token)
+		Network.network_info[serviced_network]["monitored_tokens"].append(new_monitored_token)
 		monitorable_tokens.append(new_monitored_token)
 		
 		instanced_monitorable_token.load_info(self, new_monitored_token)
 		
-		#position sorting needed
 		$MonitoredTokenList/MonitoredTokenScroll/MonitoredTokenContainer.add_child(instanced_monitorable_token)
 		instanced_monitorable_token.rect_position.y += token_downshift
 		token_downshift += 270
 		$MonitoredTokenList/MonitoredTokenScroll/MonitoredTokenContainer.rect_min_size.y += 270
 		
 		#check token approval
-		var chain_id = int(network_info[serviced_network]["chain_id"])
-		var rpc = network_info[serviced_network]["rpc"]
-		var file = File.new()
-		file.open_encrypted_with_pass("user://encrypted_keystore", File.READ, password)
-		var content = file.get_buffer(32)
-		file.close()
-		var calldata = FastCcipBot.check_endpoint_allowance(content, chain_id, rpc, local_token_contract, endpoint_contract)
-		perform_ethereum_request(serviced_network, "eth_call", [{"to": local_token_contract, "input": calldata}, "latest"], {"function_name": "check_endpoint_allowance", "local_token_contract": local_token_contract, "endpoint_contract": endpoint_contract, "monitorable_token": instanced_monitorable_token})
+		var chain_id = int(Network.network_info[serviced_network]["chain_id"])
+		var rpc = Network.network_info[serviced_network]["rpc"]
+		
+		var key = Ethers.get_key()
+		
+		var calldata = FastCcipBot.check_endpoint_allowance(key, chain_id, rpc, local_token_contract, endpoint_contract)
+		var params = [{"to": local_token_contract, "input": calldata}, "latest"]
+		var callback_args = {
+			"network": serviced_network, 
+			"function_name": "check_endpoint_allowance", 
+			"local_token_contract": local_token_contract, 
+			"endpoint_contract": endpoint_contract, 
+			"monitorable_token": instanced_monitorable_token
+			}
+			
+		Ethers.perform_request(
+			"eth_call", 
+			params, 
+			rpc, 0, 
+			self, 
+			"check_endpoint_allowance", 
+			callback_args
+			)
+		
 		get_gas_balances()
+
 
 var transaction_downshift = 0
 func load_transaction(transaction):
@@ -340,59 +222,47 @@ func check_for_token_match(token):
 			monitored_token = token
 			monitored_token["token_node"] = token_node
 			token_node.load_info(self, monitored_token)
-			for network_token in network_info[token_network]["monitored_tokens"]:
+			for network_token in Network.network_info[token_network]["monitored_tokens"]:
 				if network_token["local_token_contract"] == token_address:
 					network_token = monitored_token
 			return true
 	return false
 
-func update_balance(network, get_result):
-	var balance = String(get_result["result"].hex_to_int())
-	network_info[network]["gas_balance"] = balance
+func update_balance(callback):
+	var balance = String(callback["result"].hex_to_int())
+	var network = callback["callback_args"]["network"]
+	Network.network_info[network]["gas_balance"] = balance
 	for token in monitorable_tokens:
 		if token["serviced_network"] == network:
 			var node = token["token_node"]
 			node.update_balances(balance)
-	$GasBalances.get_node(network).text = balance
 
-func update_block_number(network, get_result):
-	var latest_block = get_result["result"]
-	var previous_block = network_info[network]["latest_block"] 
-	var params = {"fromBlock": previous_block, "address": network_info[network]["onramp_contracts"].duplicate(), "topics": ["0xd0c3c799bf9e2639de44391e7f524d229b2b55f5b1ea94b2bf7da42f7243dddd"]}
-	if previous_block != "latest":
-		params["toBlock"] = latest_block
-		perform_ethereum_request(network, "eth_getLogs", [params])
-	network_info[network]["latest_block"] = latest_block
 
-func convert_to_smallnum(bignum, token_decimals):
-	var size = bignum.length()
-	var new_smallnum = ""
-	if size <= int(token_decimals):
-		new_smallnum = "0."
-		var fill_length = int(token_decimals) - size
-		for zero in range(fill_length):
-			new_smallnum += "0"
-		new_smallnum += String(bignum)
-	elif size > 18:
-		new_smallnum = bignum
-		var decimal_index = size - 18
-		new_smallnum = new_smallnum.insert(decimal_index, ".")
-	
-	var index = 0
-	var zero_parse_index = 0
-	var prune = false
-	for digit in new_smallnum:
-		if digit == "0":
-			if !prune:
-				zero_parse_index = index
-				prune = true
-		else:
-			prune = false
-		index += 1
-	if prune:
-		new_smallnum = new_smallnum.left(zero_parse_index).trim_suffix(".")
-	
-	return new_smallnum
+func update_block_number(callback):
+	if callback["success"]:
+		var latest_block = callback["result"]
+		var network = callback["callback_args"]["network"]
+		var previous_block = Network.network_info[network]["latest_block"] 
+		var params = {"fromBlock": previous_block, "address": Network.network_info[network]["onramp_contracts"].duplicate(), "topics": ["0xd0c3c799bf9e2639de44391e7f524d229b2b55f5b1ea94b2bf7da42f7243dddd"]}
+		if previous_block != "latest":
+			params["toBlock"] = latest_block
+			
+			Ethers.perform_request(
+				"eth_getLogs", 
+				[params], 
+				Network.network_info[network]["rpc"], 
+				0, 
+				self, 
+				"check_for_ccip_messages",
+				{"network": network}
+				)
+			
+		Network.network_info[network]["latest_block"] = latest_block
+		
+		
+		
+
+
 
 func load_demo():
 	var tokens = []
@@ -403,7 +273,8 @@ func load_demo():
 		"token_decimals": "18",
 		"monitored_networks": {
 			"Optimism Sepolia": "0x8aF4204e30565DF93352fE8E1De78925F6664dA7",
-			"Arbitrum Sepolia": "0xA8C0c11bf64AF62CDCA6f93D3769B88BdD7cb93D"
+			"Arbitrum Sepolia": "0xA8C0c11bf64AF62CDCA6f93D3769B88BdD7cb93D",
+			"Base Sepolia": "0x88A2d74F47a237a62e7A51cdDa67270CE381555e"
 		},
 		"endpoint_contract":"0xD9E254783C240ece646C00e2D3c1Fb6Eb0215749",
 		"minimum": "0",
@@ -421,7 +292,8 @@ func load_demo():
 		"token_decimals": "18",
 		"monitored_networks": {
 			"Ethereum Sepolia": "0xFd57b4ddBf88a4e07fF4e34C487b99af2Fe82a05",
-			"Arbitrum Sepolia": "0xA8C0c11bf64AF62CDCA6f93D3769B88BdD7cb93D"
+			"Arbitrum Sepolia": "0xA8C0c11bf64AF62CDCA6f93D3769B88BdD7cb93D",
+			"Base Sepolia": "0x88A2d74F47a237a62e7A51cdDa67270CE381555e"
 		},
 		"endpoint_contract":"0x8b98E266f5983084Fe5813E3d729391056c15692",
 		"minimum": "0",
@@ -439,7 +311,8 @@ func load_demo():
 		"token_decimals": "18",
 		"monitored_networks": {
 			"Ethereum Sepolia": "0xFd57b4ddBf88a4e07fF4e34C487b99af2Fe82a05",
-			"Optimism Sepolia": "0x8aF4204e30565DF93352fE8E1De78925F6664dA7"
+			"Optimism Sepolia": "0x8aF4204e30565DF93352fE8E1De78925F6664dA7",
+			"Base Sepolia": "0x88A2d74F47a237a62e7A51cdDa67270CE381555e"
 		},
 		"endpoint_contract":"0x69487b0e0CF57Ad6b4339cda70a45b4aDB8eef08",
 		"minimum": "0",
@@ -449,6 +322,25 @@ func load_demo():
 	}
 	
 	tokens.append(new_token3.duplicate())
+	
+	var new_token4 = {
+		"serviced_network": "Base Sepolia",
+		"local_token_contract": "0x88A2d74F47a237a62e7A51cdDa67270CE381555e",
+		"token_name": "CCIP-BnM",
+		"token_decimals": "18",
+		"monitored_networks": {
+			"Ethereum Sepolia": "0xFd57b4ddBf88a4e07fF4e34C487b99af2Fe82a05",
+			"Optimism Sepolia": "0x8aF4204e30565DF93352fE8E1De78925F6664dA7",
+			"Arbitrum Sepolia": "0xA8C0c11bf64AF62CDCA6f93D3769B88BdD7cb93D",
+		},
+		"endpoint_contract":"0xC3E1D898D09511AD47842607779985BD95018DE2",
+		"minimum": "0",
+		"gas_balance": "0",
+		"token_balance": "0",
+		"token_node": ""
+	}
+	
+	tokens.append(new_token4.duplicate())
 	
 	for token in tokens:
 		add_monitored_token(token.duplicate())

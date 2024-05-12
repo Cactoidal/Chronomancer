@@ -1,7 +1,7 @@
 [gd_scene load_steps=14 format=2]
 
 [ext_resource path="res://Main.gd" type="Script" id=1]
-[ext_resource path="res://assets/Polygon.png" type="Texture" id=2]
+[ext_resource path="res://assets/Base.png" type="Texture" id=2]
 [ext_resource path="res://assets/EmptyButton.png" type="Texture" id=3]
 [ext_resource path="res://assets/Optimism.png" type="Texture" id=4]
 [ext_resource path="res://assets/Arbitrum.png" type="Texture" id=5]
@@ -25,73 +25,7 @@ anchor_right = 1.0
 anchor_bottom = 1.0
 script = ExtResource( 1 )
 
-[node name="Label" type="Label" parent="Main"]
-visible = false
-margin_left = 18.0
-margin_top = 15.0
-margin_right = 70.0
-margin_bottom = 29.0
-text = "Address"
-
-[node name="Address" type="LineEdit" parent="Main"]
-visible = false
-margin_left = 7.0
-margin_top = 36.0
-margin_right = 831.0
-margin_bottom = 64.0
-editable = false
-
-[node name="GasBalances" type="Control" parent="Main"]
-visible = false
-margin_right = 40.0
-margin_bottom = 40.0
-
-[node name="EthSepoliaLabel" type="Label" parent="Main/GasBalances"]
-margin_left = 18.0
-margin_top = 85.0
-margin_right = 96.0
-margin_bottom = 116.0
-text = "ETH Sepolia Balance
-"
-
-[node name="Ethereum Sepolia" type="Label" parent="Main/GasBalances"]
-margin_left = 18.0
-margin_top = 111.0
-margin_right = 70.0
-margin_bottom = 142.0
-text = "0"
-
-[node name="ArbSepoliaLabel" type="Label" parent="Main/GasBalances"]
-margin_left = 18.0
-margin_top = 131.0
-margin_right = 146.0
-margin_bottom = 162.0
-text = "ARB Sepolia Balance
-"
-
-[node name="Arbitrum Sepolia" type="Label" parent="Main/GasBalances"]
-margin_left = 18.0
-margin_top = 157.0
-margin_right = 70.0
-margin_bottom = 188.0
-text = "0"
-
-[node name="OpSepoliaLabel" type="Label" parent="Main/GasBalances"]
-margin_left = 16.0
-margin_top = 180.0
-margin_right = 146.0
-margin_bottom = 211.0
-text = "OP Sepolia Balance
-"
-
-[node name="Optimism Sepolia" type="Label" parent="Main/GasBalances"]
-margin_left = 16.0
-margin_top = 206.0
-margin_right = 68.0
-margin_bottom = 237.0
-text = "0"
-
-[node name="HTTP" type="Control" parent="Main"]
+[node name="OrderProcessors" type="Control" parent="Main"]
 margin_right = 40.0
 margin_bottom = 40.0
 
@@ -272,17 +206,16 @@ rect_scale = Vector2( 0.7, 0.7 )
 mouse_filter = 1
 color = Color( 1, 1, 1, 0 )
 
-[node name="Avalanche Fuji" type="TextureButton" parent="Main/AddToken/NetworkButtons"]
-visible = false
+[node name="Base Sepolia" type="TextureButton" parent="Main/AddToken/NetworkButtons"]
 margin_left = 220.0
 margin_top = 9.0
 margin_right = 270.0
 margin_bottom = 64.0
 mouse_filter = 1
 mouse_default_cursor_shape = 2
-texture_normal = ExtResource( 6 )
+texture_normal = ExtResource( 2 )
 
-[node name="Overlay" type="ColorRect" parent="Main/AddToken/NetworkButtons/Avalanche Fuji"]
+[node name="Overlay" type="ColorRect" parent="Main/AddToken/NetworkButtons/Base Sepolia"]
 margin_left = -10.0
 margin_top = -9.0
 margin_right = 90.0
@@ -291,7 +224,7 @@ rect_scale = Vector2( 0.7, 0.7 )
 mouse_filter = 1
 color = Color( 1, 1, 1, 0 )
 
-[node name="Polygon Mumbai" type="TextureButton" parent="Main/AddToken/NetworkButtons"]
+[node name="Avalanche Fuji" type="TextureButton" parent="Main/AddToken/NetworkButtons"]
 visible = false
 margin_left = 290.0
 margin_top = 10.0
@@ -299,9 +232,9 @@ margin_right = 340.0
 margin_bottom = 65.0
 mouse_filter = 1
 mouse_default_cursor_shape = 2
-texture_normal = ExtResource( 2 )
+texture_normal = ExtResource( 6 )
 
-[node name="Overlay" type="ColorRect" parent="Main/AddToken/NetworkButtons/Polygon Mumbai"]
+[node name="Overlay" type="ColorRect" parent="Main/AddToken/NetworkButtons/Avalanche Fuji"]
 margin_left = -10.0
 margin_top = -10.0
 margin_right = 90.0
@@ -563,17 +496,16 @@ rect_scale = Vector2( 0.7, 0.7 )
 mouse_filter = 1
 color = Color( 1, 1, 1, 0 )
 
-[node name="Avalanche Fuji" type="TextureButton" parent="Main/Settings/NetworkButtons"]
-visible = false
+[node name="Base Sepolia" type="TextureButton" parent="Main/Settings/NetworkButtons"]
 margin_left = 311.0
-margin_top = 351.0
+margin_top = 349.0
 margin_right = 361.0
-margin_bottom = 406.0
+margin_bottom = 404.0
 mouse_filter = 1
 mouse_default_cursor_shape = 2
-texture_normal = ExtResource( 6 )
+texture_normal = ExtResource( 2 )
 
-[node name="Overlay" type="ColorRect" parent="Main/Settings/NetworkButtons/Avalanche Fuji"]
+[node name="Overlay" type="ColorRect" parent="Main/Settings/NetworkButtons/Base Sepolia"]
 margin_left = -10.0
 margin_top = -9.0
 margin_right = 90.0
@@ -582,7 +514,7 @@ rect_scale = Vector2( 0.7, 0.7 )
 mouse_filter = 1
 color = Color( 1, 1, 1, 0 )
 
-[node name="Polygon Mumbai" type="TextureButton" parent="Main/Settings/NetworkButtons"]
+[node name="Avalanche Fuji" type="TextureButton" parent="Main/Settings/NetworkButtons"]
 visible = false
 margin_left = 32.0
 margin_top = 418.0
@@ -590,9 +522,9 @@ margin_right = 82.0
 margin_bottom = 473.0
 mouse_filter = 1
 mouse_default_cursor_shape = 2
-texture_normal = ExtResource( 2 )
+texture_normal = ExtResource( 6 )
 
-[node name="Overlay" type="ColorRect" parent="Main/Settings/NetworkButtons/Polygon Mumbai"]
+[node name="Overlay" type="ColorRect" parent="Main/Settings/NetworkButtons/Avalanche Fuji"]
 margin_left = -10.0
 margin_top = -10.0
 margin_right = 90.0

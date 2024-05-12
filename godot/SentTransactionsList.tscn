@@ -7,6 +7,7 @@ margin_left = 633.0
 margin_top = 72.0
 margin_right = 981.0
 margin_bottom = 529.0
+follow_focus = true
 scroll_horizontal_enabled = false
 
 [node name="SentTransactionsContainer" type="ColorRect" parent="SentTransactionsScroll"]

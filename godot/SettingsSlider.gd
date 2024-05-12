@@ -1,7 +1,5 @@
 extends Button
 
-var eth_http_request = preload("res://EthRequest.tscn")
-
 var start_pos
 var slide_pos
 var slid_out = false
@@ -15,23 +13,17 @@ var color_red = Color(1, 0, 0, 0.4)
 var color_green = Color(0, 1, 0, 0.4)
 
 var main_script
-var http 
 var overlay
 var add_token_slider
 
-var header = "Content-Type: application/json"
-
 var picked_network
-
-
-#it would be nice to have the option of setting a custom endpoint
 
 var new_token = {
 		"serviced_network": "",
 		"local_token_contract": "",
 		"token_name": "",
 		"monitored_networks": {
-		 #network : remote_token_contract
+	
 		},
 		"endpoint_contract":"",
 		"minimum": 0,
@@ -44,7 +36,6 @@ var pending_token = {}
 
 func _ready():
 	main_script = get_parent()
-	http = main_script.get_node("HTTP")
 	overlay = main_script.get_node("Overlay")
 	add_token_slider = main_script.get_node("AddToken")
 	start_pos = rect_position
@@ -91,7 +82,7 @@ func _process(delta):
 
 
 func start_new():
-	network_info = main_script.network_info.duplicate()
+	network_info = Network.network_info.duplicate()
 	pick_network("Chainlink")
 
 func pick_network(network):
@@ -109,7 +100,7 @@ func pick_network(network):
 		$NetworkInfo/Chainlink.visible = false
 
 func clear_text():
-	$NetworkInfo/Chainlink/Address.text = main_script.user_address
+	$NetworkInfo/Chainlink/Address.text = Ethers.user_address
 	$NetworkInfo/Chainlink/PrivateKey.text = ""
 	$NetworkInfo/Chainlink/Password.text = ""
 	$NetworkInfo/Chainlink/OldPassword.text = ""
@@ -126,7 +117,7 @@ func save_changes():
 	network_info[network]["rpc"] = $NetworkInfo/Network/RPC.text
 	network_info[network]["maximum_gas_fee"] = $NetworkInfo/Network/GasFee.text
 	network_info[network]["endpoint_contract"] = $NetworkInfo/Network/Endpoint.text
-	main_script.network_info = network_info.duplicate()
+	Network.network_info = network_info.duplicate()
 	var file = File.new()
 	file.open("user://network_info", File.WRITE)
 	file.store_string(JSON.print(network_info.duplicate()))
@@ -151,7 +142,7 @@ func change_password():
 		file.open_encrypted_with_pass("user://encrypted_keystore", File.WRITE, new_password)
 		file.store_buffer(content)
 		file.close()
-		main_script.password = new_password
+		Ethers.password = new_password
 		$NetworkInfo/Chainlink/OldPassword.text = ""
 		$NetworkInfo/Chainlink/NewPassword.text = ""
 	

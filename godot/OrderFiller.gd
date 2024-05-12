@@ -1,6 +1,4 @@
-extends HTTPRequest
-
-var header = "Content-Type: application/json"
+extends Control
 
 var network
 var main_script
@@ -12,10 +10,9 @@ var order_filling_paused = false
 var order_in_queue
 var approval_in_queue
 var current_tx_type
-var current_method
 var tx_count
 var gas_price
-var tx_function_name
+
 var tx_hash
 
 var pending_approval
@@ -34,9 +31,7 @@ var needs_to_approve = false
 func _ready():
 	network = get_parent().network
 	main_script = get_parent().main_script
-	user_address = get_parent().user_address
-	self.connect("request_completed", self, "resolve_ethereum_request")
-
+	user_address = Ethers.user_address
 
 
 func _process(delta):
@@ -63,56 +58,62 @@ func fill_orders():
 			if pending_order["checked"] == false && !order_filling_paused:
 				order_filling_paused = true
 				order_in_queue = pending_order
-				current_method = "eth_getBalance"
-				perform_ethereum_request("eth_getBalance", [user_address, "latest"])
+				var network_info = Network.network_info.duplicate()
+				var rpc = network_info[network]["rpc"]
+				Ethers.perform_request(
+					"eth_getBalance", 
+					[user_address, "latest"], 
+					rpc, 
+					0, 
+					self, 
+					"update_gas_balance", 
+					{}
+					)
 
 func handle_approvals():
 	if needs_to_approve && !order_filling_paused:
 		if !pending_approvals.empty():
 			order_filling_paused = true
-			current_method = "eth_getBalance"
 			approval_in_queue = pending_approvals[0].duplicate()
 			pending_approvals.pop_front()
-			perform_ethereum_request("eth_getBalance", [user_address, "latest"])
+			var network_info = Network.network_info.duplicate()
+			var rpc = network_info[network]["rpc"]
+			Ethers.perform_request(
+				"eth_getBalance", 
+				[user_address, "latest"], 
+				rpc, 
+				0, 
+				self, 
+				"update_gas_balance", 
+				{}
+				)
 		else:
 			needs_to_approve = false
 			order_filling_paused = false
 
-func perform_ethereum_request(method, params, extra_args={}):
-	var network_info = main_script.network_info.duplicate()
-	var rpc = network_info[network]["rpc"]
-	
-	var tx = {"jsonrpc": "2.0", "method": method, "params": params, "id": 7}
-	
-	request(rpc, 
-	[header], 
-	true, 
-	HTTPClient.METHOD_POST, 
-	JSON.print(tx))
 
-func resolve_ethereum_request(result, response_code, headers, body):
-	var get_result = parse_json(body.get_string_from_ascii())
-	match current_method:
-		"eth_getBalance": check_gas_balance(get_result, response_code)
-		"eth_call": check_order_validity(get_result, response_code)
-		"eth_getTransactionCount": get_tx_count(get_result, response_code)
-		"eth_gasPrice": get_gas_price(get_result, response_code)
-		"eth_sendRawTransaction": get_transaction_hash(get_result, response_code)
-		"eth_getTransactionReceipt": check_transaction_receipt(get_result, response_code)
-
-func check_gas_balance(get_result, response_code):
-	if response_code == 200:
-		var balance = String(get_result["result"].hex_to_int())
-		balance = main_script.convert_to_smallnum(balance, 18)
-		var network_info = main_script.network_info.duplicate()
+func update_gas_balance(callback):
+	if callback["success"]:
+		var balance = String(callback["result"].hex_to_int())
+		balance = Ethers.convert_to_smallnum(balance, 18)
+		
+		var network_info = Network.network_info.duplicate()
+		
 		if float(balance) > float(network_info[network]["minimum_gas_threshold"]):
-			current_method = "eth_call"
+	
 			if !needs_to_approve:
-				print("composing order")
 				compose_message(order_in_queue["message"], order_in_queue["from_network"])
 			else:
-				current_method = "eth_getTransactionCount"
-				perform_ethereum_request("eth_getTransactionCount", [user_address, "latest"])
+				var rpc = network_info[network]["rpc"]
+				Ethers.perform_request(
+					"eth_getTransactionCount", 
+					[user_address, "latest"], 
+					rpc, 
+					0, 
+					self, 
+					"get_tx_count", 
+					{}
+					)
 		else:
 			gas_error()
 	else:
@@ -120,7 +121,7 @@ func check_gas_balance(get_result, response_code):
 
 
 func compose_message(message, from_network):
-	var network_info = main_script.network_info.duplicate()
+	var network_info = Network.network_info.duplicate()
 	var rpc = network_info[network]["rpc"]
 	var chain_id = int(network_info[network]["chain_id"])
 	var endpoint_contract = network_info[network]["endpoint_contract"]
@@ -137,43 +138,69 @@ func compose_message(message, from_network):
 		token_minimum_list.append(token["minimum"])
 		#token_minimum_list.append("0")
 		
-	var file = File.new()
-	file.open_encrypted_with_pass("user://encrypted_keystore", File.READ, main_script.password)
-	var content = file.get_buffer(32)
-	file.close()
+	var key = Ethers.get_key()
 	
-	var calldata = FastCcipBot.filter_order(content, chain_id, endpoint_contract, rpc, message, local_token_contracts, remote_token_contracts, token_minimum_list)
-	
-	perform_ethereum_request("eth_call", [{"to": endpoint_contract, "input": calldata}, "latest"])
+	var calldata = FastCcipBot.filter_order(
+		key, 
+		chain_id, 
+		endpoint_contract, 
+		rpc, message, 
+		local_token_contracts, 
+		remote_token_contracts, 
+		token_minimum_list
+		)
+		
+	Ethers.perform_request(
+		"eth_call", 
+		[{"to": endpoint_contract, "input": calldata}, "latest"], 
+		rpc, 
+		0,
+		self, 
+		"check_order_validity", 
+		{}
+		)
 
-
-func check_order_validity(get_result, response_code):
-	if response_code == 200:
-		#var valid = FastCcipBot.decode_bool(get_result["result"])
-		var valid = get_result["result"]
+func check_order_validity(callback):
+	if callback["success"]:
+		var valid = callback["result"]
 		if valid != "0x0000000000000000000000000000000000000000000000000000000000000000":
-			current_method = "eth_getTransactionCount"
-			perform_ethereum_request("eth_getTransactionCount", [user_address, "latest"])
+			var network_info = Network.network_info.duplicate()
+			var rpc = network_info[network]["rpc"]
+			Ethers.perform_request(
+				"eth_getTransactionCount", 
+				[user_address, "latest"], 
+				rpc, 
+				0, 
+				self, 
+				"get_tx_count", 
+				{}
+				)
 		else:
 			invalid_order()
+
+
+func get_tx_count(callback):
+	if callback["success"]:
+		tx_count = callback["result"].hex_to_int()
+		var network_info = Network.network_info.duplicate()
+		var rpc = network_info[network]["rpc"]
+		Ethers.perform_request(
+			"eth_gasPrice", 
+			[], 
+			rpc, 
+			0, 
+			self, 
+			"get_gas_price", 
+			{}
+			)
 	else:
 		rpc_error()
 
-func get_tx_count(get_result, response_code):
-	if response_code == 200:
-		tx_count = get_result["result"].hex_to_int()
-		current_method = "eth_gasPrice"
-		perform_ethereum_request("eth_gasPrice", [])
-	else:
-		rpc_error()
-
-func get_gas_price(get_result, response_code):
-	if response_code == 200:
-		gas_price = int(ceil((get_result["result"].hex_to_int() * 1.1))) #adjusted up
-	
-		current_method = "eth_sendRawTransaction"
+func get_gas_price(callback):
+	if callback["success"]:
+		gas_price = int(ceil((callback["result"].hex_to_int() * 1.1))) #adjusted up
 		
-		var network_info = main_script.network_info.duplicate()
+		var network_info = Network.network_info.duplicate()
 		var rpc = network_info[network]["rpc"]
 		var chain_id = int(network_info[network]["chain_id"])
 		var endpoint_contract = network_info[network]["endpoint_contract"]
@@ -182,57 +209,64 @@ func get_gas_price(get_result, response_code):
 		
 		var maximum_gas_fee = network_info[network]["maximum_gas_fee"]
 		
-		print("gas price:")
-		print(String(gas_price))
 		if maximum_gas_fee != "":
 			if gas_price > int(maximum_gas_fee):
 				gas_fee_too_high()
 				return
 		
-		var file = File.new()
-		file.open_encrypted_with_pass("user://encrypted_keystore", File.READ, main_script.password)
-		var content = file.get_buffer(32)
-		file.close()
+		var key = Ethers.get_key()
+		
 		if !needs_to_approve:
 			main_script.crystal_ball.spawn_message()
 			current_tx_type = "order"
 			var local_token = FastCcipBot.decode_address(order_in_queue["local_token"])
-			FastCcipBot.fill_order(content, chain_id, endpoint_contract, rpc, gas_price, tx_count, order_in_queue["message"], local_token, self)
+			
+			var calldata = "0x" + FastCcipBot.fill_order(key, chain_id, endpoint_contract, rpc, gas_price, tx_count, order_in_queue["message"], local_token)
+			
+			Ethers.perform_request(
+				"eth_sendRawTransaction", 
+				[calldata], 
+				rpc, 
+				0, 
+				self, 
+				"get_transaction_hash", 
+				{}
+				)
 		else:
 			current_tx_type = "approval"
 			var local_token_contract = approval_in_queue["local_token_contract"]
 			print("approving endpoint " + endpoint_contract + " allowance to spend local token " + local_token_contract)
-			FastCcipBot.approve_endpoint_allowance(content, chain_id, endpoint_contract, rpc, gas_price, tx_count, local_token_contract, self)
+			
+			var calldata = "0x" + FastCcipBot.approve_endpoint_allowance(key, chain_id, endpoint_contract, rpc, gas_price, tx_count, local_token_contract)
+			Ethers.perform_request(
+				"eth_sendRawTransaction", 
+				[calldata], 
+				rpc, 
+				0, 
+				self, 
+				"get_transaction_hash", 
+				{}
+				)
 	else:
 		rpc_error()
 
 #it would be good to perform a gas estimate instead of relying on a minimum gas threshold
 
-func set_signed_data(var signature):
-	var signed_data = "".join(["0x", signature])
-	perform_ethereum_request("eth_sendRawTransaction", [signed_data])
 
-func get_transaction_hash(get_result, response_code):
-	if response_code == 200:
-		if typeof(get_result) != 4:
-			if get_result.has("result"):
-				print("sent tx")
-				print(get_result)
-				tx_hash = get_result["result"]
-				checking_for_tx_receipt = true
-				current_method = "eth_getTransactionReceipt"
-				tx_receipt_poll_timer = 4
+func get_transaction_hash(callback):
+	if callback["success"]:
+			tx_hash = callback["result"]
+			checking_for_tx_receipt = true
+		
+			tx_receipt_poll_timer = 4
 				
-				var transaction = {
+			var transaction = {
 				"network": network,
 				"type": current_tx_type,
 				"hash": tx_hash
 				}
 				
-				pending_tx = main_script.load_transaction(transaction)
-		
-		else:
-			rpc_error()
+			pending_tx = main_script.load_transaction(transaction)
 		
 	else:
 		rpc_error()
@@ -241,32 +275,40 @@ func check_for_tx_receipt(delta):
 	tx_receipt_poll_timer -= delta
 	if tx_receipt_poll_timer < 0:
 		tx_receipt_poll_timer = 4
-		perform_ethereum_request("eth_getTransactionReceipt", [tx_hash])
+		var network_info = Network.network_info.duplicate()
+		var rpc = network_info[network]["rpc"]
+		Ethers.perform_request(
+			"eth_getTransactionReceipt", 
+			[tx_hash], 
+			rpc, 
+			0, 
+			self, 
+			"check_transaction_receipt",
+			{}
+			)
 
-func check_transaction_receipt(get_result, response_code):
+func check_transaction_receipt(callback):
 	tx_receipt_poll_timer = 4
-	if response_code == 200:
+	if callback["success"]:
 		#also tx gas bumping
-		#print(get_result)
-		if get_result.has("result"): 
-			if get_result["result"] != null:
-				var success = get_result["result"]["status"]
-				if success == "0x1":
-					print("order filled")
-					checking_for_tx_receipt = false	
-					order_filling_paused = false
-					var block_number = get_result["result"]["blockNumber"]
-					pending_tx.was_successful(true, network, block_number)
-					if current_tx_type == "approval":
-						approval_in_queue["monitorable_token"].get_node("MainPanel/Monitor").text = "Start Monitoring"
-						approval_in_queue["monitorable_token"].approved = true
-				else:
-					print("failed to fill order")
-					checking_for_tx_receipt = false	
-					order_filling_paused = false
-					pending_tx.was_successful(false, network)
+		if callback["result"] != null:
+			var success = callback["result"]["status"]
+			if success == "0x1":
+				print("order filled")
+				checking_for_tx_receipt = false	
+				order_filling_paused = false
+				var block_number = callback["result"]["blockNumber"]
+				pending_tx.was_successful(true, network, block_number)
+				if current_tx_type == "approval":
+					approval_in_queue["monitorable_token"].get_node("MainPanel/Monitor").text = "Start Monitoring"
+					approval_in_queue["monitorable_token"].approved = true
+			else:
+				print("failed to fill order")
+				checking_for_tx_receipt = false	
+				order_filling_paused = false
+				pending_tx.was_successful(false, network)
 				#perhaps would be wise to have a more targeted "get_gas_balance" function
-				main_script.get_gas_balances()
+			main_script.get_gas_balances()
 	else:
 		checking_for_tx_receipt = false	
 		rpc_error()
@@ -304,6 +346,5 @@ func prune_pending_orders(delta):
 				deletion_queue.append(pending_order)
 		if !deletion_queue.empty():
 			for deletable in deletion_queue:
-				print("old order timed out")
 				pending_orders.erase(deletable)
 				

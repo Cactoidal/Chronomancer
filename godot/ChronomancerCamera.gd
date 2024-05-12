@@ -85,6 +85,7 @@ func login():
 	if login_appeared:
 		
 		if check_keystore():
+			Ethers.get_address()
 			check_network_info()
 			main_script.initialize()
 			logging_in = true
@@ -97,7 +98,6 @@ func spawn_message():
 	var new_message = detected_message.instance()
 	$CrystalBall.add_child(new_message)
 
-
 func check_keystore():
 	var file = File.new()
 	var password = get_parent().get_node("Login").text
@@ -107,26 +107,26 @@ func check_keystore():
 		file.open_encrypted_with_pass("user://encrypted_keystore", File.WRITE, password)
 		file.store_buffer(content)
 		file.close()
-		main_script.password = password
+		Ethers.password = password
 		return true
 	else:
 		var error = file.open_encrypted_with_pass("user://encrypted_keystore", File.READ, password)
 		file.close()
 		if error == 0:
-			main_script.password = password
+			Ethers.password = password
 			return true
 		else:
 			return false
 
 func check_network_info():
 	var file = File.new()
-	if file.file_exists("user://network_info") != true:
-		var network_info = main_script.default_network_info.duplicate()
-		main_script.network_info = network_info
+	if file.file_exists("user://network_info") == true:
+		var network_info = Network.default_network_info.duplicate()
+		Network.network_info = network_info
 		file.open("user://network_info", File.WRITE)
 		file.store_string(JSON.print(network_info))
 		file.close()
 	else:
 		file.open("user://network_info", File.READ)
 		var network_info = parse_json(file.get_as_text())
-		main_script.network_info = network_info
+		Network.network_info = network_info

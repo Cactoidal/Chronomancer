@@ -1,7 +1,5 @@
 extends Button
 
-var eth_http_request = preload("res://EthRequest.tscn")
-
 var start_pos
 var slide_pos
 var slid_out = false
@@ -14,12 +12,9 @@ var color_green = Color(0, 1, 0, 0.4)
 var color_yellow = Color(1, 1, 0, 0.4)
 
 var main_script
-var http 
 var scan_link
 var overlay
 var settings_slider
-
-var header = "Content-Type: application/json"
 
 var choosing_service_network = false
 var choosing_monitored_networks = false
@@ -49,7 +44,6 @@ var pending_token = {}
 
 func _ready():
 	main_script = get_parent()
-	http = main_script.get_node("HTTP")
 	overlay = main_script.get_node("Overlay")
 	settings_slider = main_script.get_node("Settings")
 	start_pos = rect_position
@@ -107,15 +101,11 @@ func start_new():
 	pending_token = new_token.duplicate()
 	choosing_service_network = true
 	pending_token["monitored_networks"] = {}
-	print("new_token:")
-	print(new_token)
-	print("pending_token:")
-	print(pending_token)
 	
 
 func pick_network(network):
 	if choosing_service_network:
-		var network_info = main_script.network_info.duplicate()
+		var network_info = Network.network_info.duplicate()
 		pending_token["serviced_network"] = network
 		#for now, there is a default endpoint contract on each network
 		pending_token["endpoint_contract"] = network_info[network]["endpoint_contract"]
@@ -123,7 +113,16 @@ func pick_network(network):
 		wipe_buttons()
 		clear_text()
 		$NetworkLabel.text = network
-		perform_ethereum_request(network, "eth_getBalance", [main_script.user_address, "latest"])
+		Ethers.perform_request(
+			"eth_getBalance", 
+			[Ethers.user_address, "latest"], 
+			network_info[network]["rpc"], 
+			0, 
+			self, 
+			"load_network_gas", 
+			{"network": network}
+			)
+		
 	elif choosing_monitored_networks && network != pending_token["serviced_network"]:
 		wipe_buttons()
 		clear_text()
@@ -158,7 +157,7 @@ func confirm_choices():
 		var error = filter_decimals(minimum, token_decimals)
 		if error:
 			return
-		pending_token["minimum"] = get_biguint(minimum, token_decimals)
+		pending_token["minimum"] = Ethers.get_biguint(minimum, token_decimals)
 		clear_text()
 		$AddressEntry.visible = false
 		$Prompt.text = ""
@@ -171,8 +170,6 @@ func confirm_choices():
 	elif confirming_choices:
 		main_script.add_monitored_token(pending_token.duplicate())
 		slide()
-
-
 
 func add_monitored_network():
 	var network = $NetworkLabel.text
@@ -229,106 +226,94 @@ func highlight_button(network):
 			get_button_overlay(network).color = color_empty
 	
 func get_erc20_name(network, token_contract):
-	var network_info = main_script.network_info.duplicate()
+	var network_info = Network.network_info.duplicate()
 	var chain_id = int(network_info[network]["chain_id"])
 	var rpc = network_info[network]["rpc"]
-	var file = File.new()
-	file.open_encrypted_with_pass("user://encrypted_keystore", File.READ, main_script.password)
-	var content = file.get_buffer(32)
-	file.close()
-	var calldata = FastCcipBot.get_token_name(content, chain_id, rpc, token_contract)
-	perform_ethereum_request(network, "eth_call", [{"to": token_contract, "input": calldata}, "latest"], {"function_name": "get_token_name", "token_contract": token_contract})
+	var key = Ethers.get_key()
+	var calldata = FastCcipBot.get_token_name(key, chain_id, rpc, token_contract)
+	Ethers.perform_request(
+		"eth_call", 
+		[{"to": token_contract, "input": calldata}, "latest"], 
+		network_info[network]["rpc"], 
+		0, 
+		self, 
+		"load_token_data", 
+		{"network": network, 
+		"function_name": "get_token_name", "token_contract": token_contract}
+		)
 	
 func get_erc20_balance(network, token_contract):
-	var network_info = main_script.network_info.duplicate()
+	var network_info = Network.network_info.duplicate()
 	var chain_id = int(network_info[network]["chain_id"])
 	var rpc = network_info[network]["rpc"]
-	var file = File.new()
-	file.open_encrypted_with_pass("user://encrypted_keystore", File.READ, main_script.password)
-	var content = file.get_buffer(32)
-	file.close()
-	var calldata = FastCcipBot.check_token_balance(content, chain_id, rpc, token_contract)
-	perform_ethereum_request(network, "eth_call", [{"to": token_contract, "input": calldata}, "latest"], {"function_name": "check_token_balance", "token_contract": token_contract})
+	var key = Ethers.get_key()
+	var calldata = FastCcipBot.check_token_balance(key, chain_id, rpc, token_contract)
+	Ethers.perform_request(
+		"eth_call", 
+		[{"to": token_contract, "input": calldata}, "latest"], 
+		network_info[network]["rpc"], 
+		0, 
+		self, 
+		"load_token_data", 
+		{"network": network, "function_name": "check_token_balance", "token_contract": token_contract}
+		)
+
 
 func get_erc20_decimals(network, token_contract):
-	var network_info = main_script.network_info.duplicate()
+	var network_info = Network.network_info.duplicate()
 	var chain_id = int(network_info[network]["chain_id"])
 	var rpc = network_info[network]["rpc"]
-	var file = File.new()
-	file.open_encrypted_with_pass("user://encrypted_keystore", File.READ, main_script.password)
-	var content = file.get_buffer(32)
-	file.close()
-	var calldata = FastCcipBot.get_token_decimals(content, chain_id, rpc, token_contract)
-	perform_ethereum_request(network, "eth_call", [{"to": token_contract, "input": calldata}, "latest"], {"function_name": "get_token_decimals", "token_contract": token_contract})
-
-func perform_ethereum_request(network, method, params, extra_args={}):
-	var network_info = main_script.network_info.duplicate()
-	var rpc = network_info[network]["rpc"]
-	
-	var http_request = eth_http_request.instance()
-	http.add_child(http_request)
-	http_request.network = network
-	http_request.request_type = method
-	http_request.main_script = self
-	http_request.extra_args = extra_args
-	http_request.connect("request_completed", http_request, "resolve_ethereum_request")
-	
-	var tx = {"jsonrpc": "2.0", "method": method, "params": params, "id": 7}
-	
-	http_request.request(rpc, 
-	[header], 
-	true, 
-	HTTPClient.METHOD_POST, 
-	JSON.print(tx))
-
-func resolve_ethereum_request(network, method, get_result, extra_args):
-	match method:
-		"eth_getBalance": load_network_gas(network, get_result)
-		"eth_call": load_token_data(network, get_result, extra_args)
+	var key = Ethers.get_key()
+	var calldata = FastCcipBot.get_token_decimals(key, chain_id, rpc, token_contract)
+	Ethers.perform_request(
+		"eth_call", 
+		[{"to": token_contract, "input": calldata}, "latest"], 
+		network_info[network]["rpc"], 
+		0, 
+		self,
+		"load_token_data", 
+		{"network": network, "function_name": "get_token_decimals", "token_contract": token_contract}
+		)
 
 
-func load_network_gas(network, get_result):
-	if "result" in get_result.keys():
-		var balance = String(get_result["result"].hex_to_int())
+func load_network_gas(callback):
+	if callback["success"]:
+		var balance = String(callback["result"].hex_to_int())
 		pending_token["gas_balance"] = balance
-		$GasBalance.text = "Balance: " + main_script.convert_to_smallnum(balance, 18)
+		$GasBalance.text = "Balance: " + Ethers.convert_to_smallnum(balance, 18)
 		
 	
-func load_token_data(network, get_result, extra_args):
-	if extra_args["function_name"] == "get_token_name":
-		if "result" in get_result.keys():
-			if get_result["result"] != "0x":
-				$TokenLabel.text = FastCcipBot.decode_hex_string(get_result["result"])
-				var network_info = main_script.network_info.duplicate()
-				scan_link = network_info[network]["scan_url"] + "address/" + $AddressEntry.text
+func load_token_data(callback):
+	if callback["success"]:
+		var args = callback["callback_args"]
+		if args["function_name"] == "get_token_name":
+			if callback["result"] != "0x":
+				$TokenLabel.text = FastCcipBot.decode_hex_string(callback["result"])
+				var network_info = Network.network_info.duplicate()
+				scan_link = network_info[args["network"]]["scan_url"] + "address/" + $AddressEntry.text
 				$ScanLink.visible = true
-	
-	if extra_args["function_name"] == "get_token_decimals":
-		if "result" in get_result.keys():
-			if get_result["result"] != "0x":
-				var token_decimals = FastCcipBot.decode_u8(get_result["result"])
+		
+		if args["function_name"] == "get_token_decimals":
+			if callback["result"] != "0x":
+				var token_decimals = FastCcipBot.decode_u8(callback["result"])
 				pending_token["token_decimals"] = token_decimals
 				get_erc20_balance($NetworkLabel.text, $AddressEntry.text)
-				
-	if extra_args["function_name"] == "check_token_balance":
-		if "result" in get_result.keys():
-			if get_result["result"] != "0x":
-				var balance = FastCcipBot.decode_u256(get_result["result"])
+					
+		if args["function_name"] == "check_token_balance":
+			if callback["result"] != "0x":
+				var balance = FastCcipBot.decode_u256(callback["result"])
 				pending_token["token_balance"] = balance
 				var token_decimals = pending_token["token_decimals"]
-				$TokenBalance.text = "Balance: " + main_script.convert_to_smallnum(balance, token_decimals)
+				$TokenBalance.text = "Balance: " + Ethers.convert_to_smallnum(balance, token_decimals)
 			else:
 				$TokenBalance.text = ""
 		else:
 			$TokenBalance.text = ""
 	
-	
-
 func open_scanner_link():
 	OS.shell_open(scan_link)
 
-func ethereum_request_failed(network, request_type, extra_args):
-	pass
+
 
 func filter_decimals(minimum, token_decimals):
 	var decimal_index = minimum.find(".")
@@ -336,32 +321,3 @@ func filter_decimals(minimum, token_decimals):
 		if minimum.right(decimal_index).length() > token_decimals:
 			return true
 	return false
-
-func get_biguint(minimum, token_decimals):
-	if minimum.begins_with("."):
-		minimum = "0" + minimum
-		
-	var zero_filler = int(token_decimals)
-	var decimal_index = minimum.find(".")
-	var big_uint = minimum
-	if decimal_index != -1:
-		zero_filler -= minimum.right(decimal_index+1).length()
-		big_uint.erase(decimal_index,decimal_index)
-			
-	
-	for zero in range(zero_filler):
-		big_uint += "0"
-	
-	var zero_parse_index = 0
-	if big_uint.begins_with("0"):
-		for digit in big_uint:
-			if digit == "0":
-				zero_parse_index += 1
-			else:
-				break
-	big_uint = big_uint.right(zero_parse_index)
-
-	if big_uint == "":
-		big_uint = "0"
-
-	return big_uint
