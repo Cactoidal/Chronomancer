@@ -1,12 +1,8 @@
 use gdnative::{prelude::*, core_types::ToVariant};
-use ethers::{core::{abi::{struct_def::StructFieldType, AbiDecode, AbiEncode}, k256::elliptic_curve::consts::{U248, U8}, types::*}, prelude::SignerMiddleware, providers::*, signers::*};
+use ethers::{core::{abi::{AbiDecode, AbiEncode}, k256::elliptic_curve::consts::{U248, U8}, types::*}, prelude::SignerMiddleware, providers::*, signers::*};
 use ethers_contract::{abigen};
 use ethers::core::types::transaction::eip2718::TypedTransaction;
 use std::{convert::TryFrom, sync::Arc};
-use tokio::runtime::{Builder, Runtime};
-use tokio::task::LocalSet;
-use tokio::macros::support::{Pin, Poll};
-use futures::Future;
 use hex::*;
 use num_bigint::{BigUint, BigInt};
 
@@ -32,8 +28,6 @@ abigen!(
 );
 
 fn init(handle: InitHandle) {
-    gdnative::tasks::register_runtime(&handle);
-    gdnative::tasks::set_executor(EXECUTOR.with(|e| *e));
     
     // Name of your Godot Class for the GDNative Library
     handle.add_class::<FastCCIPBot>();
@@ -57,8 +51,7 @@ impl FastCCIPBot {
 //          ORDER FILLING METHODS         //
 
 #[method]
-#[tokio::main]
-async fn fill_order(key: PoolArray<u8>, chain_id: u64, endpoint_contract: GodotString, rpc: GodotString, _gas_fee: u64, _count: u64, EVM2EVMMessage: GodotString, token_address: GodotString, ui_node: Ref<Node>) -> NewFuture {
+fn fill_order(key: PoolArray<u8>, chain_id: u64, endpoint_contract: GodotString, rpc: GodotString, _gas_fee: u64, _count: u64, EVM2EVMMessage: GodotString, token_address: GodotString) -> GodotString {
 
     let (wallet, user_address, client) = get_signer(key, chain_id, rpc);
 
@@ -66,7 +59,7 @@ async fn fill_order(key: PoolArray<u8>, chain_id: u64, endpoint_contract: GodotS
 
     let contract = FastCCIPBotABI::new(contract_address.clone(), Arc::new(client.clone()));
 
-    let message = hex_string_to_bytes(EVM2EVMMessage);
+    let message = string_to_bytes(EVM2EVMMessage);
 
     let local_token_address = string_to_address(token_address);
 
@@ -83,15 +76,9 @@ async fn fill_order(key: PoolArray<u8>, chain_id: u64, endpoint_contract: GodotS
         .nonce(_count)
         .data(calldata);
 
-    let signed_calldata = get_signed_calldata(tx, wallet).await;
- 
-    let node: TRef<Node> = unsafe { ui_node.assume_safe() };
+        let signed_calldata = get_signed_calldata(tx, wallet);
 
-    unsafe {
-        node.call("set_signed_data", &[signed_calldata])
-    };
-
-    NewFuture(Ok(()))
+        signed_calldata
 }
 
 
@@ -105,7 +92,7 @@ fn filter_order(key: PoolArray<u8>, chain_id: u64, endpoint_contract: GodotStrin
             
     let contract = FastCCIPBotABI::new(contract_address.clone(), Arc::new(client.clone()));
 
-    let message = hex_string_to_bytes(EVM2EVMMessage);
+    let message = string_to_bytes(EVM2EVMMessage);
 
     let local_token_contracts = string_array_to_addresses(_local_token_contracts);
 
@@ -198,8 +185,7 @@ fn check_endpoint_allowance(key: PoolArray<u8>, chain_id: u64, rpc: GodotString,
 
 
 #[method]
-#[tokio::main]
-async fn approve_endpoint_allowance(key: PoolArray<u8>, chain_id: u64, endpoint_contract: GodotString, rpc: GodotString, _gas_fee: u64, _count: u64, token_contract: GodotString, ui_node: Ref<Node>) -> NewFuture {
+fn approve_endpoint_allowance(key: PoolArray<u8>, chain_id: u64, endpoint_contract: GodotString, rpc: GodotString, _gas_fee: u64, _count: u64, token_contract: GodotString) -> GodotString {
 
     let (wallet, user_address, client) = get_signer(key, chain_id, rpc);
 
@@ -222,16 +208,9 @@ async fn approve_endpoint_allowance(key: PoolArray<u8>, chain_id: u64, endpoint_
         .nonce(_count)
         .data(calldata);
 
-    let signed_calldata = get_signed_calldata(tx, wallet).await;
+    let signed_calldata = get_signed_calldata(tx, wallet);
 
-    let node: TRef<Node> = unsafe { ui_node.assume_safe() };
-
-    unsafe {
-        node.call("set_signed_data", &[signed_calldata])
-    };
-
-
-    NewFuture(Ok(()))
+    signed_calldata
 
 }
 
@@ -241,8 +220,7 @@ async fn approve_endpoint_allowance(key: PoolArray<u8>, chain_id: u64, endpoint_
 
 
 #[method]
-#[tokio::main]
-async fn test_send(key: PoolArray<u8>, chain_id: u64, entrypoint_contract: GodotString, rpc: GodotString, _gas_fee: u64, _count: u64, _chain_selector: GodotString, endpoint_contract: GodotString, recipient: GodotString, _data: GodotString, token_address: GodotString, amount: GodotString, _value: GodotString, ui_node: Ref<Node>) -> NewFuture {
+fn test_send(key: PoolArray<u8>, chain_id: u64, entrypoint_contract: GodotString, rpc: GodotString, _gas_fee: u64, _count: u64, _chain_selector: GodotString, endpoint_contract: GodotString, recipient: GodotString, _data: GodotString, token_address: GodotString, amount: GodotString, _value: GodotString) -> GodotString {
 
     let (wallet, user_address, client) = get_signer(key, chain_id, rpc);
             
@@ -277,15 +255,9 @@ async fn test_send(key: PoolArray<u8>, chain_id: u64, entrypoint_contract: Godot
         .nonce(_count)
         .data(calldata);
 
-    let signed_calldata = get_signed_calldata(tx, wallet).await;
+    let signed_calldata = get_signed_calldata(tx, wallet);
 
-    let node: TRef<Node> = unsafe { ui_node.assume_safe() };
-    
-    unsafe {
-        node.call("set_signed_data", &[signed_calldata])
-    };
-
-    NewFuture(Ok(()))
+    signed_calldata
 
 }
 
@@ -442,28 +414,19 @@ fn get_signer(key: PoolArray<u8>, chain_id: u64, rpc: GodotString) -> (LocalWall
     (wallet, user_address, client)
 }
 
-async fn get_signed_calldata(tx: Eip1559TransactionRequest, wallet: LocalWallet) -> Variant {
+fn get_signed_calldata(tx: Eip1559TransactionRequest, wallet: LocalWallet) -> GodotString {
 
     let typed_tx: TypedTransaction = TypedTransaction::Eip1559(tx.clone());
 
-    let signature = wallet.sign_transaction(&typed_tx).await.unwrap();
+    let signature = wallet.sign_transaction_sync(&typed_tx).unwrap();
 
     let rlp_signed = TypedTransaction::rlp_signed(&typed_tx, &signature);
 
-    let signed_calldata = hex::encode(rlp_signed).to_variant();
+    let signed_calldata = hex::encode(rlp_signed);
 
-    signed_calldata
+    signed_calldata.into()
 }
 
-
-fn hex_string_to_bytes(_string: GodotString) -> Bytes {
-    
-    let string = hex::decode(_string.to_string()).unwrap();
-    
-    let bytes: Bytes = string.into();
-    
-    bytes
-}
 
 fn string_to_bytes(_string: GodotString) -> Bytes {
 
@@ -517,51 +480,4 @@ fn string_array_to_uint256s(_godot_string_array: PoolArray<GodotString>) -> Vec<
 
 
 
-
-
-//          IMPLEMENTATIONS          //
-
-
-thread_local! {
-    static EXECUTOR: &'static SharedLocalPool = {
-        Box::leak(Box::new(SharedLocalPool::default()))
-    };
-}
-
-#[derive(Default)]
-struct SharedLocalPool {
-    local_set: LocalSet,
-}
-
-impl futures::task::LocalSpawn for SharedLocalPool {
-    fn spawn_local_obj(
-        &self,
-        future: futures::task::LocalFutureObj<'static, ()>,
-    ) -> Result<(), futures::task::SpawnError> {
-        self.local_set.spawn_local(future);
-
-        Ok(())
-    }
-}
-
-
-
-struct NewFuture(Result<(), Box<dyn std::error::Error + 'static>>);
-
-impl ToVariant for NewFuture {
-    fn to_variant(&self) -> Variant {todo!()}
-}
-
-struct NewStructFieldType(StructFieldType);
-
-impl OwnedToVariant for NewStructFieldType {
-    fn owned_to_variant(self) -> Variant {
-        todo!()
-    }
-}
-
-impl Future for NewFuture {
-    type Output = NewStructFieldType;
-    fn poll(self: Pin<&mut Self>, _: &mut std::task::Context<'_>) -> Poll<<Self as futures::Future>::Output> { todo!() }
-}
 
