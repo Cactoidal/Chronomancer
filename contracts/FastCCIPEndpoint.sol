@@ -8,10 +8,9 @@ import {LinkTokenInterface} from "@chainlink/contracts/src/v0.8/interfaces/LinkT
 import {IRouterClient} from "@chainlink/contracts-ccip/src/v0.8/ccip/interfaces/IRouterClient.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
-
 contract FastCCIPEndpoint is CCIPReceiver {
 
-    event OrderFilled(bytes32 messageId);
+    event OrderFilled(bytes32 messageId, address filler);
     event ReceivedTokens(bytes32 messageId, address token, uint amount);
 
     error OrderPathAlreadyFilled();
@@ -22,6 +21,7 @@ contract FastCCIPEndpoint is CCIPReceiver {
     address immutable CHAINLINK;
 
     uint256 constant FEE = 1000;
+    bool recursionBlock;
   
     // An order path consists of:
     // CCIP message ID => Recipient Address => Token Address => Token Amount => Data => Filler Address
@@ -33,22 +33,16 @@ contract FastCCIPEndpoint is CCIPReceiver {
         ROUTER = _router;
         CHAINLINK = _link;
     }
-
-    Internal.EVM2EVMMessage public testMessage;
     
-    // Not compatible with tax-on-transfer tokens; could perhaps be toggled?
-    // For now only use standard ERC20 tokens.  Special cases can be added later.
-    // Custom endpoints can also define their own logic
-    function fillOrder(bytes calldata _message, address _local_token) external {
+    function fillOrder(bytes calldata _message, address _local_token) external noReentrancy {
 
         Internal.EVM2EVMMessage memory message = abi.decode(_message, (Internal.EVM2EVMMessage));
 
         bytes32 messageId = message.messageId;
         (address recipient, bytes memory data) = abi.decode(message.data, (address, bytes));
-        //address token = message.tokenAmounts[0].token;
         address token = _local_token;
 
-        // The submitted amount must include the fee (0.1%)
+        // The fill amount accounts for the fee
         uint amount = message.tokenAmounts[0].amount - (message.tokenAmounts[0].amount / FEE);
        
         if (messageArrived[messageId]) {
@@ -57,18 +51,21 @@ contract FastCCIPEndpoint is CCIPReceiver {
         if (filledOrderPaths[messageId][recipient][token][amount][data] != address(0)) {
             revert OrderPathAlreadyFilled();
         }
+
         filledOrderPaths[messageId][recipient][token][amount][data] = msg.sender;
 
-        IERC20(token).transferFrom(msg.sender, recipient, amount);
+        IERC20(token).transferFrom(msg.sender, address(this), amount);
 
-        emit OrderFilled(messageId);
-        if (recipient.code.length == 0) {//|| !_recipient.supportsInterface(type(CCIPReceiver).interfaceId)) {
+        emit OrderFilled(messageId, msg.sender);
+
+        if (recipient.code.length == 0) {
+            IERC20(token).transfer(recipient, amount);
             return;
         }
 
-        // Should the unadulterated destTokenAmounts value be sent, or should it include the fee?
-        // In the event of an unfilled order, the original message is sent.  So I lean
-        // toward leaving it alone.
+        // Because the recipient is a contract, the endpoint must first approve a spend allowance
+        IERC20(token).approve(address(recipient), amount);
+
         Client.Any2EVMMessage memory ccipMessage = Client.Any2EVMMessage({
             messageId: message.messageId,
             sourceChainSelector: message.sourceChainSelector,
@@ -77,6 +74,7 @@ contract FastCCIPEndpoint is CCIPReceiver {
             destTokenAmounts: message.tokenAmounts
             });
 
+        IERC20(token).transfer(recipient, amount);
 
         CCIPReceiver(recipient).ccipReceive(ccipMessage);
     }
@@ -86,7 +84,7 @@ contract FastCCIPEndpoint is CCIPReceiver {
     // Could be reconfigured to work with multiple tokens, multiple recipients, and multiple data objects
     function _ccipReceive(
         Client.Any2EVMMessage memory message
-    ) internal override {
+    ) internal noReentrancy override {
         require(msg.sender == ROUTER);
 
         messageArrived[message.messageId] = true;
@@ -104,18 +102,14 @@ contract FastCCIPEndpoint is CCIPReceiver {
             IERC20(token).transfer(orderFiller, amount);
         }
         else {
-            if (recipient == address(this)) {
-                revert NoRecursionAllowed();
-            }
-            // Do I need to potentially approve sending tokens in the event that the recipient is a contract?
-            // if (recipient.code.length == 0) {
-            // IERC20(token).approve(address(this), amount);
-            // }
            
+            if (recipient.code.length == 0) {
+                IERC20(token).transfer(recipient, amount);
+                return;
+            }
+
+            IERC20(token).approve(recipient, amount);
             IERC20(token).transfer(recipient, amount);
-            if (recipient.code.length == 0) {//|| !_recipient.supportsInterface(type(CCIPReceiver).interfaceId)) {
-            return;
-        }
             CCIPReceiver(recipient).ccipReceive(message);
         }
 
@@ -151,23 +145,13 @@ contract FastCCIPEndpoint is CCIPReceiver {
 
     }
 
+     modifier noReentrancy() {
+        require(!recursionBlock, "No reentrancy");
 
-    function isOrderPathFilled(bytes calldata _message) public view returns (bool) {
-        Internal.EVM2EVMMessage memory message = abi.decode(_message, (Internal.EVM2EVMMessage));
-
-        bytes32 messageId = message.messageId;
-        (address recipient, bytes memory data) = abi.decode(message.data, (address, bytes));
-        address token = message.tokenAmounts[0].token;
-
-        // The submitted amount must include the fee (0.1%)
-        uint amount = message.tokenAmounts[0].amount - (message.tokenAmounts[0].amount / FEE);
-       
-        if (filledOrderPaths[messageId][recipient][token][amount][data] != address(0)) {
-            return true;
-        }
-        else {
-            return false;
-        }
+        recursionBlock = true;
+        _;
+        recursionBlock = false;
     }
+
 
 }
