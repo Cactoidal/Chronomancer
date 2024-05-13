@@ -43,7 +43,7 @@ func filter_orders():
 func compose_message(message, from_network):
 	var network_info = Network.network_info.duplicate()
 	var rpc = network_info[network]["rpc"]
-	var chain_id = int(network_info[network]["chain_id"])
+	var chain_id = network_info[network]["chain_id"]
 	var endpoint_contract = network_info[network]["endpoint_contract"]
 	var monitored_tokens = network_info[network]["monitored_tokens"]
 	
@@ -68,7 +68,7 @@ func compose_message(message, from_network):
 		remote_token_contracts, 
 		token_minimum_list
 		)
-	
+
 	Ethers.perform_request(
 		"eth_call", 
 		[{"to": endpoint_contract, "input": calldata}, "latest"], 

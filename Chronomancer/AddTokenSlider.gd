@@ -21,6 +21,7 @@ var choosing_monitored_networks = false
 var choosing_minimum = false
 var confirming_choices = false
 
+var previous_token_address
 var previous_token_length = 0
 
 var new_token = {
@@ -75,15 +76,17 @@ func slide():
 
 func _process(delta):
 	
-	if $AddressEntry.text.length() != previous_token_length:
+	if $AddressEntry.text.length() != previous_token_length || $AddressEntry.text != previous_token_address:
 		$ScanLink.visible = false
 		previous_token_length = $AddressEntry.text.length()
+		previous_token_address = $AddressEntry.text
 		if previous_token_length == 42 && $NetworkLabel.text != "":
 			get_erc20_name($NetworkLabel.text, $AddressEntry.text)
 			if choosing_service_network:
 				get_erc20_decimals($NetworkLabel.text, $AddressEntry.text)
 		else:
 			$TokenLabel.text = ""
+			$TokenBalance.text = ""
 	
 	if sliding && !$SlideTween.is_active():
 		sliding = false
@@ -162,7 +165,9 @@ func confirm_choices():
 		var network_list_string = ""
 		for network in pending_token["monitored_networks"].duplicate().keys():
 			network_list_string += network + "\n"
-		$FinalConfirm.text = "You will provide fast transfers to " + pending_token["serviced_network"] + ",\nby monitoring incoming traffic from:\n\n" + network_list_string + "\nAnd will only serve transactions with a \nminimum transfer of " + minimum + " tokens."
+			#token_name
+		$FinalConfirm.text = "You will provide fast transfers of\n" + pending_token["token_name"] + "\non " + pending_token["serviced_network"] + "\nby monitoring incoming traffic from:\n\n" + network_list_string + "\nAnd will only serve transactions with a \nminimum transfer of " + minimum + " tokens."
+		#$FinalConfirm.text = "You will provide fast transfers to " + pending_token["serviced_network"] + ",\nby monitoring incoming traffic from:\n\n" + network_list_string + "\nAnd will only serve transactions with a \nminimum transfer of " + minimum + " tokens."
 		choosing_minimum = false
 		confirming_choices = true
 	elif confirming_choices:
@@ -225,7 +230,7 @@ func highlight_button(network):
 	
 func get_erc20_name(network, token_contract):
 	var network_info = Network.network_info.duplicate()
-	var chain_id = int(network_info[network]["chain_id"])
+	var chain_id = network_info[network]["chain_id"]
 	var rpc = network_info[network]["rpc"]
 	var key = Ethers.get_key()
 	var calldata = FastCcipBot.get_token_name(key, chain_id, rpc, token_contract)
@@ -242,7 +247,7 @@ func get_erc20_name(network, token_contract):
 	
 func get_erc20_balance(network, token_contract):
 	var network_info = Network.network_info.duplicate()
-	var chain_id = int(network_info[network]["chain_id"])
+	var chain_id = network_info[network]["chain_id"]
 	var rpc = network_info[network]["rpc"]
 	var key = Ethers.get_key()
 	var calldata = FastCcipBot.check_token_balance(key, chain_id, rpc, token_contract)
@@ -259,7 +264,7 @@ func get_erc20_balance(network, token_contract):
 
 func get_erc20_decimals(network, token_contract):
 	var network_info = Network.network_info.duplicate()
-	var chain_id = int(network_info[network]["chain_id"])
+	var chain_id = network_info[network]["chain_id"]
 	var rpc = network_info[network]["rpc"]
 	var key = Ethers.get_key()
 	var calldata = FastCcipBot.get_token_decimals(key, chain_id, rpc, token_contract)

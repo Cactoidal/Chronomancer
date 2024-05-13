@@ -99,7 +99,7 @@ func update_balances(balance):
 func get_erc20_balance(network, token_contract):
 	var network_info = Network.network_info.duplicate()
 	var rpc = network_info[network]["rpc"]
-	var chain_id = int(network_info[network]["chain_id"])
+	var chain_id = network_info[network]["chain_id"]
 	var key = Ethers.get_key()
 	var calldata = FastCcipBot.check_token_balance(key, chain_id, rpc, token_contract)
 	Ethers.perform_request(

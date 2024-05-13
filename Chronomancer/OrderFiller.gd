@@ -123,7 +123,7 @@ func update_gas_balance(callback):
 func compose_message(message, from_network):
 	var network_info = Network.network_info.duplicate()
 	var rpc = network_info[network]["rpc"]
-	var chain_id = int(network_info[network]["chain_id"])
+	var chain_id = network_info[network]["chain_id"]
 	var endpoint_contract = network_info[network]["endpoint_contract"]
 	var monitored_tokens = network_info[network]["monitored_tokens"]
 	
@@ -201,7 +201,7 @@ func get_gas_price(callback):
 		
 		var network_info = Network.network_info.duplicate()
 		var rpc = network_info[network]["rpc"]
-		var chain_id = int(network_info[network]["chain_id"])
+		var chain_id = network_info[network]["chain_id"]
 		var endpoint_contract = network_info[network]["endpoint_contract"]
 		
 		mark_queued_order_as_checked()
@@ -316,7 +316,6 @@ func gas_fee_too_high():
 	order_filling_paused = false
 	print("gas fee too high")
 	
-
 func invalid_order():
 	mark_queued_order_as_checked()
 	order_filling_paused = false

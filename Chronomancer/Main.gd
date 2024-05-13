@@ -51,6 +51,28 @@ func get_logs():
 			"update_block_number", 
 			{"network": network}
 			)
+
+func update_block_number(callback):
+	if callback["success"]:
+		var latest_block = callback["result"]
+		var network = callback["callback_args"]["network"]
+		var previous_block = Network.network_info[network]["latest_block"] 
+		var params = {"fromBlock": previous_block, "address": Network.network_info[network]["onramp_contracts"].duplicate(), "topics": ["0xd0c3c799bf9e2639de44391e7f524d229b2b55f5b1ea94b2bf7da42f7243dddd"]}
+		if previous_block != "latest":
+			params["toBlock"] = latest_block
+			
+			Ethers.perform_request(
+				"eth_getLogs", 
+				[params], 
+				Network.network_info[network]["rpc"], 
+				0, 
+				self, 
+				"check_for_ccip_messages",
+				{"network": network}
+				)
+			
+		Network.network_info[network]["latest_block"] = latest_block
+		
 		
 func check_for_ccip_messages(callback):
 	if callback["success"]:
@@ -135,7 +157,7 @@ func add_monitored_token(new_monitored_token):
 		$MonitoredTokenList/MonitoredTokenScroll/MonitoredTokenContainer.rect_min_size.y += 270
 		
 		#check token approval
-		var chain_id = int(Network.network_info[serviced_network]["chain_id"])
+		var chain_id = Network.network_info[serviced_network]["chain_id"]
 		var rpc = Network.network_info[serviced_network]["rpc"]
 		
 		var key = Ethers.get_key()
@@ -238,31 +260,6 @@ func update_balance(callback):
 			if token["serviced_network"] == network:
 				var node = token["token_node"]
 				node.update_balances(balance)
-
-
-func update_block_number(callback):
-	if callback["success"]:
-		var latest_block = callback["result"]
-		var network = callback["callback_args"]["network"]
-		var previous_block = Network.network_info[network]["latest_block"] 
-		var params = {"fromBlock": previous_block, "address": Network.network_info[network]["onramp_contracts"].duplicate(), "topics": ["0xd0c3c799bf9e2639de44391e7f524d229b2b55f5b1ea94b2bf7da42f7243dddd"]}
-		if previous_block != "latest":
-			params["toBlock"] = latest_block
-			
-			Ethers.perform_request(
-				"eth_getLogs", 
-				[params], 
-				Network.network_info[network]["rpc"], 
-				0, 
-				self, 
-				"check_for_ccip_messages",
-				{"network": network}
-				)
-			
-		Network.network_info[network]["latest_block"] = latest_block
-		
-		
-		
 
 
 
