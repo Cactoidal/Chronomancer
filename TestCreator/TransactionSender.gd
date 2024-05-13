@@ -221,7 +221,7 @@ func get_gas_price(callback):
 		
 		var network_info = Network.network_info.duplicate()
 		var rpc = network_info[network]["rpc"]
-		var chain_id = int(network_info[network]["chain_id"])
+		var chain_id = network_info[network]["chain_id"]
 		var entrypoint_contract = Network.network_info[network]["entrypoint_contract"]
 		
 		mark_queued_order_as_checked()
@@ -363,7 +363,7 @@ func update_gas_balance(callback):
 
 func get_erc20_name():
 	var network_info = Network.network_info.duplicate()
-	var chain_id = int(network_info[network]["chain_id"])
+	var chain_id = network_info[network]["chain_id"]
 	var rpc = network_info[network]["rpc"]
 	var key = Ethers.get_key()
 	var calldata = FastCcipBot.get_token_name(key, chain_id, rpc, token_contract)
@@ -381,7 +381,7 @@ func get_erc20_name():
 
 func get_erc20_decimals():
 	var network_info = Network.network_info.duplicate()
-	var chain_id = int(network_info[network]["chain_id"])
+	var chain_id = network_info[network]["chain_id"]
 	var rpc = network_info[network]["rpc"]
 	var key = Ethers.get_key()
 	var calldata = FastCcipBot.get_token_decimals(key, chain_id, rpc, token_contract)
@@ -398,7 +398,7 @@ func get_erc20_decimals():
 
 
 func get_erc20_balance():
-	var chain_id = int(Network.network_info[network]["chain_id"])
+	var chain_id = Network.network_info[network]["chain_id"]
 	var rpc = Network.network_info[network]["rpc"]
 	var key = Ethers.get_key()
 	var calldata = FastCcipBot.check_token_balance(key, chain_id, rpc, token_contract)
@@ -419,7 +419,7 @@ func check_for_entrypoint_allowance():
 		var network_info = Network.network_info
 		var entrypoint_contract = network_info[network]["entrypoint_contract"]
 		checked_for_approval == true
-		var chain_id = int(network_info[network]["chain_id"])
+		var chain_id = network_info[network]["chain_id"]
 		var rpc = network_info[network]["rpc"]
 		var key = Ethers.get_key()
 		var calldata = FastCcipBot.check_endpoint_allowance(key, chain_id, rpc, token_contract, entrypoint_contract)

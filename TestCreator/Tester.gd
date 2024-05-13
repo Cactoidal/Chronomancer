@@ -26,7 +26,7 @@ func check_keystore():
 
 func check_network_info():
 	var file = File.new()
-	if file.file_exists("user://network_info") != true:
+	if file.file_exists("user://network_info") == true:
 		Network.network_info = Network.default_network_info.duplicate()
 		file.open("user://network_info", File.WRITE)
 		file.store_string(JSON.print(Network.network_info))
@@ -77,6 +77,7 @@ func show_test_names():
 		$SavedTestsList/SavedTestsScroll/SavedTestsContainer.rect_min_size.y += 26
 	
 func load_test(test_name):
+	$StartTest.visible = false
 	transaction_lanes = []
 	targets = []
 	for node in $Senders.get_children():
@@ -87,9 +88,16 @@ func load_test(test_name):
 	file.open("user://saved_tests", File.READ)
 	var content = parse_json(file.get_as_text())
 	var y_spacer = 0
-	$StartTest.visible = true
+	
 	if test_name in content.keys():
 		var test = content[test_name]
+		
+		if test["recipient_networks"].empty():
+			print("invalid test case")
+			return
+			
+		$StartTest.visible = true
+		
 		for network in test["sender_networks"].keys():
 			var new_transaction_lane = transaction_lane.instance()
 			transaction_lanes.append(new_transaction_lane)

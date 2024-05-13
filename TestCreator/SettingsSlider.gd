@@ -144,6 +144,3 @@ func dehighlight_button(network):
 func open_scanner_link():
 	var scan_link = network_info[picked_network]["scan_url"] + "address/" +  $NetworkInfo/Network/Endpoint.text
 	OS.shell_open(scan_link)
-
-func ethereum_request_failed(network, request_type, extra_args):
-	pass

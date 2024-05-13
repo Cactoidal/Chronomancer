@@ -6,7 +6,7 @@ var default_network_info = {
 	
 	"Ethereum Sepolia": 
 		{
-		"chain_id": 11155111,
+		"chain_id": "11155111",
 		"chain_selector": "16015286601757825753",
 		"rpc": "https://ethereum-sepolia-rpc.publicnode.com",
 		"gas_balance": "0", 
@@ -40,7 +40,7 @@ var default_network_info = {
 		
 	"Arbitrum Sepolia": 
 		{
-		"chain_id": 421614,
+		"chain_id": "421614",
 		"chain_selector": "3478487238524512106",
 		"rpc": "https://sepolia-rollup.arbitrum.io/rpc",
 		"gas_balance": "0", 
@@ -73,7 +73,7 @@ var default_network_info = {
 		},
 		
 	"Optimism Sepolia": {
-		"chain_id": 11155420,
+		"chain_id": "11155420",
 		"chain_selector": "5224473277236331295",
 		"rpc": "https://sepolia.optimism.io",
 		"gas_balance": "0", 
@@ -106,7 +106,7 @@ var default_network_info = {
 	},
 	
 	"Base Sepolia": {
-		"chain_id": 84532,
+		"chain_id": "84532",
 		"chain_selector": "10344971235874465080",
 		"rpc": "https://sepolia.base.org",
 		"gas_balance": "0", 

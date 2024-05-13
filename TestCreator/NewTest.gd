@@ -9,6 +9,7 @@ var color_empty = Color(1, 1, 1, 0)
 var color_white = Color(1, 1, 1, 0.4)
 var color_red = Color(1, 0, 0, 0.4)
 var color_green = Color(0, 1, 0, 0.4)
+var color_yellow = Color(1, 1, 0, 0.4)
 
 var main_script
 var scan_link
@@ -24,11 +25,14 @@ var finalizing_choices = false
 var confirming_choices = false
 
 var previous_token_length = 0
+var previous_token_address
 
 var currently_selected_network
 var selected_networks = []
 var potential_sender_networks = []
 var potential_recipient_networks = []
+
+var token_decimals = 18
 
 
 func _ready():
@@ -65,15 +69,18 @@ func slide():
 
 func _process(delta):
 	
-	if $AddressEntry.text.length() != previous_token_length:
+	if $AddressEntry.text.length() != previous_token_length || $AddressEntry.text != previous_token_address:
 		$ScanLink.visible = false
+		previous_token_address = $AddressEntry.text
 		previous_token_length = $AddressEntry.text.length()
 		if previous_token_length == 42 && $NetworkLabel.text != "":
 			get_erc20_name($NetworkLabel.text, $AddressEntry.text)
 			if choosing_sender_networks:
-				get_erc20_balance($NetworkLabel.text, $AddressEntry.text)
+				get_erc20_decimals($NetworkLabel.text, $AddressEntry.text)
+				
 		else:
 			$TokenLabel.text = ""
+			$TokenBalance.text = ""
 	
 	if sliding && !$SlideTween.is_active():
 		sliding = false
@@ -96,9 +103,11 @@ func start_new():
 	
 func pick_network(network):
 	if choosing_sender_networks || choosing_recipient_networks:
+		clear_text()
 		currently_selected_network = network
 		wipe_buttons()
-		get_button_overlay(network).color = color_green
+		if get_button_overlay(network).color != color_green:
+			get_button_overlay(network).color = color_yellow
 		$NetworkLabel.text = network
 		
 		Ethers.perform_request(
@@ -117,47 +126,66 @@ func pick_network(network):
 					var token_contract = potential_sender["token_contract"]
 					$AddressEntry.text = token_contract
 					get_erc20_name(network, token_contract)
-					get_erc20_balance(network, token_contract)	
+					get_erc20_decimals(network, token_contract)
+					
+					
+					
 
 func add_network():
 	var network = $NetworkLabel.text
+	var token_contract = $AddressEntry.text
 	var token_name = $TokenLabel.text
 	if network != "" && token_name != "" && $AddressEntry.text.length() == 42 && !network in selected_networks:
 		if choosing_sender_networks:
 			var potential_sender = {
 				"network": network,
-				"token_contract": token_name
+				"token_contract": token_contract,
+				"token_name": token_name,
 			} 
 			potential_sender_networks.append(potential_sender)
 			clear_text()
+	if choosing_recipient_networks && network!= "":
+		potential_recipient_networks.append(network)
+		clear_text()
+	get_button_overlay(network).color = color_green
+	$TokenBalance.text = ""
 
 
 func confirm_choices():
 	if choosing_sender_networks:
-		choosing_sender_networks = false
-		choosing_recipient_networks = true
 		currently_selected_network = ""
 		selected_networks = []
-		wipe_buttons()
+		choosing_sender_networks = false
+		total_wipe_buttons()
+		choosing_recipient_networks = true
 		clear_text()
 		$Prompt.text = "Choose recipient networks."
+		$AddressEntry.visible = false
 		
 	elif choosing_recipient_networks:
-		choosing_recipient_networks = false
-		finalizing_choices = true
 		currently_selected_network = ""
 		selected_networks = []
-		wipe_buttons()
+		choosing_recipient_networks = false
+		total_wipe_buttons()
+		finalizing_choices = true
 		clear_text()
+		$AddressEntry.visible = true
 		$AddNetwork.visible = false
 		$Prompt.text = "Name your test."
 	elif finalizing_choices && $AddressEntry.text != "":
 		var test_name = $AddressEntry.text
+		var senders = {}
+		for sender in potential_sender_networks:
+			var network = sender["network"]
+			var contract = sender["token_contract"]
+			senders[network] = contract
 		var test = {
-			"sender_networks": potential_sender_networks,
+			"sender_networks": senders,
 			"recipient_networks": potential_recipient_networks
 		}
+		print(test)
 		main_script.save_test(test_name, test)
+		main_script.show_test_names()
 		slide()
 
 
@@ -181,7 +209,8 @@ func clear_all():
 	selected_networks = []
 	potential_sender_networks = []
 	potential_recipient_networks = []
-	wipe_buttons()
+	total_wipe_buttons()
+	$AddressEntry.visible = true
 	$AddNetwork.visible = true
 	for button in $NetworkButtons.get_children():
 		if button.name != "Frames":
@@ -192,7 +221,17 @@ func wipe_buttons():
 	for button in $NetworkButtons.get_children():
 		if button.name != "Frames":
 			if !button.name in selected_networks && button.name != currently_selected_network:
-				button.get_node("Overlay").color = color_empty
+				
+				if choosing_sender_networks || choosing_recipient_networks:
+					if button.get_node("Overlay").color != color_green:
+						button.get_node("Overlay").color = color_empty
+				else:
+					button.get_node("Overlay").color = color_empty
+
+func total_wipe_buttons():
+	for button in $NetworkButtons.get_children():
+		if button.name != "Frames":
+			button.get_node("Overlay").color = color_empty
 
 func get_button_overlay(network):
 	for button in $NetworkButtons.get_children():
@@ -203,12 +242,12 @@ func highlight_button(network):
 	if !network in selected_networks && network != currently_selected_network:
 		if get_button_overlay(network).color == color_empty:
 			get_button_overlay(network).color = color_white
-		else:
+		elif get_button_overlay(network).color != color_green:
 			get_button_overlay(network).color = color_empty
 	
 func get_erc20_name(network, token_contract):
 	var network_info = Network.network_info.duplicate()
-	var chain_id = int(network_info[network]["chain_id"])
+	var chain_id = network_info[network]["chain_id"]
 	var rpc = network_info[network]["rpc"]
 	var file = File.new()
 	file.open("user://keystore", File.READ)
@@ -226,10 +265,25 @@ func get_erc20_name(network, token_contract):
 		{"function_name": "get_token_name", "token_contract": token_contract, "network": network}
 		)
 	
+func get_erc20_decimals(network, token_contract):
+	var network_info = Network.network_info.duplicate()
+	var chain_id = network_info[network]["chain_id"]
+	var rpc = network_info[network]["rpc"]
+	var key = Ethers.get_key()
+	var calldata = FastCcipBot.get_token_decimals(key, chain_id, rpc, token_contract)
+	Ethers.perform_request(
+		"eth_call", 
+		[{"to": token_contract, "input": calldata}, "latest"], 
+		network_info[network]["rpc"], 
+		0, 
+		self,
+		"load_token_data", 
+		{"network": network, "function_name": "get_token_decimals", "token_contract": token_contract}
+		)
 	
 func get_erc20_balance(network, token_contract):
 	var network_info = Network.network_info.duplicate()
-	var chain_id = int(network_info[network]["chain_id"])
+	var chain_id = network_info[network]["chain_id"]
 	var rpc = network_info[network]["rpc"]
 	var file = File.new()
 	file.open("user://keystore", File.READ)
@@ -251,7 +305,7 @@ func get_erc20_balance(network, token_contract):
 func load_network_gas(callback):
 	if callback["success"]:
 		var balance = String(callback["result"].hex_to_int())
-		$GasBalance.text = "Balance: " + balance
+		$GasBalance.text = "Balance: " + Ethers.convert_to_smallnum(balance, 18)
 		
 	
 func load_token_data(callback):
@@ -262,13 +316,19 @@ func load_token_data(callback):
 				$TokenLabel.text = FastCcipBot.decode_hex_string(callback["result"])
 				var network_info = Network.network_info.duplicate()
 				var network = args["network"]
-				scan_link = Ethers.network_info[network]["scan_url"] + "address/" + $AddressEntry.text
+				scan_link = Network.network_info[network]["scan_url"] + "address/" + $AddressEntry.text
 				$ScanLink.visible = true
+		
+		if args["function_name"] == "get_token_decimals":
+			if callback["result"] != "0x":
+				var _token_decimals = FastCcipBot.decode_u8(callback["result"])
+				token_decimals = _token_decimals
+				get_erc20_balance($NetworkLabel.text, $AddressEntry.text)
 				
 		if args["function_name"] == "check_token_balance":
 			if callback["result"] != "0x":
 				var balance = FastCcipBot.decode_u256(callback["result"])
-				$TokenBalance.text = "Balance: " + balance
+				$TokenBalance.text = "Balance: " + Ethers.convert_to_smallnum(balance, token_decimals)
 			else:
 				$TokenBalance.text = ""
 		else:
@@ -276,6 +336,3 @@ func load_token_data(callback):
 
 func open_scanner_link():
 	OS.shell_open(scan_link)
-
-func ethereum_request_failed(network, request_type, extra_args):
-	pass
