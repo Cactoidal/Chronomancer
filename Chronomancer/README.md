@@ -18,4 +18,4 @@ Where "method" is the eth_method,
 "callback_function" is the function that will be called on the callback node,  
 and "callback_args" are any application-specific arguments you need to pass to the callback function.  
 
-To get calldata for interacting with a contract, you will need to use a separate module, such as a GDNative library that uses ethers-rs via Godot Rust.  Please refer to this README for more information.
+To get calldata for interacting with a contract, you will need to use a separate module, such as a GDNative library that uses ethers-rs via Godot Rust.
