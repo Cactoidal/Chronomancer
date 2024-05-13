@@ -8,6 +8,15 @@ import {CCIPReceiver} from "@chainlink/contracts-ccip/src/v0.8/ccip/applications
 import {IERC20} from "@chainlink/contracts-ccip/src/v0.8/vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@chainlink/contracts-ccip/src/v0.8/vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/utils/SafeERC20.sol";
 
+
+
+
+// Template sender contract edited for sending messages to the CCIP Fast Endpoint
+// with a message.data object that includes the intended recipient address and some bytes.
+
+
+
+
 /**
  * THIS IS AN EXAMPLE CONTRACT THAT USES HARDCODED VALUES FOR CLARITY.
  * THIS IS AN EXAMPLE CONTRACT THAT USES UN-AUDITED CODE.
