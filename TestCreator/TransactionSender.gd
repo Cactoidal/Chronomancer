@@ -6,6 +6,7 @@ var header = "Content-Type: application/json"
 var value = "1906588804305777"
 
 var max_value: int = 20065888043057777
+#var max_value: int = 20065888043057777
 
 var network
 var main_script
@@ -35,7 +36,7 @@ var tx_receipt_poll_timer = 4
 var pending_approvals = []
 var needs_to_approve = false
 
-var gas_balance
+var gas_balance = "0"
 var token_balance
 
 var checked_for_approval = false
@@ -44,6 +45,7 @@ var active = false
 
 var recipients = []
 var target
+var transaction_minimum_delay = 0
 
 func initialize(main, _network, _token_contract):
 	randomize()
@@ -56,14 +58,17 @@ func initialize(main, _network, _token_contract):
 	get_network_gas_balance("update_gas_balance")
 
 func _process(delta):
+	transaction_minimum_delay -= delta
 	if checking_for_tx_receipt:
 		check_for_tx_receipt(delta)
 	handle_approvals()
 	prune_pending_orders(delta)
-	if active && approved && !order_filling_paused && float(gas_balance) > float(Network.network_info[network]["minimum_gas_threshold"]):
-		order_filling_paused = true
-		create_order()
-		fill_orders()
+	if active && approved && !order_filling_paused && float(Ethers.convert_to_smallnum(gas_balance, 18)) > float(Network.network_info[network]["minimum_gas_threshold"]):
+		if transaction_minimum_delay <= 0:
+			order_filling_paused = true
+			transaction_minimum_delay = 10
+			create_order()
+			fill_orders()
 
 func create_order():
 	var target_network = get_target_network()
@@ -168,13 +173,14 @@ func initiate_transaction_sequence(callback):
 				)
 				
 		else:
-			gas_error()
+			gas_error("failed to initiate transaction")
 	else:
-		rpc_error()
+		rpc_error("failed to initiate transaction")
 
 func get_fee_value(callback):
 	if callback["success"]:
 		value = FastCcipBot.decode_u256(callback["result"])
+		print(value + " ? " + String(max_value))
 		if int(value) < max_value:
 			
 			Ethers.perform_request(
@@ -187,10 +193,9 @@ func get_fee_value(callback):
 				{}
 				)
 		else:
-			print("ccip fee too high")
-			gas_error()
+			gas_error("ccip fee too high")
 	else:
-		rpc_error()
+		rpc_error("failed to get ccip fee")
 
 func get_tx_count(callback):
 	if callback["success"]:
@@ -207,7 +212,7 @@ func get_tx_count(callback):
 				)
 		
 	else:
-		rpc_error()
+		rpc_error("failed to get transaction count")
 
 func get_gas_price(callback):
 	if callback["success"]:
@@ -246,7 +251,7 @@ func get_gas_price(callback):
 			var data = order_in_queue["data"]
 			var amount = order_in_queue["amount"]
 			var token_contract = order_in_queue["token_contract"]
-			
+	
 			calldata = "0x" + FastCcipBot.test_send(
 				key, 
 				chain_id, 
@@ -287,7 +292,7 @@ func get_gas_price(callback):
 				)
 		
 	else:
-		rpc_error()
+		rpc_error("failed to get gas price")
 
 func get_transaction_hash(callback):
 	if callback["success"]:
@@ -295,7 +300,7 @@ func get_transaction_hash(callback):
 			checking_for_tx_receipt = true
 			tx_receipt_poll_timer = 4
 	else:
-		rpc_error()
+		rpc_error("failed to get transaction hash")
 
 func check_for_tx_receipt(delta):
 	tx_receipt_poll_timer -= delta
@@ -333,7 +338,7 @@ func check_transaction_receipt(callback):
 				order_filling_paused = false
 	else:
 		checking_for_tx_receipt = false	
-		rpc_error()
+		rpc_error("failed to check for transaction receipt")
 			
 
 func get_network_gas_balance(callback_function): 
@@ -458,13 +463,13 @@ func update_info(callback):
 				approved = true
 			
 
-func rpc_error():
+func rpc_error(error):
 	order_filling_paused = false
-	print("rpc error")
+	print("rpc error: " + error)
 
-func gas_error():
+func gas_error(error):
 	order_filling_paused = false
-	print("insufficient gas")
+	print("insufficient gas:" + error)
 
 func gas_fee_too_high():
 	order_filling_paused = false
