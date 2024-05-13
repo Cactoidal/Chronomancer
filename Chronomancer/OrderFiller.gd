@@ -134,9 +134,8 @@ func compose_message(message, from_network):
 	for token in monitored_tokens:
 		local_token_contracts.append(token["local_token_contract"])
 		remote_token_contracts.append(token["monitored_networks"][from_network])
-		#allow custom minimum
 		token_minimum_list.append(token["minimum"])
-		#token_minimum_list.append("0")
+	
 		
 	var key = Ethers.get_key()
 	
@@ -209,48 +208,39 @@ func get_gas_price(callback):
 		
 		var maximum_gas_fee = network_info[network]["maximum_gas_fee"]
 		
+		#it would be good to perform a gas estimate instead of relying on a maximum gas threshold
 		if maximum_gas_fee != "":
 			if gas_price > int(maximum_gas_fee):
 				gas_fee_too_high()
 				return
 		
 		var key = Ethers.get_key()
+		var calldata
 		
 		if !needs_to_approve:
 			main_script.crystal_ball.spawn_message()
 			current_tx_type = "order"
 			var local_token = FastCcipBot.decode_address(order_in_queue["local_token"])
 			
-			var calldata = "0x" + FastCcipBot.fill_order(key, chain_id, endpoint_contract, rpc, gas_price, tx_count, order_in_queue["message"], local_token)
+			calldata = "0x" + FastCcipBot.fill_order(key, chain_id, endpoint_contract, rpc, gas_price, tx_count, order_in_queue["message"], local_token)
 			
-			Ethers.perform_request(
-				"eth_sendRawTransaction", 
-				[calldata], 
-				rpc, 
-				0, 
-				self, 
-				"get_transaction_hash", 
-				{}
-				)
 		else:
 			current_tx_type = "approval"
 			var local_token_contract = approval_in_queue["local_token_contract"]
-			print("approving endpoint " + endpoint_contract + " allowance to spend local token " + local_token_contract)
 			
-			var calldata = "0x" + FastCcipBot.approve_endpoint_allowance(key, chain_id, endpoint_contract, rpc, gas_price, tx_count, local_token_contract)
-			Ethers.perform_request(
-				"eth_sendRawTransaction", 
-				[calldata], 
-				rpc, 
-				0, 
-				self, 
-				"get_transaction_hash", 
-				{}
-				)
+			calldata = "0x" + FastCcipBot.approve_endpoint_allowance(key, chain_id, endpoint_contract, rpc, gas_price, tx_count, local_token_contract)
+			
+		Ethers.perform_request(
+			"eth_sendRawTransaction", 
+			[calldata], 
+			rpc, 
+			0, 
+			self, 
+			"get_transaction_hash", 
+			{}
+			)
 	else:
 		rpc_error()
-
-#it would be good to perform a gas estimate instead of relying on a minimum gas threshold
 
 
 func get_transaction_hash(callback):

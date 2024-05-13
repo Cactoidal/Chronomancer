@@ -63,13 +63,14 @@ func get_ccip_message_id(network, block_number):
 		)
 
 func load_ccip_explorer_link(callback):
-	if callback["result"] != []:
+	if callback["success"] && callback["result"] != []:
 		for event in callback["result"]:
+			#event[data] will need to be decoded to get the message id and the filler, filter for Ethers.user_address
 			var messageId = event["data"]
+			
 			ccip_explorer_link = ccip_explorer_url + messageId
 			$MainPanel/CCIPExplorerLink.visible = true
 			
-
 func open_scanner():
 	OS.shell_open(scan_link)
 

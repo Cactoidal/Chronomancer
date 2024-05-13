@@ -42,25 +42,24 @@ func perform_request(method, params, rpc, retries, callback_node, callback_funct
 func get_key():
 	var file = File.new()
 	file.open_encrypted_with_pass("user://encrypted_keystore", File.READ, password)
-	var content = file.get_buffer(32)
+	var key = file.get_buffer(32)
 	file.close()
-	return content
+	return key
 
 func get_address():
 	user_address = FastCcipBot.get_address(get_key())
 
-func get_biguint(minimum, token_decimals):
-	if minimum.begins_with("."):
-		minimum = "0" + minimum
+func get_biguint(number, token_decimals):
+	if number.begins_with("."):
+		number = "0" + number
 		
 	var zero_filler = int(token_decimals)
-	var decimal_index = minimum.find(".")
-	var big_uint = minimum
+	var decimal_index = number.find(".")
+	var big_uint = number
 	if decimal_index != -1:
-		zero_filler -= minimum.right(decimal_index+1).length()
+		zero_filler -= number.right(decimal_index+1).length()
 		big_uint.erase(decimal_index,decimal_index)
 			
-	
 	for zero in range(zero_filler):
 		big_uint += "0"
 	

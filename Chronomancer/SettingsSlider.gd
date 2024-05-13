@@ -126,7 +126,7 @@ func save_changes():
 
 func restore_network_defaults():
 	var network = picked_network
-	var default_network_info = main_script.default_network_info.duplicate()
+	var default_network_info = Network.default_network_info.duplicate()
 	$NetworkInfo/Network/RPC.text = default_network_info[network]["rpc"]
 	$NetworkInfo/Network/GasFee.text = default_network_info[network]["maximum_gas_fee"]
 	$NetworkInfo/Network/Endpoint.text = default_network_info[network]["endpoint_contract"]
@@ -136,11 +136,11 @@ func change_password():
 	var password = $NetworkInfo/Chainlink/OldPassword.text
 	var new_password =  $NetworkInfo/Chainlink/NewPassword.text
 	var error = file.open_encrypted_with_pass("user://encrypted_keystore", File.READ, password)
-	var content = file.get_buffer(32)
+	var key = file.get_buffer(32)
 	file.close()
 	if error == 0 && new_password.length() > 0:
 		file.open_encrypted_with_pass("user://encrypted_keystore", File.WRITE, new_password)
-		file.store_buffer(content)
+		file.store_buffer(key)
 		file.close()
 		Ethers.password = new_password
 		$NetworkInfo/Chainlink/OldPassword.text = ""
@@ -152,8 +152,8 @@ func export_key():
 	var password = $NetworkInfo/Chainlink/Password.text
 	var error = file.open_encrypted_with_pass("user://encrypted_keystore", File.READ, password)
 	if error == 0:
-		var content = file.get_buffer(32)
-		$NetworkInfo/Chainlink/PrivateKey.text = content.hex_encode()
+		var key = file.get_buffer(32)
+		$NetworkInfo/Chainlink/PrivateKey.text = key.hex_encode()
 	file.close()
 
 func wipe_buttons():

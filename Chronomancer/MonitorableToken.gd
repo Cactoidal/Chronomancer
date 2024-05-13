@@ -25,7 +25,6 @@ func load_info(main, token):
 	
 	$MainPanel/NetworkLogo.texture = load(network_info[network]["logo"])
 	
-	
 	for old_logo in $MonitoredNetworks.get_children():
 		old_logo.queue_free()
 	var shift = 0

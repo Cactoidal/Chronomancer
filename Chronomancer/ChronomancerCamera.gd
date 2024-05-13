@@ -1,7 +1,5 @@
 extends Spatial
 
-
-#var end_pivot = 57.758934
 var end_pivot = Vector3(0, 179.9, 0)
 var end_scale = Vector3(0.3, 0.3, 0.3)
 var end_upshift = Vector3(0, 1, 0)
@@ -36,13 +34,13 @@ func _ready():
 
 var start_time = 0.2
 func _process(delta):
-	
+	print(start_time)
 	if overlay.modulate.a > 0:
 		overlay.modulate.a -= delta/1.4
 		if overlay.modulate.a < 0:
 			overlay.modulate.a = 0
 	
-	if overlay.modulate.a == 0:
+	if overlay.modulate.a == 0 && !rotation_tweened:
 		start_time -= delta
 	
 	if start_time < 0 && !rotation_tweened:
@@ -62,8 +60,7 @@ func _process(delta):
 		$LogoDownshiftTween.interpolate_property(logo, "transform:origin", logo.transform.origin, end_downshift, 2, Tween.TRANS_QUAD, Tween.EASE_OUT, 0)
 		$LogoDownshiftTween.start()
 	
-	#if tweened && !title_appeared && !$ScaleTween.is_active():
-	if position_tweened && !title_appeared:# && !$UpshiftTween.is_active():
+	if position_tweened && !title_appeared:
 		title.modulate.a += delta/1.4
 		if title.modulate.a > 1:
 			title.modulate.a = 1
@@ -102,10 +99,10 @@ func check_keystore():
 	var file = File.new()
 	var password = get_parent().get_node("Login").text
 	if file.file_exists("user://encrypted_keystore") != true:
-		var bytekey = Crypto.new()
-		var content = bytekey.generate_random_bytes(32)
+		var MbedTLS = Crypto.new()
+		var key = MbedTLS.generate_random_bytes(32)
 		file.open_encrypted_with_pass("user://encrypted_keystore", File.WRITE, password)
-		file.store_buffer(content)
+		file.store_buffer(key)
 		file.close()
 		Ethers.password = password
 		return true

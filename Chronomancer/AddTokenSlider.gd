@@ -23,15 +23,13 @@ var confirming_choices = false
 
 var previous_token_length = 0
 
-#it would be nice to have the option of setting a custom endpoint
-
 var new_token = {
 		"serviced_network": "",
 		"local_token_contract": "",
 		"token_name": "",
 		"token_decimals": "",
 		"monitored_networks": {
-		 #network : remote_token_contract
+
 		},
 		"endpoint_contract":"",
 		"minimum": 0,
@@ -107,7 +105,7 @@ func pick_network(network):
 	if choosing_service_network:
 		var network_info = Network.network_info.duplicate()
 		pending_token["serviced_network"] = network
-		#for now, there is a default endpoint contract on each network
+		
 		pending_token["endpoint_contract"] = network_info[network]["endpoint_contract"]
 		get_button_overlay(network).color = color_red
 		wipe_buttons()
@@ -312,7 +310,6 @@ func load_token_data(callback):
 	
 func open_scanner_link():
 	OS.shell_open(scan_link)
-
 
 
 func filter_decimals(minimum, token_decimals):

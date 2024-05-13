@@ -76,26 +76,27 @@ func check_for_ccip_messages(callback):
 
 
 func check_endpoint_allowance(callback):
-	var network = callback["callback_args"]["network"]
-	var local_token_contract = callback["callback_args"]["local_token_contract"]
-	var endpoint_contract = callback["callback_args"]["endpoint_contract"]
-	
-	var allowance = callback["result"]
-	if allowance != "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff":
-		var order_filler = Network.network_info[network]["order_processor"].get_node("OrderFiller")
-		print(network + " endpoint " + endpoint_contract + " needs approval to spend local token " + local_token_contract)
-		order_filler.needs_to_approve = true
-		order_filler.pending_approvals.append(
-			{
-				"endpoint_contract": endpoint_contract, 
-				"local_token_contract": local_token_contract,
-				"monitorable_token": callback["callback_args"]["monitorable_token"]
-			}
-		)
-		callback["callback_args"]["monitorable_token"].get_node("MainPanel/Monitor").text = "Approving..."
-	else:
-		print(network + " endpoint " + endpoint_contract + " has allowance to spend local token " + local_token_contract)
-		callback["callback_args"]["monitorable_token"].approved = true
+	if callback["success"]:
+		var network = callback["callback_args"]["network"]
+		var local_token_contract = callback["callback_args"]["local_token_contract"]
+		var endpoint_contract = callback["callback_args"]["endpoint_contract"]
+		
+		var allowance = callback["result"]
+		if allowance != "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff":
+			var order_filler = Network.network_info[network]["order_processor"].get_node("OrderFiller")
+			print(network + " endpoint " + endpoint_contract + " needs approval to spend local token " + local_token_contract)
+			order_filler.needs_to_approve = true
+			order_filler.pending_approvals.append(
+				{
+					"endpoint_contract": endpoint_contract, 
+					"local_token_contract": local_token_contract,
+					"monitorable_token": callback["callback_args"]["monitorable_token"]
+				}
+			)
+			callback["callback_args"]["monitorable_token"].get_node("MainPanel/Monitor").text = "Approving..."
+		else:
+			print(network + " endpoint " + endpoint_contract + " has allowance to spend local token " + local_token_contract)
+			callback["callback_args"]["monitorable_token"].approved = true
 
 
 func get_gas_balances():
@@ -229,13 +230,14 @@ func check_for_token_match(token):
 	return false
 
 func update_balance(callback):
-	var balance = String(callback["result"].hex_to_int())
-	var network = callback["callback_args"]["network"]
-	Network.network_info[network]["gas_balance"] = balance
-	for token in monitorable_tokens:
-		if token["serviced_network"] == network:
-			var node = token["token_node"]
-			node.update_balances(balance)
+	if callback["success"]:
+		var balance = String(callback["result"].hex_to_int())
+		var network = callback["callback_args"]["network"]
+		Network.network_info[network]["gas_balance"] = balance
+		for token in monitorable_tokens:
+			if token["serviced_network"] == network:
+				var node = token["token_node"]
+				node.update_balances(balance)
 
 
 func update_block_number(callback):
