@@ -7,8 +7,8 @@ use hex::*;
 use num_bigint::{BigUint, BigInt};
 
 
-// Declare ABIs here.  Your ABI files only need to be present when compiling, they
-// do not need to be in your application files.
+// Declare ABIs here.  ABI files only need to be present when compiling, they
+// do not need to be in the application files.
 
 abigen!(
     FastCCIPBotABI,
