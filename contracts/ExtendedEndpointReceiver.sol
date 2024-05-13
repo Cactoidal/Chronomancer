@@ -20,7 +20,7 @@ contract ExtendedEndpointReceiver is CCIPReceiver {
     mapping(bytes32 => bool) public messageArrived;
     bytes public latestData;
 
-    // Point ROUTER at the endpoint contract
+    // Point ROUTER at the CCIP Fast Endpoint contract
     constructor(address _router, address _link) CCIPReceiver(_router) {
         ROUTER = _router;
         CHAINLINK = _link;
