@@ -26,7 +26,7 @@ func check_keystore():
 
 func check_network_info():
 	var file = File.new()
-	if file.file_exists("user://network_info") == true:
+	if file.file_exists("user://network_info") != true:
 		Network.network_info = Network.default_network_info.duplicate()
 		file.open("user://network_info", File.WRITE)
 		file.store_string(JSON.print(Network.network_info))
