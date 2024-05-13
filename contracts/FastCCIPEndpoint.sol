@@ -80,7 +80,7 @@ contract FastCCIPEndpoint is CCIPReceiver {
     }
 
 
-    // Right now only compatible with one token, due to the nature of order paths.
+    // Right now only compatible with messages containing one destToken, due to the nature of order paths.
     // Could be reconfigured to work with multiple tokens, multiple recipients, and multiple data objects
     function _ccipReceive(
         Client.Any2EVMMessage memory message
