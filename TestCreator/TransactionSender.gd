@@ -1,6 +1,6 @@
 extends Control
 
-var glow = preload("res://glow.tscn")
+var glow = preload("res://Glow.tscn")
 
 var header = "Content-Type: application/json"
 var value = "1906588804305777"
