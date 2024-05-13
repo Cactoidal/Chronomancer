@@ -52,9 +52,9 @@ impl FastCCIPBot {
 //          ORDER FILLING METHODS         //
 
 #[method]
-fn fill_order(key: PoolArray<u8>, chain_id: u64, endpoint_contract: GodotString, rpc: GodotString, _gas_fee: u64, _count: u64, EVM2EVMMessage: GodotString, token_address: GodotString) -> GodotString {
+fn fill_order(key: PoolArray<u8>, _chain_id: GodotString, endpoint_contract: GodotString, rpc: GodotString, _gas_fee: u64, _count: u64, EVM2EVMMessage: GodotString, token_address: GodotString) -> GodotString {
 
-    let (wallet, user_address, client) = get_signer(key, chain_id, rpc);
+    let (wallet, chain_id, user_address, client) = get_signer(key, _chain_id, rpc);
 
     let contract_address = string_to_address(endpoint_contract);
 
@@ -85,9 +85,9 @@ fn fill_order(key: PoolArray<u8>, chain_id: u64, endpoint_contract: GodotString,
 
 
 #[method]
-fn filter_order(key: PoolArray<u8>, chain_id: u64, endpoint_contract: GodotString, rpc: GodotString, EVM2EVMMessage: GodotString, _local_token_contracts: PoolArray<GodotString>, _remote_token_contracts: PoolArray<GodotString>, _token_minimums: PoolArray<GodotString>) -> GodotString {
+fn filter_order(key: PoolArray<u8>, _chain_id: GodotString, endpoint_contract: GodotString, rpc: GodotString, EVM2EVMMessage: GodotString, _local_token_contracts: PoolArray<GodotString>, _remote_token_contracts: PoolArray<GodotString>, _token_minimums: PoolArray<GodotString>) -> GodotString {
 
-    let (wallet, user_address, client) = get_signer(key, chain_id, rpc);
+    let (wallet, chain_id, user_address, client) = get_signer(key, _chain_id, rpc);
             
     let contract_address = string_to_address(endpoint_contract);
             
@@ -114,9 +114,9 @@ fn filter_order(key: PoolArray<u8>, chain_id: u64, endpoint_contract: GodotStrin
 //      ERC20 METHODS     //
 
 #[method]
-fn check_token_balance(key: PoolArray<u8>, chain_id: u64, rpc: GodotString, token_contract: GodotString) -> GodotString {
+fn check_token_balance(key: PoolArray<u8>, _chain_id: GodotString, rpc: GodotString, token_contract: GodotString) -> GodotString {
 
-    let (wallet, user_address, client) = get_signer(key, chain_id, rpc);
+    let (wallet, chain_id, user_address, client) = get_signer(key, _chain_id, rpc);
             
     let token_address: Address = string_to_address(token_contract);
             
@@ -131,9 +131,9 @@ fn check_token_balance(key: PoolArray<u8>, chain_id: u64, rpc: GodotString, toke
 }
 
 #[method]
-fn get_token_name(key: PoolArray<u8>, chain_id: u64, rpc: GodotString, token_contract: GodotString) -> GodotString {
+fn get_token_name(key: PoolArray<u8>, _chain_id: GodotString, rpc: GodotString, token_contract: GodotString) -> GodotString {
 
-    let (wallet, user_address, client) = get_signer(key, chain_id, rpc);
+    let (wallet, chain_id, user_address, client) = get_signer(key, _chain_id, rpc);
             
     let token_address = string_to_address(token_contract);
             
@@ -148,9 +148,9 @@ fn get_token_name(key: PoolArray<u8>, chain_id: u64, rpc: GodotString, token_con
 }
 
 #[method]
-fn get_token_decimals(key: PoolArray<u8>, chain_id: u64, rpc: GodotString, token_contract: GodotString) -> GodotString {
+fn get_token_decimals(key: PoolArray<u8>, _chain_id: GodotString, rpc: GodotString, token_contract: GodotString) -> GodotString {
 
-    let (wallet, user_address, client) = get_signer(key, chain_id, rpc);
+    let (wallet, chain_id, user_address, client) = get_signer(key, _chain_id, rpc);
             
     let token_address = string_to_address(token_contract);
             
@@ -166,9 +166,9 @@ fn get_token_decimals(key: PoolArray<u8>, chain_id: u64, rpc: GodotString, token
 
 
 #[method]
-fn check_endpoint_allowance(key: PoolArray<u8>, chain_id: u64, rpc: GodotString, token_contract: GodotString, endpoint_contract: GodotString) -> GodotString {
+fn check_endpoint_allowance(key: PoolArray<u8>, _chain_id: GodotString, rpc: GodotString, token_contract: GodotString, endpoint_contract: GodotString) -> GodotString {
 
-    let (wallet, user_address, client) = get_signer(key, chain_id, rpc);
+    let (wallet, chain_id, user_address, client) = get_signer(key, _chain_id, rpc);
             
     let token_address = string_to_address(token_contract);
 
@@ -186,9 +186,9 @@ fn check_endpoint_allowance(key: PoolArray<u8>, chain_id: u64, rpc: GodotString,
 
 
 #[method]
-fn approve_endpoint_allowance(key: PoolArray<u8>, chain_id: u64, endpoint_contract: GodotString, rpc: GodotString, _gas_fee: u64, _count: u64, token_contract: GodotString) -> GodotString {
+fn approve_endpoint_allowance(key: PoolArray<u8>, _chain_id: GodotString, endpoint_contract: GodotString, rpc: GodotString, _gas_fee: u64, _count: u64, token_contract: GodotString) -> GodotString {
 
-    let (wallet, user_address, client) = get_signer(key, chain_id, rpc);
+    let (wallet, chain_id, user_address, client) = get_signer(key, _chain_id, rpc);
 
     let endpoint_address = string_to_address(endpoint_contract);
 
@@ -221,9 +221,9 @@ fn approve_endpoint_allowance(key: PoolArray<u8>, chain_id: u64, endpoint_contra
 
 
 #[method]
-fn test_send(key: PoolArray<u8>, chain_id: u64, entrypoint_contract: GodotString, rpc: GodotString, _gas_fee: u64, _count: u64, _chain_selector: GodotString, endpoint_contract: GodotString, recipient: GodotString, _data: GodotString, token_address: GodotString, amount: GodotString, _value: GodotString) -> GodotString {
+fn test_send(key: PoolArray<u8>, _chain_id: GodotString, entrypoint_contract: GodotString, rpc: GodotString, _gas_fee: u64, _count: u64, _chain_selector: GodotString, endpoint_contract: GodotString, recipient: GodotString, _data: GodotString, token_address: GodotString, amount: GodotString, _value: GodotString) -> GodotString {
 
-    let (wallet, user_address, client) = get_signer(key, chain_id, rpc);
+    let (wallet, chain_id, user_address, client) = get_signer(key, _chain_id, rpc);
             
     let contract_address = string_to_address(entrypoint_contract);
             
@@ -264,9 +264,9 @@ fn test_send(key: PoolArray<u8>, chain_id: u64, entrypoint_contract: GodotString
 
 
 #[method]
-fn get_fee_value(key: PoolArray<u8>, chain_id: u64, entrypoint_contract: GodotString, rpc: GodotString, _gas_fee: u64, _count: u64, _chain_selector: GodotString, endpoint_contract: GodotString, recipient: GodotString, _data: GodotString, token_address: GodotString, amount: GodotString) -> GodotString {
+fn get_fee_value(key: PoolArray<u8>, _chain_id: GodotString, entrypoint_contract: GodotString, rpc: GodotString, _gas_fee: u64, _count: u64, _chain_selector: GodotString, endpoint_contract: GodotString, recipient: GodotString, _data: GodotString, token_address: GodotString, amount: GodotString) -> GodotString {
 
-    let (wallet, user_address, client) = get_signer(key, chain_id, rpc);
+    let (wallet, chain_id, user_address, client) = get_signer(key, _chain_id, rpc);
         
     let contract_address = string_to_address(entrypoint_contract);
             
@@ -402,8 +402,10 @@ godot_init!(init);
 // Common type conversions and operations
 
 
-fn get_signer(key: PoolArray<u8>, chain_id: u64, rpc: GodotString) -> (LocalWallet, Address, SignerMiddleware<Provider<Http>, LocalWallet>) {
+fn get_signer(key: PoolArray<u8>, _chain_id: GodotString, rpc: GodotString) -> (LocalWallet, u64, Address, SignerMiddleware<Provider<Http>, LocalWallet>) {
     
+    let chain_id: u64 = _chain_id.to_string().parse::<u64>().unwrap();
+
     let wallet : LocalWallet = LocalWallet::from_bytes(&key.to_vec()[..]).unwrap().with_chain_id(chain_id);
 
     let user_address = wallet.address();
@@ -412,7 +414,7 @@ fn get_signer(key: PoolArray<u8>, chain_id: u64, rpc: GodotString) -> (LocalWall
 
     let client = SignerMiddleware::new(provider, wallet.clone());
 
-    (wallet, user_address, client)
+    (wallet, chain_id, user_address, client)
 }
 
 fn get_signed_calldata(tx: Eip1559TransactionRequest, wallet: LocalWallet) -> GodotString {
@@ -478,3 +480,7 @@ fn string_array_to_uint256s(_godot_string_array: PoolArray<GodotString>) -> Vec<
 
     u256_vec
 }
+
+
+
+
