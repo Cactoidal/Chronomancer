@@ -1,6 +1,6 @@
 extends Control
 
-var glow = preload("res://glow.tscn")
+var glow = preload("res://Glow.tscn")
 var transaction_lane = preload("res://TransactionLane.tscn")
 
 var transaction_lanes = []
