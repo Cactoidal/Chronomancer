@@ -12,7 +12,7 @@ Ethers.perform_request(
 
 Where "method" is the eth_method,  
 "params" are the method parameters,  
-"rpc" is an rpc for the network you're calling,  
+"rpc" is a url for an rpc node for the network you're calling,  
 "retries" is the initial retry count (usually set to 0, as it will increment up to 3 whenever retries are attempted),  
 "callback_node" is the node that will receive the callback from the HTTPRequest,  
 "callback_function" is the function that will be called on the callback node,  
