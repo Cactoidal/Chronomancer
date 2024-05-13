@@ -278,7 +278,7 @@ func load_demo():
 			"Arbitrum Sepolia": "0xA8C0c11bf64AF62CDCA6f93D3769B88BdD7cb93D",
 			"Base Sepolia": "0x88A2d74F47a237a62e7A51cdDa67270CE381555e"
 		},
-		"endpoint_contract":"0xD9E254783C240ece646C00e2D3c1Fb6Eb0215749",
+		"endpoint_contract":"0xFFA6c081b6A7F5F3816D9052C875E4C6B662137a",
 		"minimum": "0",
 		"gas_balance": "0",
 		"token_balance": "0",
@@ -297,7 +297,7 @@ func load_demo():
 			"Arbitrum Sepolia": "0xA8C0c11bf64AF62CDCA6f93D3769B88BdD7cb93D",
 			"Base Sepolia": "0x88A2d74F47a237a62e7A51cdDa67270CE381555e"
 		},
-		"endpoint_contract":"0x8b98E266f5983084Fe5813E3d729391056c15692",
+		"endpoint_contract":"0x04Ba932c452ffc62CFDAf9f723e6cEeb1C22474b",
 		"minimum": "0",
 		"gas_balance": "0",
 		"token_balance": "0",
@@ -316,7 +316,7 @@ func load_demo():
 			"Optimism Sepolia": "0x8aF4204e30565DF93352fE8E1De78925F6664dA7",
 			"Base Sepolia": "0x88A2d74F47a237a62e7A51cdDa67270CE381555e"
 		},
-		"endpoint_contract":"0x69487b0e0CF57Ad6b4339cda70a45b4aDB8eef08",
+		"endpoint_contract":"0xcA57f7b1FDfD3cbD513954938498Fe6a9bc8FF63",
 		"minimum": "0",
 		"gas_balance": "0",
 		"token_balance": "0",
@@ -335,7 +335,7 @@ func load_demo():
 			"Optimism Sepolia": "0x8aF4204e30565DF93352fE8E1De78925F6664dA7",
 			"Arbitrum Sepolia": "0xA8C0c11bf64AF62CDCA6f93D3769B88BdD7cb93D",
 		},
-		"endpoint_contract":"0xC3E1D898D09511AD47842607779985BD95018DE2",
+		"endpoint_contract":"0xD7e4A13c7896edA172e568eB6E35Da68d3572127",
 		"minimum": "0",
 		"gas_balance": "0",
 		"token_balance": "0",

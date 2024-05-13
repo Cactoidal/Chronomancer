@@ -34,7 +34,6 @@ func _ready():
 
 var start_time = 0.2
 func _process(delta):
-	print(start_time)
 	if overlay.modulate.a > 0:
 		overlay.modulate.a -= delta/1.4
 		if overlay.modulate.a < 0:

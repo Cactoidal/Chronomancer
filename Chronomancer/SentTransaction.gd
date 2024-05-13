@@ -54,7 +54,7 @@ func get_ccip_message_id(network, block_number):
 	var network_info = Network.network_info.duplicate()
 	Ethers.perform_request(
 		"eth_getLogs", 
-		[{"fromBlock": block_number, "toBlock": block_number, "address": Network.network_info[network]["endpoint_contract"], "topics": ["0xe6043a9faa355b4a07ebffd9f3aef89c2067acfa9fcc0a9bf3b2d2361aecb6f8"]}], 
+		[{"fromBlock": block_number, "toBlock": block_number, "address": Network.network_info[network]["endpoint_contract"], "topics": ["0x0555709e59fb225fcf12cc582a9e5f7fd8eea54c91f3dc500ab9d8c37c507770"]}], 
 		network_info[network]["rpc"], 
 		0, 
 		self, 
@@ -65,11 +65,15 @@ func get_ccip_message_id(network, block_number):
 func load_ccip_explorer_link(callback):
 	if callback["success"] && callback["result"] != []:
 		for event in callback["result"]:
-			#event[data] will need to be decoded to get the message id and the filler, filter for Ethers.user_address
-			var messageId = event["data"]
-			
-			ccip_explorer_link = ccip_explorer_url + messageId
-			$MainPanel/CCIPExplorerLink.visible = true
+			var response = event["data"]
+			print(response.right(65))
+			var filler_address = FastCcipBot.decode_address(response.right(66))
+			print(filler_address)
+			if filler_address == Ethers.user_address:
+				var messageId = response.left(66)
+				print(messageId)
+				ccip_explorer_link = ccip_explorer_url + messageId
+				$MainPanel/CCIPExplorerLink.visible = true
 			
 func open_scanner():
 	OS.shell_open(scan_link)

@@ -115,9 +115,9 @@ func update_gas_balance(callback):
 					{}
 					)
 		else:
-			gas_error()
+			gas_error("failed to update gas balance")
 	else:
-		rpc_error()
+		rpc_error("failed to update gas balance")
 
 
 func compose_message(message, from_network):
@@ -193,7 +193,7 @@ func get_tx_count(callback):
 			{}
 			)
 	else:
-		rpc_error()
+		rpc_error("failed to get transaction count")
 
 func get_gas_price(callback):
 	if callback["success"]:
@@ -240,7 +240,7 @@ func get_gas_price(callback):
 			{}
 			)
 	else:
-		rpc_error()
+		rpc_error("failed to get gas price")
 
 
 func get_transaction_hash(callback):
@@ -259,7 +259,7 @@ func get_transaction_hash(callback):
 			pending_tx = main_script.load_transaction(transaction)
 		
 	else:
-		rpc_error()
+		rpc_error("failed to get transaction hash")
 
 func check_for_tx_receipt(delta):
 	tx_receipt_poll_timer -= delta
@@ -301,16 +301,16 @@ func check_transaction_receipt(callback):
 			main_script.get_gas_balances()
 	else:
 		checking_for_tx_receipt = false	
-		rpc_error()
+		rpc_error("failed to check transaction receipt")
 			
 
-func rpc_error():
+func rpc_error(error):
 	order_filling_paused = false
-	print("rpc error")
+	print("rpc error: " + error)
 
-func gas_error():
+func gas_error(error):
 	order_filling_paused = false
-	print("insufficient gas")
+	print("insufficient gas:" + error)
 
 func gas_fee_too_high():
 	order_filling_paused = false

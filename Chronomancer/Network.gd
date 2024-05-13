@@ -7,7 +7,7 @@ var default_network_info = {
 	"Ethereum Sepolia": 
 		{
 		"chain_id": 11155111,
-		"rpc": "https://endpoints.omniatech.io/v1/eth/sepolia/public",
+		"rpc": "https://ethereum-sepolia-rpc.publicnode.com",
 		"gas_balance": "0", 
 		"onramp_contracts": ["0xe4Dd3B16E09c016402585a8aDFdB4A18f772a07e", "0x69CaB5A0a08a12BaFD8f5B195989D709E396Ed4d", "0x2B70a05320cB069e0fB55084D402343F832556E7"],
 		"onramp_contracts_by_network": 
@@ -26,7 +26,7 @@ var default_network_info = {
 				}
 			
 		],
-		"endpoint_contract": "0xD9E254783C240ece646C00e2D3c1Fb6Eb0215749",
+		"endpoint_contract": "0xFFA6c081b6A7F5F3816D9052C875E4C6B662137a",
 		"monitored_tokens": [], 
 		"minimum_gas_threshold": 0.0002,
 		"maximum_gas_fee": "",
@@ -58,7 +58,7 @@ var default_network_info = {
 				}
 			
 		],
-		"endpoint_contract": "0x69487b0e0CF57Ad6b4339cda70a45b4aDB8eef08",
+		"endpoint_contract": "0xcA57f7b1FDfD3cbD513954938498Fe6a9bc8FF63",
 		"monitored_tokens": [],
 		"minimum_gas_threshold": 0.0002,
 		"maximum_gas_fee": "",
@@ -89,7 +89,7 @@ var default_network_info = {
 				}
 			
 		],
-		"endpoint_contract": "0x8b98E266f5983084Fe5813E3d729391056c15692",
+		"endpoint_contract": "0x04Ba932c452ffc62CFDAf9f723e6cEeb1C22474b",
 		"monitored_tokens": [],
 		"minimum_gas_threshold": 0.0002,
 		"maximum_gas_fee": "",
@@ -120,7 +120,7 @@ var default_network_info = {
 				}
 			
 		],
-		"endpoint_contract": "0xC3E1D898D09511AD47842607779985BD95018DE2",
+		"endpoint_contract": "0xD7e4A13c7896edA172e568eB6E35Da68d3572127",
 		"monitored_tokens": [],
 		"minimum_gas_threshold": 0.0002,
 		"maximum_gas_fee": "",
