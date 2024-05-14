@@ -25,9 +25,6 @@ var pending_approvals = []
 var needs_to_approve = false
 
 
-#need error catching for faulty 200 responde codes with no return value
-#double check how the tx hash and tx receipt are structured
-
 func _ready():
 	network = get_parent().network
 	main_script = get_parent().main_script
