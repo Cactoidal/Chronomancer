@@ -39,7 +39,7 @@ func check_network_info():
 func check_saved_tests():
 	var file = File.new()
 	if file.file_exists("user://saved_tests") != true:
-		var content = {" Demo Test ": bnm_test.duplicate()}
+		var content = {" Demo Test ": bnm_test.duplicate(), "Mini Test": mini_bnm_test.duplicate()}
 		file.open("user://saved_tests", File.WRITE)
 		file.store_string(JSON.print(content))
 		file.close()
@@ -143,4 +143,12 @@ var bnm_test =  {
 		"Base Sepolia": "0x88A2d74F47a237a62e7A51cdDa67270CE381555e"
 	},
 	"recipient_networks": ["Ethereum Sepolia", "Arbitrum Sepolia", "Optimism Sepolia", "Base Sepolia"]
+}
+
+var mini_bnm_test =  {
+	"sender_networks": {
+		"Arbitrum Sepolia": "0xA8C0c11bf64AF62CDCA6f93D3769B88BdD7cb93D",
+		"Base Sepolia": "0x88A2d74F47a237a62e7A51cdDa67270CE381555e"
+	},
+	"recipient_networks": ["Arbitrum Sepolia", "Base Sepolia"]
 }
