@@ -8,9 +8,11 @@ reloadable=true
 [entry]
 
 OSX.64="res://libfast_ccip_bot_rust.dylib"
+Windows.64="res://libfast_ccip_bot_rust.dll"
 X11.64="res://libfast_ccip_bot_rust.so"
 
 [dependencies]
 
 OSX.64=[  ]
+Windows.64=[  ]
 X11.64=[  ]
