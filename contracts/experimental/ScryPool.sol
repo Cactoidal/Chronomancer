@@ -133,8 +133,8 @@ contract ScryPool is CCIPReceiver {
 
     }
 
-    // The Endpoint will first send tokens, followed by the Any2EVM CCIP message
-    // that will be used to distribute the tokens to all fillers in the pool
+    // The Endpoint will send tokens along with the Any2EVM CCIP message
+    // that will be used to distribute the tokens to all fillers in the order's pool
     function _ccipReceive(Client.Any2EVMMessage memory message) internal override {
         require(msg.sender == ENDPOINT);
 
