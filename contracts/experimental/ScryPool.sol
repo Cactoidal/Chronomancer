@@ -35,6 +35,7 @@ contract ScryPool is CCIPReceiver {
 
     mapping(bytes32 => mapping(address => mapping(address => mapping(uint256 => mapping(bytes => Filler[]))))) orderPathPool;
 
+    // Set the CCIP Fast Endpoint contract as the router
     constructor(address _router, address _link) CCIPReceiver(_router) {
         ENDPOINT = _router;
         CHAINLINK = _link;
