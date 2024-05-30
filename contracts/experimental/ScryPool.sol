@@ -24,6 +24,7 @@ contract ScryPool is CCIPReceiver {
     event RewardDisbursed(address, uint);
 
     error TooLateToJoinPool();
+    error AlreadyEnteredPool();
     error CannotQuitPool();
     error MessageNotReceived();
 
@@ -66,6 +67,10 @@ contract ScryPool is CCIPReceiver {
         uint totalPooled = orderPathPoolTotals[messageId][recipient][_localToken][orderAmount][data];
         uint poolStartedTimestamp = orderPathPoolStarted[messageId][recipient][_localToken][orderAmount][data];
 
+        // Revert if msg.sender already entered the pool
+        if (pooledOrderFillers[messageId][recipient][_localToken][orderAmount][data][msg.sender] != 0) {
+            revert AlreadyEnteredPool();
+        }
         // Check if pool exists; if not, set the timestamp
         if (poolStartedTimestamp == 0) {
             orderPathPoolStarted[messageId][recipient][_localToken][orderAmount][data] = block.timestamp;
@@ -178,8 +183,7 @@ contract ScryPool is CCIPReceiver {
         IERC20(_localToken).transfer(msg.sender, transferAmount);
 
         emit RewardDisbursed(msg.sender, transferAmount);
-
+        
     }
-    
 
 }
