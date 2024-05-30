@@ -20,12 +20,12 @@ contract FastCCIPEndpoint is CCIPReceiver {
     address immutable ROUTER;
     address immutable CHAINLINK;
 
-    uint256 constant FEE = 1000;
+    uint256 constant public FEE = 1000;
     bool recursionBlock;
   
     // An order path consists of:
     // CCIP message ID => Recipient Address => Token Address => Token Amount => Data => Filler Address
-    mapping(bytes32 => mapping(address => mapping(address => mapping(uint256 => mapping(bytes => address))))) filledOrderPaths;
+    mapping(bytes32 => mapping(address => mapping(address => mapping(uint256 => mapping(bytes => address))))) public filledOrderPaths;
 
     mapping(bytes32 => bool) messageArrived;
 
