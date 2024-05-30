@@ -24,7 +24,6 @@ contract ScryPool is CCIPReceiver {
     event RewardDisbursed(address, uint);
 
     error TooLateToJoinPool();
-    error AlreadyEnteredPool();
     error CannotQuitPool();
     error MessageNotReceived();
 
@@ -44,9 +43,10 @@ contract ScryPool is CCIPReceiver {
     mapping(bytes32 => mapping(address => mapping(address => mapping(uint256 => mapping(bytes => fillStatus))))) orderPathPoolStatus;
     // CCIP message ID => Recipient Address => Token Address => Token Amount => Data => totalPooled
     mapping(bytes32 => mapping(address => mapping(address => mapping(uint256 => mapping(bytes => uint))))) orderPathPoolTotals;
-    
     // CCIP message ID => Recipient Address => Token Address => Token Amount => Data => Arrival Status
     mapping(bytes32 => mapping(address => mapping(address => mapping(uint256 => mapping(bytes => bool))))) rewardsPending;
+
+    bool reentrancyBlock;
 
     // Set the CCIP Fast Endpoint contract as the router
     constructor(address _endpoint) CCIPReceiver(_endpoint) {
@@ -56,7 +56,7 @@ contract ScryPool is CCIPReceiver {
     // Create a pool for a given order if it does not yet exist, or join
     // an order's existing pool.  When the pool is full, the order will
     // immediately attempt to execute.
-    function joinPool(bytes calldata _message, address _localToken) external {
+    function joinPool(bytes calldata _message, address _localToken) external noReentrancy {
         Internal.EVM2EVMMessage memory message = abi.decode(_message, (Internal.EVM2EVMMessage));
 
         bytes32 messageId = message.messageId;
@@ -68,10 +68,6 @@ contract ScryPool is CCIPReceiver {
         uint totalPooled = orderPathPoolTotals[messageId][recipient][_localToken][orderAmount][data];
         uint poolStartedTimestamp = orderPathPoolStarted[messageId][recipient][_localToken][orderAmount][data];
 
-        // Revert if msg.sender already entered the pool
-        if (pooledOrderFillers[messageId][recipient][_localToken][orderAmount][data][msg.sender] != 0) {
-            revert AlreadyEnteredPool();
-        }
         // Check if pool exists; if not, set the timestamp
         if (poolStartedTimestamp == 0) {
             orderPathPoolStarted[messageId][recipient][_localToken][orderAmount][data] = block.timestamp;
@@ -90,7 +86,7 @@ contract ScryPool is CCIPReceiver {
             transferAmount = fillerBalance;
         }
         // Add msg.sender to the pool
-        pooledOrderFillers[messageId][recipient][_localToken][orderAmount][data][msg.sender] = transferAmount;
+        pooledOrderFillers[messageId][recipient][_localToken][orderAmount][data][msg.sender] += transferAmount;
 
         // Update the total pooled amount
         totalPooled += transferAmount;
@@ -117,7 +113,7 @@ contract ScryPool is CCIPReceiver {
     }
 
     // Withdraw tokens from an order pool if it has not filled quickly enough, or failed to fill
-    function quitPool(bytes calldata _message, address _localToken) external {
+    function quitPool(bytes calldata _message, address _localToken) external noReentrancy {
         Internal.EVM2EVMMessage memory message = abi.decode(_message, (Internal.EVM2EVMMessage));
 
         bytes32 messageId = message.messageId;
@@ -163,7 +159,7 @@ contract ScryPool is CCIPReceiver {
     }
 
     // Participants in a successfully filled order can withdraw tokens once the CCIP message has arrived
-    function withdrawOrderReward(bytes calldata _message, address _localToken) external {
+    function withdrawOrderReward(bytes calldata _message, address _localToken) external noReentrancy {
         Internal.EVM2EVMMessage memory message = abi.decode(_message, (Internal.EVM2EVMMessage));
 
         bytes32 messageId = message.messageId;
@@ -193,5 +189,14 @@ contract ScryPool is CCIPReceiver {
         emit RewardDisbursed(msg.sender, transferAmount);
 
     }
+
+    modifier noReentrancy() {
+        require(!reentrancyBlock, "No reentrancy");
+
+        reentrancyBlock = true;
+        _;
+        reentrancyBlock = false;
+    }
+
 
 }
