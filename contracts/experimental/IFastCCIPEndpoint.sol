@@ -7,6 +7,6 @@ function fillOrder(bytes calldata, address) external;
 
 function FEE() external view returns (uint);
 
-function filledOrderPaths() external view returns (address);
+function checkOrderPathFillStatus(bytes32, address, address, uint, bytes calldata) external view returns (address);
 
 }
