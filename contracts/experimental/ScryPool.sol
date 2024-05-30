@@ -45,7 +45,8 @@ contract ScryPool is CCIPReceiver {
     // CCIP message ID => Recipient Address => Token Address => Token Amount => Data => totalPooled
     mapping(bytes32 => mapping(address => mapping(address => mapping(uint256 => mapping(bytes => uint))))) orderPathPoolTotals;
     
-    mapping(bytes32 => bool) rewardsPending;
+    // CCIP message ID => Recipient Address => Token Address => Token Amount => Data => Arrival Status
+    mapping(bytes32 => mapping(address => mapping(address => mapping(uint256 => mapping(bytes => bool))))) rewardsPending;
 
     // Set the CCIP Fast Endpoint contract as the router
     constructor(address _endpoint) CCIPReceiver(_endpoint) {
@@ -148,9 +149,15 @@ contract ScryPool is CCIPReceiver {
         require(msg.sender == ENDPOINT);
 
         bytes32 messageId = message.messageId;
+        (address recipient, bytes memory data) = abi.decode(message.data, (address, bytes));
 
-        rewardsPending[messageId] = true;
+        address token = message.destTokenAmounts[0].token;
+        uint256 orderAmount = message.destTokenAmounts[0].amount;
+        uint FEE = IFastCCIPEndpoint(ENDPOINT).FEE();
+        uint totalReward = orderAmount / FEE;
+        uint poolAmount = orderAmount - totalReward;
 
+        rewardsPending[messageId][recipient][token][poolAmount][data] = true;
         emit MessageReceived(messageId);
 
     }
@@ -161,20 +168,21 @@ contract ScryPool is CCIPReceiver {
 
         bytes32 messageId = message.messageId;
 
-        if (!rewardsPending[messageId]) {
-            revert MessageNotReceived();
-        }
-
         (address recipient, bytes memory data) = abi.decode(message.data, (address, bytes));
 
-        // Calculate order filler's proportionate share
         uint256 orderAmount = message.tokenAmounts[0].amount;
         uint FEE = IFastCCIPEndpoint(ENDPOINT).FEE();
         uint totalReward = orderAmount / FEE;
-        
-        uint contributedAmount = pooledOrderFillers[messageId][recipient][_localToken][orderAmount][data][msg.sender];
-
         uint poolAmount = orderAmount - totalReward;
+
+        // Check if CCIP message has arrived
+        if (!rewardsPending[messageId][recipient][_localToken][poolAmount][data]) {
+            revert MessageNotReceived();
+        }
+        
+        // Calculate order filler's proportionate share
+        uint contributedAmount = pooledOrderFillers[messageId][recipient][_localToken][poolAmount][data][msg.sender];
+
         uint percent = poolAmount / contributedAmount;
         uint transferAmount = contributedAmount + (totalReward / percent);
         // Set contribution amount to 0
@@ -183,7 +191,7 @@ contract ScryPool is CCIPReceiver {
         IERC20(_localToken).transfer(msg.sender, transferAmount);
 
         emit RewardDisbursed(msg.sender, transferAmount);
-        
+
     }
 
 }
