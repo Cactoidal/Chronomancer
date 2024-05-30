@@ -95,22 +95,26 @@ contract ScryPool is CCIPReceiver {
         // Pool msg.sender's tokens
         IERC20(_localToken).transferFrom(msg.sender, address(this), transferAmount);
 
-        // If the pool is full, immediately attempt to fill the order
+        // If the pool is full, immediately attempt to fill the order.  Then set the order fill status
         if (totalPooled == orderAmount) {
-            // Approve the endpoint's token allowance
-            IERC20(_localToken).approve(address(ENDPOINT), orderAmount);
-            // Attempt to fill the order, then set the order fill status
-            try IFastCCIPEndpoint(ENDPOINT).fillOrder(_message, _localToken) {
+            
+            if (IFastCCIPEndpoint(ENDPOINT).filledOrderPaths() == address(0)) {
+                // Approve the endpoint's token allowance
+                IERC20(_localToken).approve(address(ENDPOINT), orderAmount);
+                // Fill the order
+                IFastCCIPEndpoint(ENDPOINT).fillOrder(_message, _localToken);
+
                 orderPathPoolStatus[messageId][recipient][_localToken][orderAmount][data] = fillStatus.SUCCESS;
                 emit FilledOrder(messageId);
-
-            } catch {
+                }
+            else {
                 orderPathPoolStatus[messageId][recipient][_localToken][orderAmount][data] = fillStatus.FAILED;
                 emit FailedToFillOrder(messageId);
-            }
-        }
+                }
 
-    }
+            }
+
+        }
 
     // Withdraw tokens from an order pool if it has not filled quickly enough, or failed to fill
     function quitPool(bytes calldata _message, address _localToken) external noReentrancy {
