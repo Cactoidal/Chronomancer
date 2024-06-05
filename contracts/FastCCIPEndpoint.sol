@@ -13,7 +13,7 @@ contract FastCCIPEndpoint is CCIPReceiver {
     event OrderFilled(bytes32 messageId, address filler);
     event ReceivedTokens(bytes32 messageId, address token, uint amount);
 
-    error OrderPathAlreadyFilled();
+    error OrderAlreadyFilled();
     error NoRecursionAllowed();
     error OrderAlreadyArrived();
 
@@ -63,7 +63,7 @@ contract FastCCIPEndpoint is CCIPReceiver {
             revert OrderAlreadyArrived();
         }
         if (orderFillers[_message] != address(0)) {
-            revert OrderPathAlreadyFilled();
+            revert OrderAlreadyFilled();
         }
 
         // Extract data for the token transfer
