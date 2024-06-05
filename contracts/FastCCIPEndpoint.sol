@@ -23,36 +23,58 @@ contract FastCCIPEndpoint is CCIPReceiver {
     uint256 constant public FEE = 1000;
     bool recursionBlock;
   
-    // An order path consists of:
-    // CCIP message ID => Recipient Address => Token Address => Token Amount => Data => Filler Address
-    mapping(bytes32 => mapping(address => mapping(address => mapping(uint256 => mapping(bytes => address))))) public filledOrderPaths;
-
+    // ABI-encoded Any2EVM Messages mapped to filler addresses
+    mapping(bytes => address) public orderFillers;
+    
     mapping(bytes32 => bool) messageArrived;
 
     constructor(address _router, address _link) CCIPReceiver(_router) {
         ROUTER = _router;
         CHAINLINK = _link;
     }
-    
-    function fillOrder(bytes calldata _message, address _local_token) external noReentrancy {
 
+    // Convert the EVM2EVM Message to Any2EVM Message off-chain
+    function retrieveAny2EVM(bytes calldata _message, address _localToken) external pure returns (bytes memory) {
         Internal.EVM2EVMMessage memory message = abi.decode(_message, (Internal.EVM2EVMMessage));
 
-        bytes32 messageId = message.messageId;
-        (address recipient, bytes memory data) = abi.decode(message.data, (address, bytes));
-        address token = _local_token;
+        Client.EVMTokenAmount[] memory tokenAmounts;
+        tokenAmounts[0].token = _localToken;
+        tokenAmounts[0].amount = message.tokenAmounts[0].amount;
 
-        // The fill amount accounts for the fee
-        uint amount = message.tokenAmounts[0].amount - (message.tokenAmounts[0].amount / FEE);
-       
+        Client.Any2EVMMessage memory ccipMessage = Client.Any2EVMMessage({
+            messageId: message.messageId,
+            sourceChainSelector: message.sourceChainSelector,
+            sender: abi.encode(message.sender),
+            data: abi.encode(message.data),
+            destTokenAmounts: tokenAmounts
+            });
+
+        return abi.encode(ccipMessage);
+    }
+    
+    // _message is the converted Any2EVM Message, now containing the local token address instead of the remote address.
+    function fillOrder(bytes calldata _message) external noReentrancy {
+
+        Client.Any2EVMMessage memory message = abi.decode(_message, (Client.Any2EVMMessage));
+
+        bytes32 messageId = message.messageId;
+        
         if (messageArrived[messageId]) {
             revert OrderAlreadyArrived();
         }
-        if (filledOrderPaths[messageId][recipient][token][amount][data] != address(0)) {
+        if (orderFillers[_message] != address(0)) {
             revert OrderPathAlreadyFilled();
         }
 
-        filledOrderPaths[messageId][recipient][token][amount][data] = msg.sender;
+        // Extract data for the token transfer
+        (address recipient, ) = abi.decode(message.data, (address, bytes));
+        address token = message.destTokenAmounts[0].token;
+        uint256 amount = message.destTokenAmounts[0].amount;
+        // The fill amount accounts for the fee
+        amount = amount - (amount / FEE);
+
+        // Set the order's fill status using the ABI-encoded Any2EVM Message
+        orderFillers[_message] = msg.sender;
 
         IERC20(token).transferFrom(msg.sender, address(this), amount);
 
@@ -66,22 +88,11 @@ contract FastCCIPEndpoint is CCIPReceiver {
         // Because the recipient is a contract, the endpoint must first approve a spend allowance
         IERC20(token).approve(address(recipient), amount);
 
-        Client.Any2EVMMessage memory ccipMessage = Client.Any2EVMMessage({
-            messageId: message.messageId,
-            sourceChainSelector: message.sourceChainSelector,
-            sender: abi.encode(message.sender),
-            data: abi.encode(message.data),
-            destTokenAmounts: message.tokenAmounts
-            });
-
         IERC20(token).transfer(recipient, amount);
 
-        CCIPReceiver(recipient).ccipReceive(ccipMessage);
+        CCIPReceiver(recipient).ccipReceive(message);
     }
 
-
-    // Right now only compatible with messages containing one destToken, due to the nature of order paths.
-    // Could be reconfigured to work with multiple tokens, multiple recipients, and multiple data objects
     function _ccipReceive(
         Client.Any2EVMMessage memory message
     ) internal noReentrancy override {
@@ -94,26 +105,24 @@ contract FastCCIPEndpoint is CCIPReceiver {
 
         emit ReceivedTokens(message.messageId, token, amount);
 
-        (address recipient, bytes memory data) = abi.decode(message.data, (address, bytes));
+        (address recipient, ) = abi.decode(message.data, (address, bytes));
 
-        address orderFiller = filledOrderPaths[message.messageId][recipient][token][amount - (amount / FEE)][data];
+        address orderFiller = orderFillers[abi.encode(message)];
 
         if (orderFiller != address(0)) {
-            IERC20(token).transfer(orderFiller, amount);
+            recipient = orderFiller;
         }
-        else {
-           
-            if (recipient.code.length == 0) {
-                IERC20(token).transfer(recipient, amount);
-                return;
-            }
 
-            IERC20(token).approve(recipient, amount);
+        if (recipient.code.length == 0) {
             IERC20(token).transfer(recipient, amount);
-            CCIPReceiver(recipient).ccipReceive(message);
+            return;
         }
 
+        IERC20(token).approve(recipient, amount);
+        IERC20(token).transfer(recipient, amount);
+        CCIPReceiver(recipient).ccipReceive(message);
     }
+
 
     // Used by bots to determine order validity off-chain before submitting a transaction
     function filterOrder(bytes calldata _message, address _endpoint, address _filler, address[] calldata _localTokenList, address[] calldata _remoteTokenList, uint256[] calldata _tokenMinimums) public view returns (address) {
@@ -146,8 +155,8 @@ contract FastCCIPEndpoint is CCIPReceiver {
     }
 
     // Used by ScryPool or other add-ons to check if an order has been filled
-    function checkOrderPathFillStatus(bytes32 _messageId, address _recipient, address _token, uint _amount, bytes calldata _data) external view returns (address) {
-        return filledOrderPaths[_messageId][_recipient][_token][_amount][_data];
+    function checkOrderPathFillStatus(bytes calldata _message) external view returns (address) {
+        return orderFillers[_message];
     }
 
      modifier noReentrancy() {
