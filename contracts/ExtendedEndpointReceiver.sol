@@ -38,7 +38,7 @@ contract ExtendedEndpointReceiver is CCIPReceiver {
 
         emit ReceivedTokens(message.messageId, token, amount);
 
-        ( , bytes memory data) = abi.decode(message.data, (address, bytes));
+        ( , , bytes memory data) = abi.decode(message.data, (address, uint, bytes));
 
         latestData = data;
 
