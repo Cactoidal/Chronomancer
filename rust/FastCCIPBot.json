@@ -5,11 +5,6 @@
 				"internalType": "address",
 				"name": "_router",
 				"type": "address"
-			},
-			{
-				"internalType": "address",
-				"name": "_link",
-				"type": "address"
 			}
 		],
 		"stateMutability": "nonpayable",
@@ -38,7 +33,7 @@
 	},
 	{
 		"inputs": [],
-		"name": "OrderPathAlreadyFilled",
+		"name": "OrderAlreadyFilled",
 		"type": "error"
 	},
 	{
@@ -49,6 +44,12 @@
 				"internalType": "bytes32",
 				"name": "messageId",
 				"type": "bytes32"
+			},
+			{
+				"indexed": false,
+				"internalType": "address",
+				"name": "filler",
+				"type": "address"
 			}
 		],
 		"name": "OrderFilled",
@@ -137,11 +138,25 @@
 				"internalType": "bytes",
 				"name": "_message",
 				"type": "bytes"
-			},
+			}
+		],
+		"name": "checkOrderPathFillStatus",
+		"outputs": [
 			{
 				"internalType": "address",
-				"name": "_local_token",
+				"name": "",
 				"type": "address"
+			}
+		],
+		"stateMutability": "view",
+		"type": "function"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "bytes",
+				"name": "_message",
+				"type": "bytes"
 			}
 		],
 		"name": "fillOrder",
@@ -155,11 +170,6 @@
 				"internalType": "bytes",
 				"name": "_message",
 				"type": "bytes"
-			},
-			{
-				"internalType": "address",
-				"name": "_endpoint",
-				"type": "address"
 			},
 			{
 				"internalType": "address",
@@ -180,14 +190,19 @@
 				"internalType": "uint256[]",
 				"name": "_tokenMinimums",
 				"type": "uint256[]"
+			},
+			{
+				"internalType": "uint256[]",
+				"name": "_feeDivisors",
+				"type": "uint256[]"
 			}
 		],
 		"name": "filterOrder",
 		"outputs": [
 			{
-				"internalType": "address",
+				"internalType": "bytes",
 				"name": "",
-				"type": "address"
+				"type": "bytes"
 			}
 		],
 		"stateMutability": "view",
@@ -210,16 +225,16 @@
 		"inputs": [
 			{
 				"internalType": "bytes",
-				"name": "_message",
+				"name": "",
 				"type": "bytes"
 			}
 		],
-		"name": "isOrderPathFilled",
+		"name": "orderFillers",
 		"outputs": [
 			{
-				"internalType": "bool",
+				"internalType": "address",
 				"name": "",
-				"type": "bool"
+				"type": "address"
 			}
 		],
 		"stateMutability": "view",
@@ -242,69 +257,6 @@
 			}
 		],
 		"stateMutability": "pure",
-		"type": "function"
-	},
-	{
-		"inputs": [],
-		"name": "testMessage",
-		"outputs": [
-			{
-				"internalType": "uint64",
-				"name": "sourceChainSelector",
-				"type": "uint64"
-			},
-			{
-				"internalType": "address",
-				"name": "sender",
-				"type": "address"
-			},
-			{
-				"internalType": "address",
-				"name": "receiver",
-				"type": "address"
-			},
-			{
-				"internalType": "uint64",
-				"name": "sequenceNumber",
-				"type": "uint64"
-			},
-			{
-				"internalType": "uint256",
-				"name": "gasLimit",
-				"type": "uint256"
-			},
-			{
-				"internalType": "bool",
-				"name": "strict",
-				"type": "bool"
-			},
-			{
-				"internalType": "uint64",
-				"name": "nonce",
-				"type": "uint64"
-			},
-			{
-				"internalType": "address",
-				"name": "feeToken",
-				"type": "address"
-			},
-			{
-				"internalType": "uint256",
-				"name": "feeTokenAmount",
-				"type": "uint256"
-			},
-			{
-				"internalType": "bytes",
-				"name": "data",
-				"type": "bytes"
-			},
-			{
-				"internalType": "bytes32",
-				"name": "messageId",
-				"type": "bytes32"
-			}
-		],
-		"stateMutability": "view",
 		"type": "function"
 	}
 ]
