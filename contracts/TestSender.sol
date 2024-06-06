@@ -12,7 +12,7 @@ import {SafeERC20} from "@chainlink/contracts-ccip/src/v0.8/vendor/openzeppelin-
 
 
 // Template sender contract edited for sending messages to the CCIP Fast Endpoint
-// with a message.data object that includes the intended recipient address and some bytes.
+// with a message.data object that includes the intended recipient address, the fee divisor, and some bytes.
 
 
 
