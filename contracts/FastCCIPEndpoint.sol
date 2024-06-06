@@ -18,9 +18,7 @@ contract FastCCIPEndpoint is CCIPReceiver {
     error OrderAlreadyArrived();
 
     address immutable ROUTER;
-    address immutable CHAINLINK;
 
-    uint256 constant public FEE = 1000;
     bool recursionBlock;
   
     // ABI-encoded Any2EVM Messages mapped to filler addresses
@@ -28,36 +26,53 @@ contract FastCCIPEndpoint is CCIPReceiver {
     
     mapping(bytes32 => bool) messageArrived;
 
-    constructor(address _router, address _link) CCIPReceiver(_router) {
+    constructor(address _router) CCIPReceiver(_router) {
         ROUTER = _router;
-        CHAINLINK = _link;
     }
 
     // Used by bots to determine order validity off-chain before submitting a transaction
     // If a valid transfer is detected, converts the EVM2EVM message to an Any2EVM message,
     // and returns the Any2EVM message's ABI-encoded bytes
-    function filterOrder(bytes calldata _message, address _endpoint, address _filler, address[] calldata _localTokenList, address[] calldata _remoteTokenList, uint256[] calldata _tokenMinimums) public view returns (bytes memory) {
+    function filterOrder(
+    bytes calldata _message, 
+    address _filler, 
+    address[] calldata _localTokenList, 
+    address[] calldata _remoteTokenList, 
+    uint256[] calldata _tokenMinimums, 
+    uint256[] calldata _feeDivisors
+    ) public view returns (bytes memory) {
+
         Internal.EVM2EVMMessage memory message = abi.decode(_message, (Internal.EVM2EVMMessage));
 
         address receiver = message.receiver;
         address token = message.tokenAmounts[0].token;
-        (address recipient, ) = abi.decode(message.data, (address, bytes));
+        address filler = _filler;
+        address[] memory localTokenList = _localTokenList;
+        (address recipient, uint feeDivisor, ) = abi.decode(message.data, (address, uint, bytes));
 
         // Check that the endpoint is the target and that no recursion takes place
-        if (receiver != _endpoint || receiver == recipient) {
+        if (receiver != address(this) || receiver == recipient) {
             return abi.encode(0);
         }
 
-        // Check EVM2EVM message for monitored remote token, then check the balance and minimum 
+        // Check if feeDivisor is 0 
+        if (feeDivisor == 0) {
+            return abi.encode(0);
+        }
+
+        // Check EVM2EVM message for monitored remote token, then check the balance, minimum, and fee
         // of the matching local token
         for (uint i = 0; i < _remoteTokenList.length; i++) {
             if (token == _remoteTokenList[i]) {
-                if (message.tokenAmounts[0].amount <= IERC20(_localTokenList[i]).balanceOf(_filler)) {
-                    if (message.tokenAmounts[0].amount >= _tokenMinimums[i]) {
+                
+                if (message.tokenAmounts[0].amount <= IERC20(localTokenList[i]).balanceOf(filler)) {
+                    // Check that the transfer amount and fee are large enough 
+                    // (the smaller the feeDivisor, the bigger the fee)
+                    if (message.tokenAmounts[0].amount >= _tokenMinimums[i] && feeDivisor <= _feeDivisors[i]) {
                         // Convert the EVM2EVM message to an Any2EVM Message, containing the local token address
                         // instead of the remote token address
                         Client.EVMTokenAmount[] memory tokenAmounts;
-                        tokenAmounts[0].token = _localTokenList[i];
+                        tokenAmounts[0].token = localTokenList[i];
                         tokenAmounts[0].amount = message.tokenAmounts[0].amount;
 
                         Client.Any2EVMMessage memory ccipMessage = Client.Any2EVMMessage({
@@ -94,11 +109,11 @@ contract FastCCIPEndpoint is CCIPReceiver {
         }
 
         // Extract data for the token transfer
-        (address recipient, ) = abi.decode(message.data, (address, bytes));
+        (address recipient, uint feeDivisor, ) = abi.decode(message.data, (address, uint, bytes));
         address token = message.destTokenAmounts[0].token;
         uint256 amount = message.destTokenAmounts[0].amount;
         // The fill amount accounts for the fee
-        amount = amount - (amount / FEE);
+        amount = amount - (amount / feeDivisor);
 
         // Set the order's fill status using the ABI-encoded Any2EVM Message
         orderFillers[_message] = msg.sender;
@@ -134,7 +149,7 @@ contract FastCCIPEndpoint is CCIPReceiver {
 
         emit ReceivedTokens(message.messageId, token, amount);
 
-        (address recipient, ) = abi.decode(message.data, (address, bytes));
+        (address recipient, , ) = abi.decode(message.data, (address, uint, bytes));
 
         // Check the order's fill status
         address orderFiller = orderFillers[abi.encode(message)];
