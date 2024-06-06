@@ -164,6 +164,7 @@ contract TestSender is CCIPReceiver, OwnerIsCreator {
             _data,
             _token,
             _amount,
+            1000, //DEBUG: _feeDivisor
             address(s_linkToken)
         );
 
@@ -236,6 +237,7 @@ contract TestSender is CCIPReceiver, OwnerIsCreator {
             _data,
             _token,
             _amount,
+            1000, //DEBUG: _feeDivisor
             address(0)
         );
 
@@ -294,6 +296,7 @@ contract TestSender is CCIPReceiver, OwnerIsCreator {
             _data,
             _token,
             _amount,
+            1000, //DEBUG: _feeDivisor
             address(0)
             );
 
@@ -370,6 +373,7 @@ contract TestSender is CCIPReceiver, OwnerIsCreator {
         bytes calldata _data,
         address _token,
         uint256 _amount,
+        uint256 _feeDivisor,
         address _feeTokenAddress
     ) private pure returns (Client.EVM2AnyMessage memory) {
         // Set the token amounts
@@ -383,7 +387,7 @@ contract TestSender is CCIPReceiver, OwnerIsCreator {
         return
             Client.EVM2AnyMessage({
                 receiver: abi.encode(_endpoint), // ABI-encoded endpoint address
-                data: abi.encode(_recipient, _data), // ABI-encoded recipient and data
+                data: abi.encode(_recipient, _feeDivisor, _data), // ABI-encoded recipient and data
                 tokenAmounts: tokenAmounts, // The amount and type of token being transferred
                 extraArgs: Client._argsToBytes(
                     // Additional arguments, setting gas limit
