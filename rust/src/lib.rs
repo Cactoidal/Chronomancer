@@ -52,7 +52,7 @@ impl FastCCIPBot {
 //          ORDER FILLING METHODS         //
 
 #[method]
-fn fill_order(key: PoolArray<u8>, _chain_id: GodotString, endpoint_contract: GodotString, rpc: GodotString, _gas_fee: u64, _count: u64, EVM2EVMMessage: GodotString, token_address: GodotString) -> GodotString {
+fn fill_order(key: PoolArray<u8>, _chain_id: GodotString, endpoint_contract: GodotString, rpc: GodotString, _gas_fee: u64, _count: u64, EVM2EVMMessage: GodotString) -> GodotString {
 
     let (wallet, chain_id, user_address, client) = get_signer(key, _chain_id, rpc);
 
@@ -62,9 +62,7 @@ fn fill_order(key: PoolArray<u8>, _chain_id: GodotString, endpoint_contract: God
 
     let message = string_to_bytes(EVM2EVMMessage);
 
-    let local_token_address = string_to_address(token_address);
-
-    let calldata = contract.fill_order(message, local_token_address).calldata().unwrap();
+    let calldata = contract.fill_order(message).calldata().unwrap();
 
     let tx = Eip1559TransactionRequest::new()
         .from(user_address)
@@ -85,7 +83,7 @@ fn fill_order(key: PoolArray<u8>, _chain_id: GodotString, endpoint_contract: God
 
 
 #[method]
-fn filter_order(key: PoolArray<u8>, _chain_id: GodotString, endpoint_contract: GodotString, rpc: GodotString, EVM2EVMMessage: GodotString, _local_token_contracts: PoolArray<GodotString>, _remote_token_contracts: PoolArray<GodotString>, _token_minimums: PoolArray<GodotString>) -> GodotString {
+fn filter_order(key: PoolArray<u8>, _chain_id: GodotString, endpoint_contract: GodotString, rpc: GodotString, EVM2EVMMessage: GodotString, _local_token_contracts: PoolArray<GodotString>, _remote_token_contracts: PoolArray<GodotString>, _token_minimums: PoolArray<GodotString>, _fee_divisors: PoolArray<GodotString>) -> GodotString {
 
     let (wallet, chain_id, user_address, client) = get_signer(key, _chain_id, rpc);
             
@@ -101,7 +99,9 @@ fn filter_order(key: PoolArray<u8>, _chain_id: GodotString, endpoint_contract: G
 
     let token_minimums = string_array_to_uint256s(_token_minimums);
 
-    let calldata = contract.filter_order(message, contract_address, user_address, local_token_contracts, remote_token_contracts, token_minimums).calldata().unwrap();
+    let fee_divisors = string_array_to_uint256s(_fee_divisors);
+
+    let calldata = contract.filter_order(message, user_address, local_token_contracts, remote_token_contracts, token_minimums, fee_divisors).calldata().unwrap();
 
     let return_string: GodotString = calldata.to_string().into();
 
@@ -366,25 +366,6 @@ fn decode_u256 (message: GodotString) -> GodotString {
     return_string
 }
 
-
-
-#[method]
-fn decode_u256_array (message: GodotString) -> GodotString {
-    let raw_hex: String = message.to_string();
-    let decoded: Vec<U256> = ethers::abi::AbiDecode::decode_hex(raw_hex).unwrap();
-    let return_string: GodotString = format!("{:?}", decoded).into();
-    return_string
-}
-
-
-#[method]
-fn decode_u256_array_from_bytes (message: GodotString) -> GodotString {
-    let raw_hex: String = message.to_string();
-    let decoded_bytes: [U256; 5] = ethers::abi::AbiDecode::decode_hex(raw_hex).unwrap();
-    godot_print!("{:?}", decoded_bytes);
-    let return_string: GodotString = format!("{:?}", decoded_bytes).into();
-    return_string
-}
 
 
 }
