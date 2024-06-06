@@ -35,16 +35,16 @@ contract ScryPool is CCIPReceiver {
         FAILED
     }
 
-    // CCIP message ID => Recipient Address => Token Address => Token Amount => Data => Filler Address => Contributed Amount
-    mapping(bytes32 => mapping(address => mapping(address => mapping(uint256 => mapping(bytes => mapping(address => uint)))))) pooledOrderFillers;
-    // CCIP message ID => Recipient Address => Token Address => Token Amount => Data => poolStartedTimestamp
-    mapping(bytes32 => mapping(address => mapping(address => mapping(uint256 => mapping(bytes => uint))))) orderPathPoolStarted;
-    // CCIP message ID => Recipient Address => Token Address => Token Amount => Data => fillStatus
-    mapping(bytes32 => mapping(address => mapping(address => mapping(uint256 => mapping(bytes => fillStatus))))) orderPathPoolStatus;
-    // CCIP message ID => Recipient Address => Token Address => Token Amount => Data => totalPooled
-    mapping(bytes32 => mapping(address => mapping(address => mapping(uint256 => mapping(bytes => uint))))) orderPathPoolTotals;
-    // CCIP message ID => Recipient Address => Token Address => Token Amount => Data => Arrival Status
-    mapping(bytes32 => mapping(address => mapping(address => mapping(uint256 => mapping(bytes => bool))))) rewardsPending;
+    // ABI-encoded Any2EVMMessage => Filler Address => Contributed Amount
+    mapping(bytes => mapping(address => uint)) pooledOrderFillers;
+  
+    mapping(bytes => uint) orderPoolStartedTimestamp;
+
+    mapping(bytes => fillStatus) orderPoolStatus;
+    
+    mapping(bytes => uint) orderPoolTotals;
+   
+    mapping(bytes => bool) rewardsPending;
 
     bool reentrancyBlock;
 
@@ -56,21 +56,24 @@ contract ScryPool is CCIPReceiver {
     // Create a pool for a given order if it does not yet exist, or join
     // an order's existing pool.  When the pool is full, the order will
     // immediately attempt to execute.
-    function joinPool(bytes calldata _message, address _localToken) external noReentrancy {
-        Internal.EVM2EVMMessage memory message = abi.decode(_message, (Internal.EVM2EVMMessage));
+    // _message is an Any2EVM message converted from an OnRamp EVM2EVM message
+    function joinPool(bytes calldata _message) external noReentrancy {
+        Client.Any2EVMMessage memory message = abi.decode(_message, (Client.Any2EVMMessage));
 
         bytes32 messageId = message.messageId;
-        (address recipient, bytes memory data) = abi.decode(message.data, (address, bytes));
+        ( , uint feeDivisor, ) = abi.decode(message.data, (address, uint, bytes));
+        uint orderAmount = message.destTokenAmounts[0].amount;
+        address token = message.destTokenAmounts[0].token;
         // The fill amount must account for the fee
-        uint256 orderAmount = message.tokenAmounts[0].amount - (message.tokenAmounts[0].amount / IFastCCIPEndpoint(ENDPOINT).FEE());
+        orderAmount = orderAmount - (orderAmount / feeDivisor);
 
         // Get the pool info
-        uint totalPooled = orderPathPoolTotals[messageId][recipient][_localToken][orderAmount][data];
-        uint poolStartedTimestamp = orderPathPoolStarted[messageId][recipient][_localToken][orderAmount][data];
+        uint totalPooled = orderPoolTotals[_message];
+        uint poolStartedTimestamp = orderPoolStartedTimestamp[_message];
 
         // Check if pool exists; if not, set the timestamp
         if (poolStartedTimestamp == 0) {
-            orderPathPoolStarted[messageId][recipient][_localToken][orderAmount][data] = block.timestamp;
+            orderPoolStartedTimestamp[_message] = block.timestamp;
         }
         // Check if pool is stale or has already been filled
         else if (block.timestamp > poolStartedTimestamp + 100 || totalPooled == orderAmount) {
@@ -80,35 +83,38 @@ contract ScryPool is CCIPReceiver {
         // Determine how many tokens have already been pooled,
         // and how many tokens msg.sender can supply to the pool
         uint transferAmount = orderAmount - totalPooled;
-        uint fillerBalance = IERC20(_localToken).balanceOf(msg.sender);
+        uint fillerBalance = IERC20(token).balanceOf(msg.sender);
 
         if (fillerBalance < transferAmount) {
             transferAmount = fillerBalance;
         }
         // Add msg.sender to the pool
-        pooledOrderFillers[messageId][recipient][_localToken][orderAmount][data][msg.sender] += transferAmount;
+        pooledOrderFillers[_message][msg.sender] += transferAmount;
 
         // Update the total pooled amount
         totalPooled += transferAmount;
-        orderPathPoolTotals[messageId][recipient][_localToken][orderAmount][data] = totalPooled;
+        orderPoolTotals[_message] = totalPooled;
       
         // Pool msg.sender's tokens
-        IERC20(_localToken).transferFrom(msg.sender, address(this), transferAmount);
+        IERC20(token).transferFrom(msg.sender, address(this), transferAmount);
 
         // If the pool is full, immediately attempt to fill the order.  Then set the order fill status
         if (totalPooled == orderAmount) {
 
-            if (IFastCCIPEndpoint(ENDPOINT).checkOrderPathFillStatus(messageId, recipient, _localToken, orderAmount, data) == address(0)) {
+            if (IFastCCIPEndpoint(ENDPOINT).checkOrderPathFillStatus(_message) == address(0)) {
                 // Approve the endpoint's token allowance
-                IERC20(_localToken).approve(address(ENDPOINT), orderAmount);
+                IERC20(token).approve(address(ENDPOINT), orderAmount);
                 // Fill the order
-                IFastCCIPEndpoint(ENDPOINT).fillOrder(_message, _localToken);
+                IFastCCIPEndpoint(ENDPOINT).fillOrder(_message);
 
-                orderPathPoolStatus[messageId][recipient][_localToken][orderAmount][data] = fillStatus.SUCCESS;
+                // Probably want to change error-handling on endpoint's fillOrder()
+                // so it's possible to handle reversion
+
+                orderPoolStatus[_message] = fillStatus.SUCCESS;
                 emit FilledOrder(messageId);
                 }
             else {
-                orderPathPoolStatus[messageId][recipient][_localToken][orderAmount][data] = fillStatus.FAILED;
+                orderPoolStatus[_message] = fillStatus.FAILED;
                 emit FailedToFillOrder(messageId);
                 }
 
@@ -117,16 +123,13 @@ contract ScryPool is CCIPReceiver {
         }
 
     // Withdraw tokens from an order pool if it has not filled quickly enough, or failed to fill
-    function quitPool(bytes calldata _message, address _localToken) external noReentrancy {
-        Internal.EVM2EVMMessage memory message = abi.decode(_message, (Internal.EVM2EVMMessage));
+    function quitPool(bytes calldata _message) external noReentrancy {
+        Client.Any2EVMMessage memory message = abi.decode(_message, (Client.Any2EVMMessage));
 
-        bytes32 messageId = message.messageId;
-        (address recipient, bytes memory data) = abi.decode(message.data, (address, bytes));
-        // The fill amount must account for the fee
-        uint256 orderAmount = message.tokenAmounts[0].amount - (message.tokenAmounts[0].amount / IFastCCIPEndpoint(ENDPOINT).FEE());
-
-        uint poolStartedTimestamp = orderPathPoolStarted[messageId][recipient][_localToken][orderAmount][data];
-        fillStatus orderStatus = orderPathPoolStatus[messageId][recipient][_localToken][orderAmount][data];
+        address token = message.destTokenAmounts[0].token;
+    
+        uint poolStartedTimestamp = orderPoolStartedTimestamp[_message];
+        fillStatus orderStatus = orderPoolStatus[_message];
 
         // Check if order successfully completed
         if (orderStatus == fillStatus.SUCCESS){
@@ -134,9 +137,9 @@ contract ScryPool is CCIPReceiver {
         }
         // Check if enough time has elapsed or if the order has failed
         if (block.timestamp > poolStartedTimestamp + 100 || orderStatus == fillStatus.FAILED) {
-            uint transferAmount = pooledOrderFillers[messageId][recipient][_localToken][orderAmount][data][msg.sender];
-            pooledOrderFillers[messageId][recipient][_localToken][orderAmount][data][msg.sender] = 0;
-            IERC20(_localToken).transfer(msg.sender, transferAmount);
+            uint transferAmount = pooledOrderFillers[_message][msg.sender];
+            pooledOrderFillers[_message][msg.sender] = 0;
+            IERC20(token).transfer(msg.sender, transferAmount);
         }
         else {
             revert CannotQuitPool();
@@ -149,46 +152,37 @@ contract ScryPool is CCIPReceiver {
         require(msg.sender == ENDPOINT);
 
         bytes32 messageId = message.messageId;
-        (address recipient, bytes memory data) = abi.decode(message.data, (address, bytes));
-
-        address token = message.destTokenAmounts[0].token;
-        uint256 orderAmount = message.destTokenAmounts[0].amount;
-        uint FEE = IFastCCIPEndpoint(ENDPOINT).FEE();
-        uint totalReward = orderAmount / FEE;
-        uint poolAmount = orderAmount - totalReward;
-
-        rewardsPending[messageId][recipient][token][poolAmount][data] = true;
+   
+        rewardsPending[abi.encode(message)] = true;
         emit MessageReceived(messageId);
 
     }
 
     // Participants in a successfully filled order can withdraw tokens once the CCIP message has arrived
-    function withdrawOrderReward(bytes calldata _message, address _localToken) external noReentrancy {
-        Internal.EVM2EVMMessage memory message = abi.decode(_message, (Internal.EVM2EVMMessage));
+    function withdrawOrderReward(bytes calldata _message) external noReentrancy {
+        Client.Any2EVMMessage memory message = abi.decode(_message, (Client.Any2EVMMessage));
 
-        bytes32 messageId = message.messageId;
+        (, uint feeDivisor, ) = abi.decode(message.data, (address, uint, bytes));
+        uint orderAmount = message.destTokenAmounts[0].amount;
+        address token = message.destTokenAmounts[0].token;
 
-        (address recipient, bytes memory data) = abi.decode(message.data, (address, bytes));
-
-        uint256 orderAmount = message.tokenAmounts[0].amount;
-        uint FEE = IFastCCIPEndpoint(ENDPOINT).FEE();
-        uint totalReward = orderAmount / FEE;
+        uint totalReward = orderAmount / feeDivisor;
         uint poolAmount = orderAmount - totalReward;
 
         // Check if CCIP message has arrived
-        if (!rewardsPending[messageId][recipient][_localToken][poolAmount][data]) {
+        if (!rewardsPending[_message]) {
             revert MessageNotReceived();
         }
         
         // Calculate order filler's proportionate share
-        uint contributedAmount = pooledOrderFillers[messageId][recipient][_localToken][poolAmount][data][msg.sender];
+        uint contributedAmount = pooledOrderFillers[_message][msg.sender];
 
         uint percent = poolAmount / contributedAmount;
         uint transferAmount = contributedAmount + (totalReward / percent);
         // Set contribution amount to 0
-        pooledOrderFillers[messageId][recipient][_localToken][orderAmount][data][msg.sender] = 0;
+        pooledOrderFillers[_message][msg.sender] = 0;
         // Disburse tokens
-        IERC20(_localToken).transfer(msg.sender, transferAmount);
+        IERC20(token).transfer(msg.sender, transferAmount);
 
         emit RewardDisbursed(msg.sender, transferAmount);
 
