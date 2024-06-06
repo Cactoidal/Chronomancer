@@ -35,16 +35,15 @@ contract ScryPool is CCIPReceiver {
         FAILED
     }
 
-    // ABI-encoded Any2EVMMessage => Filler Address => Contributed Amount
-    mapping(bytes => mapping(address => uint)) pooledOrderFillers;
-  
-    mapping(bytes => uint) orderPoolStartedTimestamp;
+    struct orderPool {
+        fillStatus status;
+        bool rewardsPending;
+        uint timestamp;
+        uint totalPooled;
+        mapping(address => uint) fillerAmounts;
+    }
 
-    mapping(bytes => fillStatus) orderPoolStatus;
-    
-    mapping(bytes => uint) orderPoolTotals;
-   
-    mapping(bytes => bool) rewardsPending;
+    mapping(bytes => orderPool) orderPools;
 
     bool reentrancyBlock;
 
@@ -67,13 +66,14 @@ contract ScryPool is CCIPReceiver {
         // The fill amount must account for the fee
         orderAmount = orderAmount - (orderAmount / feeDivisor);
 
+        orderPool storage order = orderPools[_message];
         // Get the pool info
-        uint totalPooled = orderPoolTotals[_message];
-        uint poolStartedTimestamp = orderPoolStartedTimestamp[_message];
+        uint totalPooled = order.totalPooled;
+        uint poolStartedTimestamp = order.timestamp;
 
         // Check if pool exists; if not, set the timestamp
         if (poolStartedTimestamp == 0) {
-            orderPoolStartedTimestamp[_message] = block.timestamp;
+            order.timestamp = block.timestamp;
         }
         // Check if pool is stale or has already been filled
         else if (block.timestamp > poolStartedTimestamp + 100 || totalPooled == orderAmount) {
@@ -89,11 +89,11 @@ contract ScryPool is CCIPReceiver {
             transferAmount = fillerBalance;
         }
         // Add msg.sender to the pool
-        pooledOrderFillers[_message][msg.sender] += transferAmount;
+        order.fillerAmounts[msg.sender] += transferAmount;
 
         // Update the total pooled amount
         totalPooled += transferAmount;
-        orderPoolTotals[_message] = totalPooled;
+        order.totalPooled = totalPooled;
       
         // Pool msg.sender's tokens
         IERC20(token).transferFrom(msg.sender, address(this), transferAmount);
@@ -110,11 +110,11 @@ contract ScryPool is CCIPReceiver {
                 // Probably want to change error-handling on endpoint's fillOrder()
                 // so it's possible to handle reversion
 
-                orderPoolStatus[_message] = fillStatus.SUCCESS;
+                order.status = fillStatus.SUCCESS;
                 emit FilledOrder(messageId);
                 }
             else {
-                orderPoolStatus[_message] = fillStatus.FAILED;
+                order.status = fillStatus.FAILED;
                 emit FailedToFillOrder(messageId);
                 }
 
@@ -128,8 +128,9 @@ contract ScryPool is CCIPReceiver {
 
         address token = message.destTokenAmounts[0].token;
     
-        uint poolStartedTimestamp = orderPoolStartedTimestamp[_message];
-        fillStatus orderStatus = orderPoolStatus[_message];
+        orderPool storage order = orderPools[_message];
+        uint poolStartedTimestamp = order.timestamp;
+        fillStatus orderStatus = order.status;
 
         // Check if order successfully completed
         if (orderStatus == fillStatus.SUCCESS){
@@ -137,8 +138,8 @@ contract ScryPool is CCIPReceiver {
         }
         // Check if enough time has elapsed or if the order has failed
         if (block.timestamp > poolStartedTimestamp + 100 || orderStatus == fillStatus.FAILED) {
-            uint transferAmount = pooledOrderFillers[_message][msg.sender];
-            pooledOrderFillers[_message][msg.sender] = 0;
+            uint transferAmount = order.fillerAmounts[msg.sender];
+            order.fillerAmounts[msg.sender] = 0;
             IERC20(token).transfer(msg.sender, transferAmount);
         }
         else {
@@ -152,8 +153,8 @@ contract ScryPool is CCIPReceiver {
         require(msg.sender == ENDPOINT);
 
         bytes32 messageId = message.messageId;
-   
-        rewardsPending[abi.encode(message)] = true;
+
+        orderPools[abi.encode(message)].rewardsPending = true;
         emit MessageReceived(messageId);
 
     }
@@ -169,18 +170,20 @@ contract ScryPool is CCIPReceiver {
         uint totalReward = orderAmount / feeDivisor;
         uint poolAmount = orderAmount - totalReward;
 
+        orderPool storage order = orderPools[_message];
+
         // Check if CCIP message has arrived
-        if (!rewardsPending[_message]) {
+        if (!order.rewardsPending) {
             revert MessageNotReceived();
         }
         
         // Calculate order filler's proportionate share
-        uint contributedAmount = pooledOrderFillers[_message][msg.sender];
+        uint contributedAmount = order.fillerAmounts[msg.sender];
 
         uint percent = poolAmount / contributedAmount;
         uint transferAmount = contributedAmount + (totalReward / percent);
         // Set contribution amount to 0
-        pooledOrderFillers[_message][msg.sender] = 0;
+        order.fillerAmounts[msg.sender] = 0;
         // Disburse tokens
         IERC20(token).transfer(msg.sender, transferAmount);
 
