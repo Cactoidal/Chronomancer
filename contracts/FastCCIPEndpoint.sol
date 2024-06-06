@@ -33,23 +33,50 @@ contract FastCCIPEndpoint is CCIPReceiver {
         CHAINLINK = _link;
     }
 
-    // Convert the EVM2EVM Message to Any2EVM Message off-chain
-    function retrieveAny2EVM(bytes calldata _message, address _localToken) external pure returns (bytes memory) {
+    // Used by bots to determine order validity off-chain before submitting a transaction
+    // If a valid transfer is detected, converts the EVM2EVM message to an Any2EVM message,
+    // and returns the Any2EVM message's ABI-encoded bytes
+    function filterOrder(bytes calldata _message, address _endpoint, address _filler, address[] calldata _localTokenList, address[] calldata _remoteTokenList, uint256[] calldata _tokenMinimums) public view returns (bytes memory) {
         Internal.EVM2EVMMessage memory message = abi.decode(_message, (Internal.EVM2EVMMessage));
 
-        Client.EVMTokenAmount[] memory tokenAmounts;
-        tokenAmounts[0].token = _localToken;
-        tokenAmounts[0].amount = message.tokenAmounts[0].amount;
+        address receiver = message.receiver;
+        address token = message.tokenAmounts[0].token;
+        (address recipient, ) = abi.decode(message.data, (address, bytes));
 
-        Client.Any2EVMMessage memory ccipMessage = Client.Any2EVMMessage({
-            messageId: message.messageId,
-            sourceChainSelector: message.sourceChainSelector,
-            sender: abi.encode(message.sender),
-            data: abi.encode(message.data),
-            destTokenAmounts: tokenAmounts
-            });
+        // Check that the endpoint is the target and that no recursion takes place
+        if (receiver != _endpoint || receiver == recipient) {
+            return abi.encode(0);
+        }
 
-        return abi.encode(ccipMessage);
+        // Check EVM2EVM message for monitored remote token, then check the balance and minimum 
+        // of the matching local token
+        for (uint i = 0; i < _remoteTokenList.length; i++) {
+            if (token == _remoteTokenList[i]) {
+                if (message.tokenAmounts[0].amount <= IERC20(_localTokenList[i]).balanceOf(_filler)) {
+                    if (message.tokenAmounts[0].amount >= _tokenMinimums[i]) {
+                        // Convert the EVM2EVM message to an Any2EVM Message, containing the local token address
+                        // instead of the remote token address
+                        Client.EVMTokenAmount[] memory tokenAmounts;
+                        tokenAmounts[0].token = _localTokenList[i];
+                        tokenAmounts[0].amount = message.tokenAmounts[0].amount;
+
+                        Client.Any2EVMMessage memory ccipMessage = Client.Any2EVMMessage({
+                            messageId: message.messageId,
+                            sourceChainSelector: message.sourceChainSelector,
+                            sender: abi.encode(message.sender),
+                            data: abi.encode(message.data),
+                            destTokenAmounts: tokenAmounts
+                            });
+
+                        return abi.encode(ccipMessage);
+                        }
+                    }
+                }
+            }
+        
+        // Return invalid if not all criteria are met
+        return abi.encode(0);
+
     }
     
     // _message is the converted Any2EVM Message, now containing the local token address instead of the remote address.
@@ -76,6 +103,7 @@ contract FastCCIPEndpoint is CCIPReceiver {
         // Set the order's fill status using the ABI-encoded Any2EVM Message
         orderFillers[_message] = msg.sender;
 
+        // Send the tokens to the endpoint
         IERC20(token).transferFrom(msg.sender, address(this), amount);
 
         emit OrderFilled(messageId, msg.sender);
@@ -90,6 +118,7 @@ contract FastCCIPEndpoint is CCIPReceiver {
 
         IERC20(token).transfer(recipient, amount);
 
+        // Send the message containing the data payload
         CCIPReceiver(recipient).ccipReceive(message);
     }
 
@@ -107,6 +136,7 @@ contract FastCCIPEndpoint is CCIPReceiver {
 
         (address recipient, ) = abi.decode(message.data, (address, bytes));
 
+        // Check the order's fill status
         address orderFiller = orderFillers[abi.encode(message)];
 
         if (orderFiller != address(0)) {
@@ -123,36 +153,6 @@ contract FastCCIPEndpoint is CCIPReceiver {
         CCIPReceiver(recipient).ccipReceive(message);
     }
 
-
-    // Used by bots to determine order validity off-chain before submitting a transaction
-    function filterOrder(bytes calldata _message, address _endpoint, address _filler, address[] calldata _localTokenList, address[] calldata _remoteTokenList, uint256[] calldata _tokenMinimums) public view returns (address) {
-        Internal.EVM2EVMMessage memory message = abi.decode(_message, (Internal.EVM2EVMMessage));
-
-        address receiver = message.receiver;
-        address token = message.tokenAmounts[0].token;
-        (address recipient, ) = abi.decode(message.data, (address, bytes));
-
-        // Check that the endpoint is the target and that no recursion takes place
-        if (receiver != _endpoint || receiver == recipient) {
-            return address(0);
-        }
-        
-        // Check EVM2EVM message for monitored remote token, then check the balance and minimum 
-        // of the matching local token
-        for (uint i = 0; i < _remoteTokenList.length; i++) {
-            if (token == _remoteTokenList[i]) {
-                if (message.tokenAmounts[0].amount <= IERC20(_localTokenList[i]).balanceOf(_filler)) {
-                    if (message.tokenAmounts[0].amount >= _tokenMinimums[i]) {
-                        return _localTokenList[i];
-                        }
-                    }
-                }
-            }
-        
-        // Return invalid if not all criteria are met
-        return address(0);
-
-    }
 
     // Used by ScryPool or other add-ons to check if an order has been filled
     function checkOrderPathFillStatus(bytes calldata _message) external view returns (address) {
