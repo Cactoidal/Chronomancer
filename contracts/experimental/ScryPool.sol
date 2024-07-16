@@ -45,17 +45,38 @@ contract ScryPool is CCIPReceiver {
 
     mapping(bytes => orderPool) orderPools;
 
+    // ScryPool tracks pooled token balances deposited on the contract,
+    // to allow easy querying of available capacity.
+    mapping(address => uint) public availableLiquidity;
+
+    // To participate in ScryPool, providers stake their tokens on the contract.
+    // Claimed rewards are added to a provider's staked balance.
+    mapping(address => mapping(address => uint)) public userStakedTokens;
+
     bool reentrancyBlock;
+
 
     // Set the CCIP Fast Endpoint contract as the router
     constructor(address _endpoint) CCIPReceiver(_endpoint) {
         ENDPOINT = _endpoint;
     }
 
-    // Create a pool for a given order if it does not yet exist, or join
-    // an order's existing pool.  When the pool is full, the order will
-    // immediately attempt to execute.
-    // _message is an Any2EVM message converted from an OnRamp EVM2EVM message
+
+    function depositTokens(address _token, uint _amount) external noReentrancy {
+        userStakedTokens[msg.sender][_token] += _amount;
+        availableLiquidity[_token] += _amount;
+        IERC20(_token).transferFrom(msg.sender, address(this), _amount);
+    }
+
+
+    function withdrawTokens(address _token) external noReentrancy {
+        uint transferAmount = userStakedTokens[msg.sender][_token];
+        userStakedTokens[msg.sender][_token] = 0;
+        availableLiquidity[_token] -= transferAmount;
+        IERC20(_token).transfer(msg.sender, transferAmount);
+    }
+
+
     function joinPool(bytes calldata _message) external noReentrancy {
         Client.Any2EVMMessage memory message = abi.decode(_message, (Client.Any2EVMMessage));
 
@@ -83,7 +104,7 @@ contract ScryPool is CCIPReceiver {
         // Determine how many tokens have already been pooled,
         // and how many tokens msg.sender can supply to the pool
         uint transferAmount = orderAmount - totalPooled;
-        uint fillerBalance = IERC20(token).balanceOf(msg.sender);
+        uint fillerBalance = userStakedTokens[msg.sender][token];
 
         if (fillerBalance < transferAmount) {
             transferAmount = fillerBalance;
@@ -96,7 +117,8 @@ contract ScryPool is CCIPReceiver {
         order.totalPooled = totalPooled;
       
         // Pool msg.sender's tokens
-        IERC20(token).transferFrom(msg.sender, address(this), transferAmount);
+        availableLiquidity[token] -= transferAmount;
+        userStakedTokens[msg.sender][token] -= transferAmount;
 
         // If the pool is full, immediately attempt to fill the order.  Then set the order fill status
         if (totalPooled == orderAmount) {
@@ -122,7 +144,6 @@ contract ScryPool is CCIPReceiver {
 
         }
 
-    // Withdraw tokens from an order pool if it has not filled quickly enough, or failed to fill
     function quitPool(bytes calldata _message) external noReentrancy {
         Client.Any2EVMMessage memory message = abi.decode(_message, (Client.Any2EVMMessage));
 
@@ -140,7 +161,8 @@ contract ScryPool is CCIPReceiver {
         if (block.timestamp > poolStartedTimestamp + 100 || orderStatus == fillStatus.FAILED) {
             uint transferAmount = order.fillerAmounts[msg.sender];
             order.fillerAmounts[msg.sender] = 0;
-            IERC20(token).transfer(msg.sender, transferAmount);
+            availableLiquidity[token] += transferAmount;
+            userStakedTokens[msg.sender][token] += transferAmount;
         }
         else {
             revert CannotQuitPool();
@@ -148,7 +170,7 @@ contract ScryPool is CCIPReceiver {
 
     }
 
-    // The Endpoint will send tokens along with the Any2EVM CCIP message
+        // The Endpoint will send tokens along with the Any2EVM CCIP message
     function _ccipReceive(Client.Any2EVMMessage memory message) internal override {
         require(msg.sender == ENDPOINT);
 
@@ -159,8 +181,9 @@ contract ScryPool is CCIPReceiver {
 
     }
 
-    // Participants in a successfully filled order can withdraw tokens once the CCIP message has arrived
-    function withdrawOrderReward(bytes calldata _message) external noReentrancy {
+
+    // Participants in a successfully filled order can claim tokens once the CCIP message has arrived
+    function claimOrderReward(bytes calldata _message) external noReentrancy {
         Client.Any2EVMMessage memory message = abi.decode(_message, (Client.Any2EVMMessage));
 
         (, uint feeDivisor, ) = abi.decode(message.data, (address, uint, bytes));
@@ -185,11 +208,14 @@ contract ScryPool is CCIPReceiver {
         // Set contribution amount to 0
         order.fillerAmounts[msg.sender] = 0;
         // Disburse tokens
-        IERC20(token).transfer(msg.sender, transferAmount);
+        availableLiquidity[token] += transferAmount;
+        userStakedTokens[msg.sender][token] += transferAmount;
 
         emit RewardDisbursed(msg.sender, transferAmount);
 
     }
+
+
 
     modifier noReentrancy() {
         require(!reentrancyBlock, "No reentrancy");
