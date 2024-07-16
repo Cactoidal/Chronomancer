@@ -24,77 +24,20 @@ contract FastCCIPEndpoint is CCIPReceiver {
     // ABI-encoded Any2EVM Messages mapped to filler addresses
     mapping(bytes => address) public orderFillers;
     
+    // CCIP Message IDs mapped to booleans
     mapping(bytes32 => bool) messageArrived;
 
     constructor(address _router) CCIPReceiver(_router) {
         ROUTER = _router;
     }
 
-    // Used by bots to determine order validity off-chain before submitting a transaction
-    // If a valid transfer is detected, converts the EVM2EVM message to an Any2EVM message,
-    // and returns the Any2EVM message's ABI-encoded bytes
-    function filterOrder(
-    bytes calldata _message, 
-    address _filler, 
-    address[] calldata _localTokenList, 
-    address[] calldata _remoteTokenList, 
-    uint256[] calldata _tokenMinimums, 
-    uint256[] calldata _feeDivisors
-    ) public view returns (bytes memory) {
 
-        Internal.EVM2EVMMessage memory message = abi.decode(_message, (Internal.EVM2EVMMessage));
-
-        address receiver = message.receiver;
-        address token = message.tokenAmounts[0].token;
-        address filler = _filler;
-        address[] memory localTokenList = _localTokenList;
-        (address recipient, uint feeDivisor, ) = abi.decode(message.data, (address, uint, bytes));
-
-        // Check that the endpoint is the target and that no recursion takes place
-        if (receiver != address(this) || receiver == recipient) {
-            return abi.encode(0);
-        }
-
-        // Check if feeDivisor is 0 
-        if (feeDivisor == 0) {
-            return abi.encode(0);
-        }
-
-        // Check EVM2EVM message for monitored remote token, then check the balance, minimum, and fee
-        // of the matching local token
-        for (uint i = 0; i < _remoteTokenList.length; i++) {
-            if (token == _remoteTokenList[i]) {
-                
-                if (message.tokenAmounts[0].amount <= IERC20(localTokenList[i]).balanceOf(filler)) {
-                    // Check that the transfer amount and fee are large enough 
-                    // (the smaller the feeDivisor, the bigger the fee)
-                    if (message.tokenAmounts[0].amount >= _tokenMinimums[i] && feeDivisor <= _feeDivisors[i]) {
-                        // Convert the EVM2EVM message to an Any2EVM Message, containing the local token address
-                        // instead of the remote token address
-                        Client.EVMTokenAmount[] memory tokenAmounts;
-                        tokenAmounts[0].token = localTokenList[i];
-                        tokenAmounts[0].amount = message.tokenAmounts[0].amount;
-
-                        Client.Any2EVMMessage memory ccipMessage = Client.Any2EVMMessage({
-                            messageId: message.messageId,
-                            sourceChainSelector: message.sourceChainSelector,
-                            sender: abi.encode(message.sender),
-                            data: abi.encode(message.data),
-                            destTokenAmounts: tokenAmounts
-                            });
-
-                        return abi.encode(ccipMessage);
-                        }
-                    }
-                }
-            }
-        
-        // Return invalid if not all criteria are met
-        return abi.encode(0);
-
-    }
+    // EVM2EVM Messages are pulled from CCIP OnRamps and converted into Any2EVM Messages off-chain.  
+    // The local token address is substituted for the remote address, and the filler balance checked 
+    // locally before attempting to fill the order.
     
-    // _message is the converted Any2EVM Message, now containing the local token address instead of the remote address.
+    // _message is the converted Any2EVM Message, now containing the local token address 
+    // instead of the remote address.
     function fillOrder(bytes calldata _message) external noReentrancy {
 
         Client.Any2EVMMessage memory message = abi.decode(_message, (Client.Any2EVMMessage));
