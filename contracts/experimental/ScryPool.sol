@@ -135,9 +135,6 @@ contract ScryPool is CCIPReceiver {
                 // Fill the order
                 IFastCCIPEndpoint(ENDPOINT).fillOrder(_message);
 
-                // Probably want to change error-handling on endpoint's fillOrder()
-                // so it's possible to handle reversion
-
                 order.status = fillStatus.SUCCESS;
                 emit FilledOrder(messageId);
                 }
