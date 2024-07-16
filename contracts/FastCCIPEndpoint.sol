@@ -113,7 +113,10 @@ contract FastCCIPEndpoint is CCIPReceiver {
 
 
     // Used by ScryPool or other add-ons to check if an order has been filled
-    function checkOrderPathFillStatus(bytes calldata _message) external view returns (address) {
+    function checkOrderPathFillStatus(bytes calldata _message, bytes32 _messageId) external view returns (address) {
+        if (messageArrived[_messageId]) {
+            return address(this);
+        }
         return orderFillers[_message];
     }
 
