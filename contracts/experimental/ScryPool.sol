@@ -13,8 +13,6 @@ import "./IFastCCIPEndpoint.sol";
 // which restricts the maximum size of orders.
 // ScryPool allows bots to trustlessly pool their tokens, enabling them to collectively fill bigger orders.
 
-// To work, the Fast CCIP Endpoint will need to be reconfigured to check whether the order-filling address
-// is a contract, and send the Any2EVM message along with any tokens.
 
 contract ScryPool is CCIPReceiver {
 
