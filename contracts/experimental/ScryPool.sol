@@ -73,6 +73,12 @@ contract ScryPool is CCIPReceiver {
         uint transferAmount = userStakedTokens[msg.sender][_token];
         userStakedTokens[msg.sender][_token] = 0;
         availableLiquidity[_token] -= transferAmount;
+
+        // Check if msg.sender is a contract
+        if (msg.sender.code.length != 0) {
+            IERC20(_token).approve(msg.sender, transferAmount);
+        }
+
         IERC20(_token).transfer(msg.sender, transferAmount);
     }
 
