@@ -129,7 +129,7 @@ contract ScryPool is CCIPReceiver {
         // If the pool is full, immediately attempt to fill the order.  Then set the order fill status
         if (totalPooled == orderAmount) {
 
-            if (IFastCCIPEndpoint(ENDPOINT).checkOrderPathFillStatus(_message) == address(0)) {
+            if (IFastCCIPEndpoint(ENDPOINT).checkOrderPathFillStatus(_message, messageId) == address(0)) {
                 // Approve the endpoint's token allowance
                 IERC20(token).approve(address(ENDPOINT), orderAmount);
                 // Fill the order
