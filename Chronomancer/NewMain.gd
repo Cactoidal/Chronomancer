@@ -56,7 +56,6 @@ func new_monitored_token_form():
 	add_child(new_form)
 
 
-
 func print_message(message):
 	$Message.text = message
 	fadeout($Message, 4.2)
@@ -328,7 +327,8 @@ func delete_monitored_token(account, serviced_network, local_token_contract):
 
 #####   NETWORK MANAGEMENT   #####
 
-# Overwrites Ethers' standard network info.
+# Because this node is lower on the scene tree than Ethers.gd,
+# calling this function in _ready() wil overwrite Ethers' standard network info.
 func load_ccip_network_info():
 	var json = JSON.new()
 	if FileAccess.file_exists("user://ccip_network_info") != true:
@@ -374,7 +374,10 @@ func add_network(network, chain_id, rpcs, scan_url, chain_selector, router, onra
 	update_network_info()
 
 
-#####   TRANSACTION MANAGEMENT   #####
+
+
+#####   TRANSACTION LOGGING   #####
+
 
 func receive_transaction_object(transaction):
 	var local_id = transaction["local_id"]
@@ -388,11 +391,20 @@ func receive_transaction_object(transaction):
 
 func add_new_tx_object(local_id, transaction):
 	var network = transaction["network"]
+	var account = transaction["account"]
 	var transaction_type = transaction["callback_args"]["transaction_type"]
 	var transaction_hash = transaction["transaction_hash"]
 
 	# Build a transaction node for the UI
-	var tx_object = instantiate_transaction(network, transaction_type)
+	var tx_object = _transaction_object.instantiate()
+	tx_object.get_node("NetworkName").text = network
+	tx_object.get_node("AccountName").text = account
+	tx_object.get_node("TransactionType").text = transaction_type
+	
+	if transaction_type == "Order Fill":
+		var ccip_message_id = transaction["callback_args"]["ccip_message_id"]
+		tx_object.get_node("CCIP").visible = true
+		tx_object.get_node("CCIP").connect("pressed", open_link.bind("https://ccip.chain.link/msg/" + ccip_message_id))
 	
 	# The new transaction node is mapped to the transaction hash, so
 	# its status can later be updated by the transaction receipt.
@@ -407,7 +419,7 @@ func add_new_tx_object(local_id, transaction):
 	$Transactions/Transactions.custom_minimum_size.y += 128
 	
 	# Increment the downshift for the next transaction object
-	tx_downshift += 108
+	tx_downshift += 116
 	
 	tx_object.modulate.a = 0
 	var fadein = create_tween()
@@ -423,56 +435,23 @@ func update_transaction(tx_object, transaction):
 	
 	if transaction_hash != "":
 		var scan_url = Ethers.network_info[network]["scan_url"]
-		var scan_link = tx_object.get_node("Scan Link")
-		var ccip_link = tx_object.get_node("CCIP Link")
+		var scan_link = tx_object.get_node("Scan")
 		
 		if !scan_link.visible:
 			scan_link.connect("pressed", open_link.bind(scan_url + "tx/" + transaction_hash))
 			scan_link.visible = true
-		if transaction_type == "CCIP" && !ccip_link.visible:
-			ccip_link.connect("pressed", open_link.bind("https://ccip.chain.link/tx/" + transaction_hash))
-			ccip_link.visible = true
 	
-	if tx_status == "success":
+	if tx_status == "SUCCESS":
 		tx_object.get_node("Status").color = Color.GREEN
-	elif tx_status != "pending":
+	elif tx_status != "PENDING":
 		tx_object.get_node("Status").color = Color.RED
 
 
-func instantiate_transaction(network, transaction_type):
-	var new_transaction = Panel.new()
-	new_transaction.size = Vector2(146,104)
-	var info = Label.new()
-	var scan_link = Button.new()
-	var ccip_link = Button.new()
-	var status = ColorRect.new()
-	info.name = "Info"
-	status.size = Vector2(15,15)
-	status.name = "Status"
-	info.text = transaction_type + ":\n" + network
-	scan_link.text = "Scan"
-	ccip_link.text = "CCIP"
-	scan_link.name = "Scan Link"
-	ccip_link.name = "CCIP Link"
-	scan_link.visible = false
-	ccip_link.visible = false
-	#scan_link.connect("pressed", open_link.bind(scan_url + "tx/" + transaction_hash))
-	#ccip_link.connect("pressed", open_link.bind("https://ccip.chain.link/tx/" + transaction_hash))
-	scan_link.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
-	ccip_link.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
-	new_transaction.add_child(info)
-	new_transaction.add_child(scan_link)
-	new_transaction.add_child(ccip_link)
-	new_transaction.add_child(status)
-	info.position = Vector2(5,4)
-	scan_link.position = Vector2(12,65)
-	ccip_link.position = Vector2(86,65)
-	status.position = Vector2(127,3)
-	
-	#if transaction_type != "CCIP":
-		#ccip_link.visible = false
-		
-	return new_transaction
+func get_receipt(callback):
+	#DEBUG
+	# update balances
+	pass
+
 
 
 
