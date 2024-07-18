@@ -191,7 +191,11 @@ contract ScryPool is CCIPReceiver {
         orderPool storage order = orderPools[abi.encode(message)];
         address soloFiller = order.soloFiller;
 
-        // If the order was filled by a single address, immediately disburse tokens
+        // If the order was filled by a single address, immediately disburses tokens.
+        // NOTE: If the effect on fees is not too bad, this could potentially be expanded 
+        // to the first X addresses, to limit the size of the for loop, therefore still 
+        // protecting against spam transactions blocking the receipt of the message, while
+        // still providing the convenience of instant reward disbursement in most cases.
         if (soloFiller != address(0)) {
             uint orderAmount = message.destTokenAmounts[0].amount;
             address token = message.destTokenAmounts[0].token;
