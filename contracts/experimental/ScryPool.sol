@@ -86,11 +86,11 @@ contract ScryPool is CCIPReceiver {
         Client.Any2EVMMessage memory message = abi.decode(_message, (Client.Any2EVMMessage));
 
         bytes32 messageId = message.messageId;
-        ( , uint feeDivisor, ) = abi.decode(message.data, (address, uint, bytes));
+        ( , uint rewardAmount, ) = abi.decode(message.data, (address, uint, bytes));
         uint orderAmount = message.destTokenAmounts[0].amount;
         address token = message.destTokenAmounts[0].token;
         // The fill amount must account for the fee
-        orderAmount = orderAmount - (orderAmount / feeDivisor);
+        orderAmount = orderAmount - rewardAmount;
 
         orderPool storage order = orderPools[_message];
         // Get the pool info
@@ -211,14 +211,12 @@ contract ScryPool is CCIPReceiver {
     function claimOrderReward(bytes calldata _message) external noReentrancy {
         Client.Any2EVMMessage memory message = abi.decode(_message, (Client.Any2EVMMessage));
 
-        (, uint feeDivisor, ) = abi.decode(message.data, (address, uint, bytes));
-        uint orderAmount = message.destTokenAmounts[0].amount;
+        (, uint rewardAmount, ) = abi.decode(message.data, (address, uint, bytes));
         address token = message.destTokenAmounts[0].token;
 
-        uint totalReward = orderAmount / feeDivisor;
-        uint poolAmount = orderAmount - totalReward;
-
         orderPool storage order = orderPools[_message];
+
+        uint poolAmount = order.totalPooled;
 
         // Check if CCIP message has arrived
         if (!order.rewardsPending) {
@@ -229,7 +227,7 @@ contract ScryPool is CCIPReceiver {
         uint contributedAmount = order.fillerAmounts[msg.sender];
 
         uint percent = poolAmount / contributedAmount;
-        uint transferAmount = contributedAmount + (totalReward / percent);
+        uint transferAmount = contributedAmount + (rewardAmount / percent);
         // Set contribution amount to 0
         order.fillerAmounts[msg.sender] = 0;
         // Disburse tokens
