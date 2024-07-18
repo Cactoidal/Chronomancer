@@ -39,6 +39,7 @@ contract ScryPool is CCIPReceiver {
         uint timestamp;
         uint totalPooled;
         mapping(address => uint) fillerAmounts;
+        address soloFiller;
     }
 
     mapping(bytes => orderPool) orderPools;
@@ -95,10 +96,14 @@ contract ScryPool is CCIPReceiver {
         // Get the pool info
         uint totalPooled = order.totalPooled;
         uint poolStartedTimestamp = order.timestamp;
+        bool solo;
 
         // Check if pool exists; if not, set the timestamp
         if (poolStartedTimestamp == 0) {
             order.timestamp = block.timestamp;
+            // If the order is completed immediately after setting
+            // the timestamp, it means a single address filled the order.
+            solo = true;
         }
         // Check if pool is stale or has already been filled
         else if (block.timestamp > poolStartedTimestamp + 100 || totalPooled == orderAmount) {
@@ -135,6 +140,12 @@ contract ScryPool is CCIPReceiver {
 
                 order.status = fillStatus.SUCCESS;
                 emit FilledOrder(messageId);
+
+                // Check if the order was filled by a single filler
+                if (solo) {
+                    order.soloFiller = msg.sender;
+                }
+
                 }
             else {
                 order.status = fillStatus.FAILED;
@@ -177,7 +188,20 @@ contract ScryPool is CCIPReceiver {
 
         bytes32 messageId = message.messageId;
 
-        orderPools[abi.encode(message)].rewardsPending = true;
+        orderPool storage order = orderPools[abi.encode(message)];
+        address soloFiller = order.soloFiller;
+
+        // If the order was filled by a single address, immediately disburse tokens
+        if (soloFiller != address(0)) {
+            uint orderAmount = message.destTokenAmounts[0].amount;
+            address token = message.destTokenAmounts[0].token;
+            availableLiquidity[token] += orderAmount;
+            userStakedTokens[soloFiller][token] += orderAmount;
+        }
+        else {
+            // Otherwise, allow fillers to claim their rewards
+            order.rewardsPending = true;
+        }
         emit MessageReceived(messageId);
 
     }
