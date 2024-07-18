@@ -1,4 +1,4 @@
-extends Node3D
+extends Control
 
 
 var application_manifest
@@ -25,6 +25,16 @@ func _process(delta):
 #####   INTERFACE   #####
 
 func _ready():
+	$AddAccount.connect("pressed", open_create_account)
+	$SelectedAccount/CreateAccount/CreateAccount.connect("pressed", create_account)
+	$SelectedAccount/Login/Login.connect("pressed", login_account)
+	$SelectedAccount/AccountManager/ChooseTask/Chronomancer.connect("pressed", select_chronomancer_task)
+	$SelectedAccount/AccountManager/ChooseTask/TestCreator.connect("pressed", select_test_creator_task)
+	$SelectedAccount/AccountManager/CopyAddress.connect("pressed", copy_address)
+	$SelectedAccount/AccountManager/ExportKey.connect("pressed", export_private_key)
+	$SelectedAccount/AccountManager/ChangeTask/ChangeTask.connect("pressed", change_task)
+	$NetworkSettings.connect("pressed", new_network_form)
+	return
 	Ethers.register_transaction_log(self, "receive_transaction_object")
 	load_ccip_network_info()
 	load_application_manifest()
@@ -55,15 +65,14 @@ func load_monitored_tokens():
 
 
 func print_message(message):
-	#$Message.text = message
-	#fadeout($Message)
-	print(message)
+	$Message.text = message
+	fadeout($Message)
 
 
 func fadeout(node):
 	node.modulate.a = 1
 	var fadeout = create_tween()
-	fadeout.tween_property(node,"modulate:a", 0, 3.5).set_trans(Tween.TRANS_LINEAR)
+	fadeout.tween_property(node,"modulate:a", 0, 4.2).set_trans(Tween.TRANS_LINEAR)
 	fadeout.play()
 
 
@@ -81,8 +90,9 @@ func load_application_manifest():
 		application_manifest = {
 			"accounts": [],
 			"monitored_tokens": [],
-			"test_cases": []
-				}
+			"test_cases": [],
+			"cached_transactions": []
+			}
 	else:
 		var manifest = FileAccess.open("user://MANIFEST", FileAccess.READ).get_as_text()
 		var json = JSON.new()
@@ -99,61 +109,153 @@ func load_accounts():
 	available_accounts = {}
 	
 	if application_manifest["accounts"] == []:
-		# No accounts exist
-		pass
+		$NoAccounts.visible = true
 	else:
 		for account in application_manifest["accounts"]:
-			# Load account objects
-			# var account_object = get_account_object(account)
-			# available_accounts[account] = account_object
-			pass
-		
+			var account_object = get_account_object(account)
+			available_accounts[account] = account_object
+			if account == application_manifest["accounts"][0]:
+				select_account(account)
+			
 
-func create_account(account_name, password, imported_key=""):
+func get_account_object(account):
+	pass
+
+
+func open_create_account():
+	$Task.visible = false
+	$SelectedAccount/Login.visible = false
+	$SelectedAccount/AccountManager.visible = false
+	$SelectedAccount/CreateAccount.visible = true
+	$SelectedAccount/CreateAccount/Password.text = ""
+	$SelectedAccount/CreateAccount/ImportKey.text = ""
+	$SelectedAccount/CreateAccount/AccountName.text = ""
+
+
+func create_account():
+	var account_name = $SelectedAccount/CreateAccount/AccountName.text
+	var password = $SelectedAccount/CreateAccount/Password.text
+	var imported_key = $SelectedAccount/CreateAccount/ImportKey.text
 	if Ethers.account_exists(account_name):
 		print_message("Account " + account_name + " already exists")
+		return
+	if account_name == "":
+		print_message("Need to input account name")
+		return
+	if password == "":
+		print_message("Need to input password")
+		return
+	if imported_key.length() != 64 || !imported_key.is_valid_hex_number():
+		print_message("Imported key is not valid")
 		return
 	Ethers.create_account(account_name, password, imported_key)
 	application_manifest["accounts"].push_back(account_name)
 	save_application_manifest()
 	load_accounts()
 	select_account(account_name)
+	
+	password = Ethers.clear_memory()
+	password.clear()
+	imported_key = Ethers.clear_memory()
+	imported_key.clear()
+	$SelectedAccount/CreateAccount/Password.text = ""
+	$SelectedAccount/CreateAccount/ImportKey.text = ""
+	$SelectedAccount/CreateAccount/AccountName.text = ""
+	$NoAccounts.visible = false
+	
 
 
 func select_account(account):
+	$SelectedAccount/CreateAccount.visible = false
+	$SelectedAccount/Login.visible = false
+	$SelectedAccount/AccountManager.visible = false
+	# DEBUG
+	# probably should be account object here
 	selected_account = account
+	if account in Ethers.logins.keys():
+		load_account_manager()
+	else:
+		$SelectedAccount/Login/AccountName.text = account
+		$SelectedAccount/Login/Password.text = ""
+		$SelectedAccount/Login.visible = true
 
 
 func login_account():
-	# Load selected account interface
-	#Ethers.login(account, $Password.text)
-	#$Password.text = Ethers.clear_memory()
+	var account_name = $SelectedAccount/Login/AccountName.text
+	var password = $SelectedAccount/Login/Password.text
+	
+	if Ethers.login(account_name, password):
+		load_account_manager()
+		$SelectedAccount/Login.visible = false
+		$SelectedAccount/Login/Password.text = ""
+		password = Ethers.clear_memory()
+		password.clear()
+	
+	else:
+		print_message("Login failed")
+		return
+		
+
+
+func load_account_manager():
+	# DEBUG
+	var account = selected_account
+	$SelectedAccount/AccountManager/ChangeTask.visible = false
+	$SelectedAccount/AccountManager/ChooseTask.visible = false
+	
+	$SelectedAccount/AccountManager/AccountName.text = account
+	$SelectedAccount/AccountManager/Address.text = Ethers.get_address(account)
+	$SelectedAccount/AccountManager.visible = true
+	
+	if account in account_tasks.keys():
+		load_account_task()
+	else:
+		$SelectedAccount/AccountManager/ChooseTask.visible = true
+
+
+func select_chronomancer_task():
+	#DEBUG
+	account_tasks[selected_account] = "Chronomancer"
+	# Update the account object and load the task
+	load_account_task()
+
+
+func select_test_creator_task():
+	#DEBUG
+	account_tasks[selected_account] = "Test Creator"
+	# Update the account object and load the task
+	load_account_task()
+
+
+func load_account_task():
+	# DEBUG
+	$SelectedAccount/AccountManager/ChangeTask.visible = true
+	$SelectedAccount/AccountManager/ChangeTask/Prompt.text = "Current Task:\n" + account_tasks[selected_account]
+	#load the appropriate task
+	$Task.visible = true
+
+
+func change_task():
 	pass
 
 
-func copy_address(account):
-	var user_address = Ethers.get_address(account)
+func copy_address():
+	# DEBUG
+	var user_address = Ethers.get_address(selected_account)
 	DisplayServer.clipboard_set(user_address)
-	$Address/Prompt.modulate.a = 1
-	var fadeout = create_tween()
-	fadeout.tween_property($Address/Prompt,"modulate:a", 0, 2.8).set_trans(Tween.TRANS_LINEAR)
-	fadeout.play()
+	print_message("Copied Address to Clipboard")
 
 
-func export_private_key(account):
-	var key = Ethers.get_key(account)
-	#$Key.text = key
+func export_private_key():
+	# DEBUG
+	var key = Ethers.get_key(selected_account)
+	DisplayServer.clipboard_set(key)
 	key = Ethers.clear_memory()
 	key.clear()
+	print_message("Copied Private Key to Clipboard")
 
 
-func assign_task():
-	pass
-	#account_tasks[selected_account] = task
 
-
-func cancel_task():
-	pass
 
 
 #####   MONITORED TOKEN MANAGEMENT   #####
