@@ -311,7 +311,7 @@ func export_private_key():
 #####   NETWORK MANAGEMENT   #####
 
 # Because this node is lower on the scene tree than Ethers.gd,
-# calling this function in _ready() wil overwrite Ethers' standard network info.
+# calling this function in _ready() will overwrite Ethers' standard network info.
 func load_ccip_network_info():
 	var json = JSON.new()
 	if FileAccess.file_exists("user://ccip_network_info") != true:
