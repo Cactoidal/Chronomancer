@@ -1,0 +1,52 @@
+[gd_scene load_steps=3 format=3 uid="uid://ce83l0mbitokw"]
+
+[sub_resource type="Gradient" id="Gradient_2c4ny"]
+colors = PackedColorArray(0.178212, 0.178212, 0.178212, 1, 0.439049, 0.439049, 0.439049, 1)
+
+[sub_resource type="GradientTexture2D" id="GradientTexture2D_50qxs"]
+gradient = SubResource("Gradient_2c4ny")
+width = 140
+height = 80
+fill_to = Vector2(1, 1)
+
+[node name="Account" type="Control"]
+layout_mode = 3
+anchors_preset = 0
+offset_right = 40.0
+offset_bottom = 40.0
+
+[node name="Highlight" type="ColorRect" parent="."]
+visible = false
+layout_mode = 0
+offset_left = 12.0
+offset_top = 56.0
+offset_right = 158.0
+offset_bottom = 140.0
+
+[node name="Account" type="TextureButton" parent="."]
+layout_mode = 0
+offset_left = 15.0
+offset_top = 58.0
+offset_right = 155.0
+offset_bottom = 138.0
+mouse_default_cursor_shape = 2
+texture_normal = SubResource("GradientTexture2D_50qxs")
+
+[node name="AccountName" type="Label" parent="Account"]
+layout_mode = 0
+offset_left = 6.0
+offset_top = 6.0
+offset_right = 136.0
+offset_bottom = 29.0
+text = "Account Name"
+clip_text = true
+
+[node name="AccountTask" type="Label" parent="Account"]
+modulate = Color(1, 1, 1, 0.72549)
+layout_mode = 0
+offset_left = 11.0
+offset_top = 38.0
+offset_right = 127.0
+offset_bottom = 61.0
+text = "Assign Task"
+horizontal_alignment = 1

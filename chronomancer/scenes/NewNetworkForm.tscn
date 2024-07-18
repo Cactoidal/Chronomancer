@@ -1,0 +1,1048 @@
+[gd_scene format=3 uid="uid://dunblckq2omoj"]
+
+[node name="NewNetworkForm" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="Background" type="ColorRect" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0, 0, 0, 0.392157)
+
+[node name="Form" type="ColorRect" parent="."]
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -546.0
+offset_top = -291.0
+offset_right = 543.0
+offset_bottom = 291.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0, 0, 0, 1)
+
+[node name="Input" type="Control" parent="Form"]
+anchors_preset = 0
+offset_right = 40.0
+offset_bottom = 40.0
+
+[node name="Confirm" type="Button" parent="Form/Input"]
+layout_mode = 0
+offset_left = 862.0
+offset_top = 8.0
+offset_right = 949.0
+offset_bottom = 39.0
+mouse_default_cursor_shape = 2
+text = "Confirm"
+
+[node name="SwitchRamps" type="Button" parent="Form/Input"]
+layout_mode = 0
+offset_left = 411.0
+offset_top = 539.0
+offset_right = 636.0
+offset_bottom = 570.0
+mouse_default_cursor_shape = 2
+text = "Switch to Remote OnRamps"
+
+[node name="Cancel" type="Button" parent="Form/Input"]
+layout_mode = 0
+offset_left = 985.0
+offset_top = 8.0
+offset_right = 1072.0
+offset_bottom = 39.0
+mouse_default_cursor_shape = 2
+text = "Cancel"
+
+[node name="NewNetworkLabel" type="Label" parent="Form/Input"]
+layout_mode = 0
+offset_left = 10.0
+offset_top = 11.0
+offset_right = 151.0
+offset_bottom = 34.0
+text = "New Network:"
+
+[node name="NewNetwork" type="LineEdit" parent="Form/Input"]
+layout_mode = 0
+offset_left = 137.0
+offset_top = 9.0
+offset_right = 402.0
+offset_bottom = 40.0
+
+[node name="Error" type="Label" parent="Form/Input"]
+modulate = Color(1, 1, 1, 0)
+layout_mode = 0
+offset_left = 442.0
+offset_top = 9.0
+offset_right = 779.0
+offset_bottom = 38.0
+text = "Error:"
+
+[node name="LocalChronomancerLabel" type="Label" parent="Form/Input"]
+layout_mode = 0
+offset_left = 11.0
+offset_top = 59.0
+offset_right = 250.0
+offset_bottom = 88.0
+text = "Local Chronomancer Endpoint:
+"
+
+[node name="LocalChronomancer" type="LineEdit" parent="Form/Input"]
+layout_mode = 0
+offset_left = 256.0
+offset_top = 58.0
+offset_right = 496.0
+offset_bottom = 89.0
+
+[node name="LocalScryPoolLabel" type="Label" parent="Form/Input"]
+layout_mode = 0
+offset_left = 64.0
+offset_top = 96.0
+offset_right = 250.0
+offset_bottom = 125.0
+text = "Local ScryPool Contract:
+"
+
+[node name="LocalScryPool" type="LineEdit" parent="Form/Input"]
+layout_mode = 0
+offset_left = 256.0
+offset_top = 95.0
+offset_right = 496.0
+offset_bottom = 126.0
+
+[node name="ScanURLLabel" type="Label" parent="Form/Input"]
+layout_mode = 0
+offset_left = 610.0
+offset_top = 52.0
+offset_right = 695.0
+offset_bottom = 101.0
+text = "Scan URL:
+(optional)
+"
+
+[node name="ScanURL" type="LineEdit" parent="Form/Input"]
+layout_mode = 0
+offset_left = 694.0
+offset_top = 51.0
+offset_right = 871.0
+offset_bottom = 82.0
+
+[node name="LocalBnMLabel" type="Label" parent="Form/Input"]
+layout_mode = 0
+offset_left = 610.0
+offset_top = 113.0
+offset_right = 777.0
+offset_bottom = 162.0
+text = "Local BnM Contract:
+(optional)"
+
+[node name="LocalBnM" type="LineEdit" parent="Form/Input"]
+layout_mode = 0
+offset_left = 773.0
+offset_top = 112.0
+offset_right = 1013.0
+offset_bottom = 143.0
+
+[node name="OnRampsLabel" type="Label" parent="Form/Input"]
+layout_mode = 0
+offset_left = 10.0
+offset_top = 149.0
+offset_right = 175.0
+offset_bottom = 172.0
+text = "Local OnRamps:"
+
+[node name="LocalOnRamps" type="Control" parent="Form/Input"]
+anchors_preset = 0
+offset_top = -28.0
+offset_right = 40.0
+offset_bottom = 12.0
+
+[node name="RemoteNetwork1" type="Control" parent="Form/Input/LocalOnRamps"]
+anchors_preset = 0
+offset_left = -34.0
+offset_top = 2.0
+offset_right = 6.0
+offset_bottom = 42.0
+
+[node name="RemoteNetworkLabel" type="Label" parent="Form/Input/LocalOnRamps/RemoteNetwork1"]
+layout_mode = 0
+offset_left = 57.0
+offset_top = 210.0
+offset_right = 133.0
+offset_bottom = 233.0
+text = "Network:"
+
+[node name="RemoteNetwork" type="LineEdit" parent="Form/Input/LocalOnRamps/RemoteNetwork1"]
+layout_mode = 0
+offset_left = 137.0
+offset_top = 208.0
+offset_right = 536.0
+offset_bottom = 239.0
+
+[node name="RemoteTokenLabel" type="Label" parent="Form/Input/LocalOnRamps/RemoteNetwork1"]
+layout_mode = 0
+offset_left = 57.0
+offset_top = 242.0
+offset_right = 133.0
+offset_bottom = 265.0
+text = "OnRamp:"
+
+[node name="RemoteToken" type="LineEdit" parent="Form/Input/LocalOnRamps/RemoteNetwork1"]
+layout_mode = 0
+offset_left = 137.0
+offset_top = 240.0
+offset_right = 536.0
+offset_bottom = 271.0
+
+[node name="RemoteNetwork2" type="Control" parent="Form/Input/LocalOnRamps"]
+anchors_preset = 0
+offset_left = -34.0
+offset_top = 2.0
+offset_right = 6.0
+offset_bottom = 42.0
+
+[node name="RemoteNetworkLabel" type="Label" parent="Form/Input/LocalOnRamps/RemoteNetwork2"]
+layout_mode = 0
+offset_left = 57.0
+offset_top = 278.0
+offset_right = 133.0
+offset_bottom = 301.0
+text = "Network:"
+
+[node name="RemoteNetwork" type="LineEdit" parent="Form/Input/LocalOnRamps/RemoteNetwork2"]
+layout_mode = 0
+offset_left = 137.0
+offset_top = 276.0
+offset_right = 536.0
+offset_bottom = 307.0
+
+[node name="RemoteTokenLabel" type="Label" parent="Form/Input/LocalOnRamps/RemoteNetwork2"]
+layout_mode = 0
+offset_left = 57.0
+offset_top = 310.0
+offset_right = 133.0
+offset_bottom = 333.0
+text = "OnRamp:"
+
+[node name="RemoteToken" type="LineEdit" parent="Form/Input/LocalOnRamps/RemoteNetwork2"]
+layout_mode = 0
+offset_left = 137.0
+offset_top = 308.0
+offset_right = 536.0
+offset_bottom = 339.0
+
+[node name="RemoteNetwork3" type="Control" parent="Form/Input/LocalOnRamps"]
+anchors_preset = 0
+offset_left = -34.0
+offset_top = -1.0
+offset_right = 6.0
+offset_bottom = 39.0
+
+[node name="RemoteNetworkLabel" type="Label" parent="Form/Input/LocalOnRamps/RemoteNetwork3"]
+layout_mode = 0
+offset_left = 57.0
+offset_top = 349.0
+offset_right = 133.0
+offset_bottom = 372.0
+text = "Network:"
+
+[node name="RemoteNetwork" type="LineEdit" parent="Form/Input/LocalOnRamps/RemoteNetwork3"]
+layout_mode = 0
+offset_left = 137.0
+offset_top = 347.0
+offset_right = 536.0
+offset_bottom = 378.0
+
+[node name="RemoteTokenLabel" type="Label" parent="Form/Input/LocalOnRamps/RemoteNetwork3"]
+layout_mode = 0
+offset_left = 57.0
+offset_top = 381.0
+offset_right = 133.0
+offset_bottom = 404.0
+text = "OnRamp:"
+
+[node name="RemoteToken" type="LineEdit" parent="Form/Input/LocalOnRamps/RemoteNetwork3"]
+layout_mode = 0
+offset_left = 137.0
+offset_top = 379.0
+offset_right = 536.0
+offset_bottom = 410.0
+
+[node name="RemoteNetwork4" type="Control" parent="Form/Input/LocalOnRamps"]
+anchors_preset = 0
+offset_left = -34.0
+offset_top = -1.0
+offset_right = 6.0
+offset_bottom = 39.0
+
+[node name="RemoteNetworkLabel" type="Label" parent="Form/Input/LocalOnRamps/RemoteNetwork4"]
+layout_mode = 0
+offset_left = 57.0
+offset_top = 417.0
+offset_right = 133.0
+offset_bottom = 440.0
+text = "Network:"
+
+[node name="RemoteNetwork" type="LineEdit" parent="Form/Input/LocalOnRamps/RemoteNetwork4"]
+layout_mode = 0
+offset_left = 137.0
+offset_top = 415.0
+offset_right = 536.0
+offset_bottom = 446.0
+
+[node name="RemoteTokenLabel" type="Label" parent="Form/Input/LocalOnRamps/RemoteNetwork4"]
+layout_mode = 0
+offset_left = 57.0
+offset_top = 449.0
+offset_right = 133.0
+offset_bottom = 472.0
+text = "OnRamp:"
+
+[node name="RemoteToken" type="LineEdit" parent="Form/Input/LocalOnRamps/RemoteNetwork4"]
+layout_mode = 0
+offset_left = 137.0
+offset_top = 447.0
+offset_right = 536.0
+offset_bottom = 478.0
+
+[node name="RemoteNetwork5" type="Control" parent="Form/Input/LocalOnRamps"]
+anchors_preset = 0
+offset_left = -34.0
+offset_top = -1.0
+offset_right = 6.0
+offset_bottom = 39.0
+
+[node name="RemoteNetworkLabel" type="Label" parent="Form/Input/LocalOnRamps/RemoteNetwork5"]
+layout_mode = 0
+offset_left = 57.0
+offset_top = 486.0
+offset_right = 133.0
+offset_bottom = 509.0
+text = "Network:"
+
+[node name="RemoteNetwork" type="LineEdit" parent="Form/Input/LocalOnRamps/RemoteNetwork5"]
+layout_mode = 0
+offset_left = 137.0
+offset_top = 484.0
+offset_right = 536.0
+offset_bottom = 515.0
+
+[node name="RemoteTokenLabel" type="Label" parent="Form/Input/LocalOnRamps/RemoteNetwork5"]
+layout_mode = 0
+offset_left = 57.0
+offset_top = 518.0
+offset_right = 133.0
+offset_bottom = 541.0
+text = "OnRamp:"
+
+[node name="RemoteToken" type="LineEdit" parent="Form/Input/LocalOnRamps/RemoteNetwork5"]
+layout_mode = 0
+offset_left = 137.0
+offset_top = 516.0
+offset_right = 536.0
+offset_bottom = 547.0
+
+[node name="RemoteNetwork6" type="Control" parent="Form/Input/LocalOnRamps"]
+anchors_preset = 0
+offset_left = 522.0
+offset_top = 2.0
+offset_right = 562.0
+offset_bottom = 42.0
+
+[node name="RemoteNetworkLabel" type="Label" parent="Form/Input/LocalOnRamps/RemoteNetwork6"]
+layout_mode = 0
+offset_left = 57.0
+offset_top = 210.0
+offset_right = 133.0
+offset_bottom = 233.0
+text = "Network:"
+
+[node name="RemoteNetwork" type="LineEdit" parent="Form/Input/LocalOnRamps/RemoteNetwork6"]
+layout_mode = 0
+offset_left = 137.0
+offset_top = 208.0
+offset_right = 536.0
+offset_bottom = 239.0
+
+[node name="RemoteTokenLabel" type="Label" parent="Form/Input/LocalOnRamps/RemoteNetwork6"]
+layout_mode = 0
+offset_left = 57.0
+offset_top = 242.0
+offset_right = 133.0
+offset_bottom = 265.0
+text = "OnRamp:"
+
+[node name="RemoteToken" type="LineEdit" parent="Form/Input/LocalOnRamps/RemoteNetwork6"]
+layout_mode = 0
+offset_left = 137.0
+offset_top = 240.0
+offset_right = 536.0
+offset_bottom = 271.0
+
+[node name="RemoteNetwork7" type="Control" parent="Form/Input/LocalOnRamps"]
+anchors_preset = 0
+offset_left = 522.0
+offset_top = 2.0
+offset_right = 562.0
+offset_bottom = 42.0
+
+[node name="RemoteNetworkLabel" type="Label" parent="Form/Input/LocalOnRamps/RemoteNetwork7"]
+layout_mode = 0
+offset_left = 57.0
+offset_top = 278.0
+offset_right = 133.0
+offset_bottom = 301.0
+text = "Network:"
+
+[node name="RemoteNetwork" type="LineEdit" parent="Form/Input/LocalOnRamps/RemoteNetwork7"]
+layout_mode = 0
+offset_left = 137.0
+offset_top = 276.0
+offset_right = 536.0
+offset_bottom = 307.0
+
+[node name="RemoteTokenLabel" type="Label" parent="Form/Input/LocalOnRamps/RemoteNetwork7"]
+layout_mode = 0
+offset_left = 57.0
+offset_top = 310.0
+offset_right = 133.0
+offset_bottom = 333.0
+text = "OnRamp:"
+
+[node name="RemoteToken" type="LineEdit" parent="Form/Input/LocalOnRamps/RemoteNetwork7"]
+layout_mode = 0
+offset_left = 137.0
+offset_top = 308.0
+offset_right = 536.0
+offset_bottom = 339.0
+
+[node name="RemoteNetwork8" type="Control" parent="Form/Input/LocalOnRamps"]
+anchors_preset = 0
+offset_left = 522.0
+offset_top = -1.0
+offset_right = 562.0
+offset_bottom = 39.0
+
+[node name="RemoteNetworkLabel" type="Label" parent="Form/Input/LocalOnRamps/RemoteNetwork8"]
+layout_mode = 0
+offset_left = 57.0
+offset_top = 349.0
+offset_right = 133.0
+offset_bottom = 372.0
+text = "Network:"
+
+[node name="RemoteNetwork" type="LineEdit" parent="Form/Input/LocalOnRamps/RemoteNetwork8"]
+layout_mode = 0
+offset_left = 137.0
+offset_top = 347.0
+offset_right = 536.0
+offset_bottom = 378.0
+
+[node name="RemoteTokenLabel" type="Label" parent="Form/Input/LocalOnRamps/RemoteNetwork8"]
+layout_mode = 0
+offset_left = 57.0
+offset_top = 381.0
+offset_right = 133.0
+offset_bottom = 404.0
+text = "OnRamp:"
+
+[node name="RemoteToken" type="LineEdit" parent="Form/Input/LocalOnRamps/RemoteNetwork8"]
+layout_mode = 0
+offset_left = 137.0
+offset_top = 379.0
+offset_right = 536.0
+offset_bottom = 410.0
+
+[node name="RemoteNetwork9" type="Control" parent="Form/Input/LocalOnRamps"]
+anchors_preset = 0
+offset_left = 522.0
+offset_top = -1.0
+offset_right = 562.0
+offset_bottom = 39.0
+
+[node name="RemoteNetworkLabel" type="Label" parent="Form/Input/LocalOnRamps/RemoteNetwork9"]
+layout_mode = 0
+offset_left = 57.0
+offset_top = 417.0
+offset_right = 133.0
+offset_bottom = 440.0
+text = "Network:"
+
+[node name="RemoteNetwork" type="LineEdit" parent="Form/Input/LocalOnRamps/RemoteNetwork9"]
+layout_mode = 0
+offset_left = 137.0
+offset_top = 415.0
+offset_right = 536.0
+offset_bottom = 446.0
+
+[node name="RemoteTokenLabel" type="Label" parent="Form/Input/LocalOnRamps/RemoteNetwork9"]
+layout_mode = 0
+offset_left = 57.0
+offset_top = 449.0
+offset_right = 133.0
+offset_bottom = 472.0
+text = "OnRamp:"
+
+[node name="RemoteToken" type="LineEdit" parent="Form/Input/LocalOnRamps/RemoteNetwork9"]
+layout_mode = 0
+offset_left = 137.0
+offset_top = 447.0
+offset_right = 536.0
+offset_bottom = 478.0
+
+[node name="RemoteNetwork10" type="Control" parent="Form/Input/LocalOnRamps"]
+anchors_preset = 0
+offset_left = 522.0
+offset_top = -1.0
+offset_right = 562.0
+offset_bottom = 39.0
+
+[node name="RemoteNetworkLabel" type="Label" parent="Form/Input/LocalOnRamps/RemoteNetwork10"]
+layout_mode = 0
+offset_left = 57.0
+offset_top = 486.0
+offset_right = 133.0
+offset_bottom = 509.0
+text = "Network:"
+
+[node name="RemoteNetwork" type="LineEdit" parent="Form/Input/LocalOnRamps/RemoteNetwork10"]
+layout_mode = 0
+offset_left = 137.0
+offset_top = 484.0
+offset_right = 536.0
+offset_bottom = 515.0
+
+[node name="RemoteTokenLabel" type="Label" parent="Form/Input/LocalOnRamps/RemoteNetwork10"]
+layout_mode = 0
+offset_left = 57.0
+offset_top = 518.0
+offset_right = 133.0
+offset_bottom = 541.0
+text = "OnRamp:"
+
+[node name="RemoteToken" type="LineEdit" parent="Form/Input/LocalOnRamps/RemoteNetwork10"]
+layout_mode = 0
+offset_left = 137.0
+offset_top = 516.0
+offset_right = 536.0
+offset_bottom = 547.0
+
+[node name="RemoteOnRamps" type="Control" parent="Form/Input"]
+visible = false
+anchors_preset = 0
+offset_top = -28.0
+offset_right = 40.0
+offset_bottom = 12.0
+
+[node name="RemoteNetwork1" type="Control" parent="Form/Input/RemoteOnRamps"]
+anchors_preset = 0
+offset_left = -34.0
+offset_top = 2.0
+offset_right = 6.0
+offset_bottom = 42.0
+
+[node name="RemoteNetworkLabel" type="Label" parent="Form/Input/RemoteOnRamps/RemoteNetwork1"]
+layout_mode = 0
+offset_left = 57.0
+offset_top = 210.0
+offset_right = 133.0
+offset_bottom = 233.0
+text = "Network:"
+
+[node name="RemoteNetwork" type="LineEdit" parent="Form/Input/RemoteOnRamps/RemoteNetwork1"]
+layout_mode = 0
+offset_left = 137.0
+offset_top = 208.0
+offset_right = 536.0
+offset_bottom = 239.0
+
+[node name="RemoteTokenLabel" type="Label" parent="Form/Input/RemoteOnRamps/RemoteNetwork1"]
+layout_mode = 0
+offset_left = 57.0
+offset_top = 242.0
+offset_right = 133.0
+offset_bottom = 265.0
+text = "OnRamp:"
+
+[node name="RemoteToken" type="LineEdit" parent="Form/Input/RemoteOnRamps/RemoteNetwork1"]
+layout_mode = 0
+offset_left = 137.0
+offset_top = 240.0
+offset_right = 536.0
+offset_bottom = 271.0
+
+[node name="RemoteNetwork2" type="Control" parent="Form/Input/RemoteOnRamps"]
+anchors_preset = 0
+offset_left = -34.0
+offset_top = 2.0
+offset_right = 6.0
+offset_bottom = 42.0
+
+[node name="RemoteNetworkLabel" type="Label" parent="Form/Input/RemoteOnRamps/RemoteNetwork2"]
+layout_mode = 0
+offset_left = 57.0
+offset_top = 278.0
+offset_right = 133.0
+offset_bottom = 301.0
+text = "Network:"
+
+[node name="RemoteNetwork" type="LineEdit" parent="Form/Input/RemoteOnRamps/RemoteNetwork2"]
+layout_mode = 0
+offset_left = 137.0
+offset_top = 276.0
+offset_right = 536.0
+offset_bottom = 307.0
+
+[node name="RemoteTokenLabel" type="Label" parent="Form/Input/RemoteOnRamps/RemoteNetwork2"]
+layout_mode = 0
+offset_left = 57.0
+offset_top = 310.0
+offset_right = 133.0
+offset_bottom = 333.0
+text = "OnRamp:"
+
+[node name="RemoteToken" type="LineEdit" parent="Form/Input/RemoteOnRamps/RemoteNetwork2"]
+layout_mode = 0
+offset_left = 137.0
+offset_top = 308.0
+offset_right = 536.0
+offset_bottom = 339.0
+
+[node name="RemoteNetwork3" type="Control" parent="Form/Input/RemoteOnRamps"]
+anchors_preset = 0
+offset_left = -34.0
+offset_top = -1.0
+offset_right = 6.0
+offset_bottom = 39.0
+
+[node name="RemoteNetworkLabel" type="Label" parent="Form/Input/RemoteOnRamps/RemoteNetwork3"]
+layout_mode = 0
+offset_left = 57.0
+offset_top = 349.0
+offset_right = 133.0
+offset_bottom = 372.0
+text = "Network:"
+
+[node name="RemoteNetwork" type="LineEdit" parent="Form/Input/RemoteOnRamps/RemoteNetwork3"]
+layout_mode = 0
+offset_left = 137.0
+offset_top = 347.0
+offset_right = 536.0
+offset_bottom = 378.0
+
+[node name="RemoteTokenLabel" type="Label" parent="Form/Input/RemoteOnRamps/RemoteNetwork3"]
+layout_mode = 0
+offset_left = 57.0
+offset_top = 381.0
+offset_right = 133.0
+offset_bottom = 404.0
+text = "OnRamp:"
+
+[node name="RemoteToken" type="LineEdit" parent="Form/Input/RemoteOnRamps/RemoteNetwork3"]
+layout_mode = 0
+offset_left = 137.0
+offset_top = 379.0
+offset_right = 536.0
+offset_bottom = 410.0
+
+[node name="RemoteNetwork4" type="Control" parent="Form/Input/RemoteOnRamps"]
+anchors_preset = 0
+offset_left = -34.0
+offset_top = -1.0
+offset_right = 6.0
+offset_bottom = 39.0
+
+[node name="RemoteNetworkLabel" type="Label" parent="Form/Input/RemoteOnRamps/RemoteNetwork4"]
+layout_mode = 0
+offset_left = 57.0
+offset_top = 417.0
+offset_right = 133.0
+offset_bottom = 440.0
+text = "Network:"
+
+[node name="RemoteNetwork" type="LineEdit" parent="Form/Input/RemoteOnRamps/RemoteNetwork4"]
+layout_mode = 0
+offset_left = 137.0
+offset_top = 415.0
+offset_right = 536.0
+offset_bottom = 446.0
+
+[node name="RemoteTokenLabel" type="Label" parent="Form/Input/RemoteOnRamps/RemoteNetwork4"]
+layout_mode = 0
+offset_left = 57.0
+offset_top = 449.0
+offset_right = 133.0
+offset_bottom = 472.0
+text = "OnRamp:"
+
+[node name="RemoteToken" type="LineEdit" parent="Form/Input/RemoteOnRamps/RemoteNetwork4"]
+layout_mode = 0
+offset_left = 137.0
+offset_top = 447.0
+offset_right = 536.0
+offset_bottom = 478.0
+
+[node name="RemoteNetwork5" type="Control" parent="Form/Input/RemoteOnRamps"]
+anchors_preset = 0
+offset_left = -34.0
+offset_top = -1.0
+offset_right = 6.0
+offset_bottom = 39.0
+
+[node name="RemoteNetworkLabel" type="Label" parent="Form/Input/RemoteOnRamps/RemoteNetwork5"]
+layout_mode = 0
+offset_left = 57.0
+offset_top = 486.0
+offset_right = 133.0
+offset_bottom = 509.0
+text = "Network:"
+
+[node name="RemoteNetwork" type="LineEdit" parent="Form/Input/RemoteOnRamps/RemoteNetwork5"]
+layout_mode = 0
+offset_left = 137.0
+offset_top = 484.0
+offset_right = 536.0
+offset_bottom = 515.0
+
+[node name="RemoteTokenLabel" type="Label" parent="Form/Input/RemoteOnRamps/RemoteNetwork5"]
+layout_mode = 0
+offset_left = 57.0
+offset_top = 518.0
+offset_right = 133.0
+offset_bottom = 541.0
+text = "OnRamp:"
+
+[node name="RemoteToken" type="LineEdit" parent="Form/Input/RemoteOnRamps/RemoteNetwork5"]
+layout_mode = 0
+offset_left = 137.0
+offset_top = 516.0
+offset_right = 536.0
+offset_bottom = 547.0
+
+[node name="RemoteNetwork6" type="Control" parent="Form/Input/RemoteOnRamps"]
+anchors_preset = 0
+offset_left = 522.0
+offset_top = 2.0
+offset_right = 562.0
+offset_bottom = 42.0
+
+[node name="RemoteNetworkLabel" type="Label" parent="Form/Input/RemoteOnRamps/RemoteNetwork6"]
+layout_mode = 0
+offset_left = 57.0
+offset_top = 210.0
+offset_right = 133.0
+offset_bottom = 233.0
+text = "Network:"
+
+[node name="RemoteNetwork" type="LineEdit" parent="Form/Input/RemoteOnRamps/RemoteNetwork6"]
+layout_mode = 0
+offset_left = 137.0
+offset_top = 208.0
+offset_right = 536.0
+offset_bottom = 239.0
+
+[node name="RemoteTokenLabel" type="Label" parent="Form/Input/RemoteOnRamps/RemoteNetwork6"]
+layout_mode = 0
+offset_left = 57.0
+offset_top = 242.0
+offset_right = 133.0
+offset_bottom = 265.0
+text = "OnRamp:"
+
+[node name="RemoteToken" type="LineEdit" parent="Form/Input/RemoteOnRamps/RemoteNetwork6"]
+layout_mode = 0
+offset_left = 137.0
+offset_top = 240.0
+offset_right = 536.0
+offset_bottom = 271.0
+
+[node name="RemoteNetwork7" type="Control" parent="Form/Input/RemoteOnRamps"]
+anchors_preset = 0
+offset_left = 522.0
+offset_top = 2.0
+offset_right = 562.0
+offset_bottom = 42.0
+
+[node name="RemoteNetworkLabel" type="Label" parent="Form/Input/RemoteOnRamps/RemoteNetwork7"]
+layout_mode = 0
+offset_left = 57.0
+offset_top = 278.0
+offset_right = 133.0
+offset_bottom = 301.0
+text = "Network:"
+
+[node name="RemoteNetwork" type="LineEdit" parent="Form/Input/RemoteOnRamps/RemoteNetwork7"]
+layout_mode = 0
+offset_left = 137.0
+offset_top = 276.0
+offset_right = 536.0
+offset_bottom = 307.0
+
+[node name="RemoteTokenLabel" type="Label" parent="Form/Input/RemoteOnRamps/RemoteNetwork7"]
+layout_mode = 0
+offset_left = 57.0
+offset_top = 310.0
+offset_right = 133.0
+offset_bottom = 333.0
+text = "OnRamp:"
+
+[node name="RemoteToken" type="LineEdit" parent="Form/Input/RemoteOnRamps/RemoteNetwork7"]
+layout_mode = 0
+offset_left = 137.0
+offset_top = 308.0
+offset_right = 536.0
+offset_bottom = 339.0
+
+[node name="RemoteNetwork8" type="Control" parent="Form/Input/RemoteOnRamps"]
+anchors_preset = 0
+offset_left = 522.0
+offset_top = -1.0
+offset_right = 562.0
+offset_bottom = 39.0
+
+[node name="RemoteNetworkLabel" type="Label" parent="Form/Input/RemoteOnRamps/RemoteNetwork8"]
+layout_mode = 0
+offset_left = 57.0
+offset_top = 349.0
+offset_right = 133.0
+offset_bottom = 372.0
+text = "Network:"
+
+[node name="RemoteNetwork" type="LineEdit" parent="Form/Input/RemoteOnRamps/RemoteNetwork8"]
+layout_mode = 0
+offset_left = 137.0
+offset_top = 347.0
+offset_right = 536.0
+offset_bottom = 378.0
+
+[node name="RemoteTokenLabel" type="Label" parent="Form/Input/RemoteOnRamps/RemoteNetwork8"]
+layout_mode = 0
+offset_left = 57.0
+offset_top = 381.0
+offset_right = 133.0
+offset_bottom = 404.0
+text = "OnRamp:"
+
+[node name="RemoteToken" type="LineEdit" parent="Form/Input/RemoteOnRamps/RemoteNetwork8"]
+layout_mode = 0
+offset_left = 137.0
+offset_top = 379.0
+offset_right = 536.0
+offset_bottom = 410.0
+
+[node name="RemoteNetwork9" type="Control" parent="Form/Input/RemoteOnRamps"]
+anchors_preset = 0
+offset_left = 522.0
+offset_top = -1.0
+offset_right = 562.0
+offset_bottom = 39.0
+
+[node name="RemoteNetworkLabel" type="Label" parent="Form/Input/RemoteOnRamps/RemoteNetwork9"]
+layout_mode = 0
+offset_left = 57.0
+offset_top = 417.0
+offset_right = 133.0
+offset_bottom = 440.0
+text = "Network:"
+
+[node name="RemoteNetwork" type="LineEdit" parent="Form/Input/RemoteOnRamps/RemoteNetwork9"]
+layout_mode = 0
+offset_left = 137.0
+offset_top = 415.0
+offset_right = 536.0
+offset_bottom = 446.0
+
+[node name="RemoteTokenLabel" type="Label" parent="Form/Input/RemoteOnRamps/RemoteNetwork9"]
+layout_mode = 0
+offset_left = 57.0
+offset_top = 449.0
+offset_right = 133.0
+offset_bottom = 472.0
+text = "OnRamp:"
+
+[node name="RemoteToken" type="LineEdit" parent="Form/Input/RemoteOnRamps/RemoteNetwork9"]
+layout_mode = 0
+offset_left = 137.0
+offset_top = 447.0
+offset_right = 536.0
+offset_bottom = 478.0
+
+[node name="RemoteNetwork10" type="Control" parent="Form/Input/RemoteOnRamps"]
+anchors_preset = 0
+offset_left = 522.0
+offset_top = -1.0
+offset_right = 562.0
+offset_bottom = 39.0
+
+[node name="RemoteNetworkLabel" type="Label" parent="Form/Input/RemoteOnRamps/RemoteNetwork10"]
+layout_mode = 0
+offset_left = 57.0
+offset_top = 486.0
+offset_right = 133.0
+offset_bottom = 509.0
+text = "Network:"
+
+[node name="RemoteNetwork" type="LineEdit" parent="Form/Input/RemoteOnRamps/RemoteNetwork10"]
+layout_mode = 0
+offset_left = 137.0
+offset_top = 484.0
+offset_right = 536.0
+offset_bottom = 515.0
+
+[node name="RemoteTokenLabel" type="Label" parent="Form/Input/RemoteOnRamps/RemoteNetwork10"]
+layout_mode = 0
+offset_left = 57.0
+offset_top = 518.0
+offset_right = 133.0
+offset_bottom = 541.0
+text = "OnRamp:"
+
+[node name="RemoteToken" type="LineEdit" parent="Form/Input/RemoteOnRamps/RemoteNetwork10"]
+layout_mode = 0
+offset_left = 137.0
+offset_top = 516.0
+offset_right = 536.0
+offset_bottom = 547.0
+
+[node name="ConfirmCancel" type="Control" parent="Form"]
+visible = false
+anchors_preset = 0
+offset_right = 40.0
+offset_bottom = 40.0
+
+[node name="Prompt" type="Label" parent="Form/ConfirmCancel"]
+layout_mode = 1
+offset_left = 412.0
+offset_top = 265.0
+offset_right = 678.0
+offset_bottom = 307.0
+text = "Are you sure you want to cancel?"
+
+[node name="Yes" type="Button" parent="Form/ConfirmCancel"]
+layout_mode = 0
+offset_left = 409.0
+offset_top = 329.0
+offset_right = 444.0
+offset_bottom = 360.0
+mouse_default_cursor_shape = 2
+text = "Yes, Cancel"
+
+[node name="GoBack" type="Button" parent="Form/ConfirmCancel"]
+layout_mode = 0
+offset_left = 570.0
+offset_top = 329.0
+offset_right = 672.0
+offset_bottom = 360.0
+mouse_default_cursor_shape = 2
+text = "No, Go Back"
+
+[node name="ConfirmAdd" type="Control" parent="Form"]
+visible = false
+anchors_preset = 0
+offset_right = 40.0
+offset_bottom = 40.0
+
+[node name="LocalPrompt" type="Label" parent="Form/ConfirmAdd"]
+layout_mode = 1
+offset_left = 61.0
+offset_top = 14.0
+offset_right = 880.0
+offset_bottom = 551.0
+text = "Adding Network \"NETWORK\"
+
+Capable of monitoring incoming messages 
+from the following networks:
+
+NETWORK
+NETWORK
+NETWORK
+NETWORK
+NETWORK
+NETWORK
+NETWORK
+NETWORK
+NETWORK
+NETWORK
+"
+
+[node name="RemotePrompt" type="Label" parent="Form/ConfirmAdd"]
+layout_mode = 1
+offset_left = 505.0
+offset_top = 68.0
+offset_right = 979.0
+offset_bottom = 403.0
+text = "The following networks will be able to monitor
+incoming messages from \"NETWORK\":
+
+NETWORK
+NETWORK
+NETWORK
+NETWORK
+NETWORK
+NETWORK
+NETWORK
+NETWORK
+NETWORK
+NETWORK
+"
+
+[node name="Confirm" type="Button" parent="Form/ConfirmAdd"]
+layout_mode = 0
+offset_left = 777.0
+offset_top = 527.0
+offset_right = 872.0
+offset_bottom = 558.0
+mouse_default_cursor_shape = 2
+text = "Confirm"
+
+[node name="GoBack" type="Button" parent="Form/ConfirmAdd"]
+layout_mode = 0
+offset_left = 938.0
+offset_top = 527.0
+offset_right = 1040.0
+offset_bottom = 558.0
+mouse_default_cursor_shape = 2
+text = "Go Back"
+
+[node name="Chronomancer" type="Label" parent="Form/ConfirmAdd"]
+layout_mode = 0
+offset_left = 36.0
+offset_top = 460.0
+offset_right = 230.0
+offset_bottom = 483.0
+text = "Chronomancer Endpoint:"
+
+[node name="ScryPool" type="Label" parent="Form/ConfirmAdd"]
+layout_mode = 0
+offset_left = 36.0
+offset_top = 491.0
+offset_right = 178.0
+offset_bottom = 514.0
+text = "ScryPool Contract:"
+
+[node name="BnMContract" type="Label" parent="Form/ConfirmAdd"]
+visible = false
+layout_mode = 0
+offset_left = 36.0
+offset_top = 523.0
+offset_right = 178.0
+offset_bottom = 546.0
+text = "BnM Contract:"
+
+[node name="NOTE" type="Label" parent="."]
+layout_mode = 0
+offset_left = 7.0
+offset_top = 3.0
+offset_right = 1106.0
+offset_bottom = 52.0
+text = "Since adding new networks can be done easily in the code, this form is not immediately necessary, and is not accessible in the app itself."
