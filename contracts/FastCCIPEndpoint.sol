@@ -52,11 +52,11 @@ contract FastCCIPEndpoint is CCIPReceiver {
         }
 
         // Extract data for the token transfer
-        (address recipient, uint feeDivisor, ) = abi.decode(message.data, (address, uint, bytes));
+        (address recipient, uint rewardAmount, ) = abi.decode(message.data, (address, uint, bytes));
         address token = message.destTokenAmounts[0].token;
         uint256 amount = message.destTokenAmounts[0].amount;
-        // The fill amount accounts for the fee
-        amount = amount - (amount / feeDivisor);
+        // The fill amount accounts for the reward
+        amount = amount - rewardAmount;
 
         // Set the order's fill status using the ABI-encoded Any2EVM Message
         orderFillers[_message] = msg.sender;
