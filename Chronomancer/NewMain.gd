@@ -12,33 +12,34 @@ var transaction_queue = {}
 var transaction_history = {}
 
 @onready var monitored_token_form = preload("res://scenes/MonitoredTokenForm.tscn")
+@onready var _account_object = preload("res://scenes/Account.tscn")
+@onready var _transaction_object = preload("res://scenes/Transaction.tscn")
 
 # Interface variables
 var tx_downshift = 0
 
 
 func _process(delta):
-	pass
+	execute_tasks()
 
+func execute_tasks():
+	for account in account_tasks.keys():
+		var task = account_tasks[account]
+		# Call to Task API from here
 
 
 #####   INTERFACE   #####
 
 func _ready():
-	$AddAccount.connect("pressed", open_create_account)
-	$SelectedAccount/CreateAccount/CreateAccount.connect("pressed", create_account)
-	$SelectedAccount/Login/Login.connect("pressed", login_account)
-	$SelectedAccount/AccountManager/ChooseTask/Chronomancer.connect("pressed", select_chronomancer_task)
-	$SelectedAccount/AccountManager/ChooseTask/TestCreator.connect("pressed", select_test_creator_task)
-	$SelectedAccount/AccountManager/CopyAddress.connect("pressed", copy_address)
-	$SelectedAccount/AccountManager/ExportKey.connect("pressed", export_private_key)
-	$SelectedAccount/AccountManager/ChangeTask/ChangeTask.connect("pressed", change_task)
-	$NetworkSettings.connect("pressed", new_network_form)
+	connect_buttons()
+	fadeout($Fadein, 0.7)
+	# DEBUG
 	return
 	Ethers.register_transaction_log(self, "receive_transaction_object")
 	load_ccip_network_info()
 	load_application_manifest()
 	load_accounts()
+	
 
 
 
@@ -55,24 +56,16 @@ func new_monitored_token_form():
 	add_child(new_form)
 
 
-func load_monitored_tokens():
-	# Delete loaded token objects
-	
-	for monitored_token in application_manifest["monitored_tokens"]:
-		#Load tokens
-		pass
-
-
 
 func print_message(message):
 	$Message.text = message
-	fadeout($Message)
+	fadeout($Message, 4.2)
 
 
-func fadeout(node):
+func fadeout(node, time):
 	node.modulate.a = 1
 	var fadeout = create_tween()
-	fadeout.tween_property(node,"modulate:a", 0, 4.2).set_trans(Tween.TRANS_LINEAR)
+	fadeout.tween_property(node,"modulate:a", 0, time).set_trans(Tween.TRANS_LINEAR)
 	fadeout.play()
 
 
@@ -81,11 +74,22 @@ func open_link(url):
 	OS.shell_open(url)
 
 
+func connect_buttons():
+	$AddAccount.connect("pressed", open_create_account)
+	$SelectedAccount/CreateAccount/CreateAccount.connect("pressed", create_account)
+	$SelectedAccount/Login/Login.connect("pressed", login_account)
+	$SelectedAccount/AccountManager/ChooseTask/Chronomancer.connect("pressed", select_chronomancer_task)
+	$SelectedAccount/AccountManager/ChooseTask/TestCreator.connect("pressed", select_test_creator_task)
+	$SelectedAccount/AccountManager/CopyAddress.connect("pressed", copy_address)
+	$SelectedAccount/AccountManager/ExportKey.connect("pressed", export_private_key)
+	$SelectedAccount/AccountManager/ChangeTask/ChangeTask.connect("pressed", change_task)
+	$NetworkSettings.connect("pressed", new_network_form)
+
+
 
 #####   ACCOUNT MANAGEMENT   #####
 
 func load_application_manifest():
-	
 	if !FileAccess.file_exists("user://MANIFEST"):
 		application_manifest = {
 			"accounts": [],
@@ -107,19 +111,25 @@ func load_accounts():
 	for account in available_accounts.keys():
 		available_accounts[account].queue_free()
 	available_accounts = {}
+	#Accounts reset scroll length
 	
 	if application_manifest["accounts"] == []:
 		$NoAccounts.visible = true
 	else:
+		var account_downshift = 0
 		for account in application_manifest["accounts"]:
-			var account_object = get_account_object(account)
+			var account_object = _account_object.instantiate()
+			account_object.get_node("Account/AccountName").text = account
+			account_object.connect("pressed", select_account.bind(account))
+			#Accounts.add_child(new_account_object)
+			#new_account_object.position.y += account_downshift
+			#account_downshift += 87
+			#scroll length += 90
+		
 			available_accounts[account] = account_object
+			
 			if account == application_manifest["accounts"][0]:
 				select_account(account)
-			
-
-func get_account_object(account):
-	pass
 
 
 func open_create_account():
@@ -166,11 +176,17 @@ func create_account():
 
 
 func select_account(account):
+	for available_account in available_accounts.keys():
+		var highlight = available_accounts[available_account].get_node("Highlight")
+		if account == available_account:
+			highlight.visible = true
+		else:
+			highlight.visible = false
+	
 	$SelectedAccount/CreateAccount.visible = false
 	$SelectedAccount/Login.visible = false
 	$SelectedAccount/AccountManager.visible = false
-	# DEBUG
-	# probably should be account object here
+
 	selected_account = account
 	if account in Ethers.logins.keys():
 		load_account_manager()
@@ -198,7 +214,6 @@ func login_account():
 
 
 func load_account_manager():
-	# DEBUG
 	var account = selected_account
 	$SelectedAccount/AccountManager/ChangeTask.visible = false
 	$SelectedAccount/AccountManager/ChooseTask.visible = false
@@ -217,6 +232,10 @@ func select_chronomancer_task():
 	#DEBUG
 	account_tasks[selected_account] = "Chronomancer"
 	# Update the account object and load the task
+	for available_account in available_accounts.keys():
+		if selected_account == available_account:
+			available_accounts[available_account].get_node("Account/AccountTask").text = "Chronomancer"
+	
 	load_account_task()
 
 
@@ -235,21 +254,20 @@ func load_account_task():
 	# If the task is already running, don't overwrite it
 	$Task.visible = true
 
-
+# DEBUG
+# Actually, changing tasks is probably unnecessary
 func change_task():
 	#prompt user to change task
 	pass
 
 
 func copy_address():
-	# DEBUG
 	var user_address = Ethers.get_address(selected_account)
 	DisplayServer.clipboard_set(user_address)
 	print_message("Copied Address to Clipboard")
 
 
 func export_private_key():
-	# DEBUG
 	var key = Ethers.get_key(selected_account)
 	DisplayServer.clipboard_set(key)
 	key = Ethers.clear_memory()
@@ -258,9 +276,21 @@ func export_private_key():
 
 
 
+#####   TASK MANAGEMENT   #####
+
+# TASK API here
 
 
 #####   MONITORED TOKEN MANAGEMENT   #####
+
+func load_monitored_tokens():
+	# Delete loaded token objects
+	
+	for monitored_token in application_manifest["monitored_tokens"]:
+		#Load tokens
+		pass
+
+
 
 # NOTE
 # When adding a monitored network for a monitored token, the serviced network must have an onramp
@@ -293,16 +323,6 @@ func add_monitored_token(account, serviced_network, local_token_contract, token_
 func delete_monitored_token(account, serviced_network, local_token_contract):
 	var path = "user://" + account + serviced_network + local_token_contract
 	DirAccess.remove_absolute(path)
-
-
-#####   TEST MANAGEMENT   #####
-
-func add_new_test():
-	pass
-
-
-func delete_test():
-	pass
 
 
 
@@ -352,20 +372,6 @@ func add_network(network, chain_id, rpcs, scan_url, chain_selector, router, onra
 		Ethers.network_info[onramp["network"]]["onramp_contracts"][network] = onramp["contract"]
 		
 	update_network_info()
-
-
-func remove_network(removed_network):
-	if !removed_network in Ethers.network_info.keys():
-		print_message("Network not in network info")
-		return
-	
-	Ethers.network_info.erase(removed_network)
-
-	for network in Ethers.network_info:
-		network["onramp_contracts"].erase(removed_network)
-	
-	update_network_info()
-
 
 
 #####   TRANSACTION MANAGEMENT   #####
