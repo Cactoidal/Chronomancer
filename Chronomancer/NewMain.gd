@@ -1,9 +1,17 @@
 extends Node3D
 
-# WIP
+
+var application_manifest
+
+var available_accounts = {}
+var selected_account
+
+var account_tasks = {}
 
 var transaction_queue = {}
 var transaction_history = {}
+
+@onready var monitored_token_form = preload("res://scenes/MonitoredTokenForm.tscn")
 
 # Interface variables
 var tx_downshift = 0
@@ -13,50 +21,37 @@ func _process(delta):
 	pass
 
 
-#####   ACCOUNT MANAGEMENT   #####
-
-func create_account(imported_key=""):
-	pass
-
-
-func export_private_key():
-	pass
-
-
 
 #####   INTERFACE   #####
 
 func _ready():
 	Ethers.register_transaction_log(self, "receive_transaction_object")
-	check_for_ccip_network_info()
+	load_ccip_network_info()
+	load_application_manifest()
+	load_accounts()
+
 
 
 func new_network_form():
 	pass
 
 
-func new_monitored_token_form():
+func new_test_case_form():
 	pass
+
+
+func new_monitored_token_form():
+	var new_form = monitored_token_form.instantiate()
+	add_child(new_form)
 
 
 func load_monitored_tokens():
-	pass
+	# Delete loaded token objects
+	
+	for monitored_token in application_manifest["monitored_tokens"]:
+		#Load tokens
+		pass
 
-
-func start_monitoring():
-	pass
-
-
-func stop_monitoring():
-	pass
-
-
-func login_account():
-	pass
-
-
-func show_account_tasks(account):
-	pass
 
 
 func print_message(message):
@@ -78,9 +73,99 @@ func open_link(url):
 
 
 
+#####   ACCOUNT MANAGEMENT   #####
+
+func load_application_manifest():
+	
+	if !FileAccess.file_exists("user://MANIFEST"):
+		application_manifest = {
+			"accounts": [],
+			"monitored_tokens": [],
+			"test_cases": []
+				}
+	else:
+		var manifest = FileAccess.open("user://MANIFEST", FileAccess.READ).get_as_text()
+		var json = JSON.new()
+		application_manifest = json.parse_string(manifest)
+
+
+func save_application_manifest():
+	FileAccess.open("user://MANIFEST", FileAccess.WRITE).store_string(str(application_manifest))
+	
+
+func load_accounts():
+	for account in available_accounts.keys():
+		available_accounts[account].queue_free()
+	available_accounts = {}
+	
+	if application_manifest["accounts"] == []:
+		# No accounts exist
+		pass
+	else:
+		for account in application_manifest["accounts"]:
+			# Load account objects
+			# var account_object = get_account_object(account)
+			# available_accounts[account] = account_object
+			pass
+		
+
+func create_account(account_name, password, imported_key=""):
+	if Ethers.account_exists(account_name):
+		print_message("Account " + account_name + " already exists")
+		return
+	Ethers.create_account(account_name, password, imported_key)
+	application_manifest["accounts"].push_back(account_name)
+	save_application_manifest()
+	load_accounts()
+	select_account(account_name)
+
+
+func select_account(account):
+	selected_account = account
+
+
+func login_account():
+	# Load selected account interface
+	#Ethers.login(account, $Password.text)
+	#$Password.text = Ethers.clear_memory()
+	pass
+
+
+func copy_address(account):
+	var user_address = Ethers.get_address(account)
+	DisplayServer.clipboard_set(user_address)
+	$Address/Prompt.modulate.a = 1
+	var fadeout = create_tween()
+	fadeout.tween_property($Address/Prompt,"modulate:a", 0, 2.8).set_trans(Tween.TRANS_LINEAR)
+	fadeout.play()
+
+
+func export_private_key(account):
+	var key = Ethers.get_key(account)
+	#$Key.text = key
+	key = Ethers.clear_memory()
+	key.clear()
+
+
+func assign_task():
+	pass
+	#account_tasks[selected_account] = task
+
+
+func cancel_task():
+	pass
+
+
 #####   MONITORED TOKEN MANAGEMENT   #####
 
+# NOTE
+# When adding a monitored network for a monitored token, the serviced network must have an onramp
+# onramp contract matching the monitored network.
+# There will be a single maximum approval, and then the account can deposit/withdraw
+# tokens to ScryPool at will via the monitored token object.  
 func add_monitored_token(account, serviced_network, local_token_contract, token_name, token_decimals, monitored_networks, endpoint_contract, minimum, fee):
+	var path = "user://" + account + serviced_network + local_token_contract
+	
 	var new_monitored_token = {
 		"account": account,
 		"serviced_network": serviced_network,
@@ -95,10 +180,15 @@ func add_monitored_token(account, serviced_network, local_token_contract, token_
 		"token_balance": "0",
 		"token_node": ""	
 	}
+	var token_json = JSON.new().stringify(new_monitored_token)
+	var file = FileAccess.open(path, FileAccess.WRITE)
+	file.store_string(token_json)
+	file.close()
 
 
-func delete_monitored_token():
-	pass
+func delete_monitored_token(account, serviced_network, local_token_contract):
+	var path = "user://" + account + serviced_network + local_token_contract
+	DirAccess.remove_absolute(path)
 
 
 #####   TEST MANAGEMENT   #####
@@ -115,7 +205,7 @@ func delete_test():
 #####   NETWORK MANAGEMENT   #####
 
 # Overwrites Ethers' standard network info.
-func check_for_ccip_network_info():
+func load_ccip_network_info():
 	var json = JSON.new()
 	if FileAccess.file_exists("user://ccip_network_info") != true:
 		Ethers.network_info = default_ccip_network_info.duplicate()
@@ -134,11 +224,8 @@ func update_network_info():
 	file.close()
 		
 
-func add_network(network, chain_id, rpcs, scan_url, chain_selector, router, onramp_contracts_by_network, remote_onramp_contracts):
-	var onramp_contracts = []
-	for onramp in onramp_contracts_by_network:
-		onramp_contracts.push_back(onramp["contract"])
-		
+func add_network(network, chain_id, rpcs, scan_url, chain_selector, router, onramp_contracts, remote_onramp_contracts):
+
 	var new_network = {
 		"chain_id": String(chain_id),
 		"rpcs": rpcs,
@@ -151,19 +238,14 @@ func add_network(network, chain_id, rpcs, scan_url, chain_selector, router, onra
 		"chain_selector": chain_selector,
 		"router": router,
 		"onramp_contracts": onramp_contracts,
-		"onramp_contracts_by_network": onramp_contracts_by_network,
 		"monitored_tokens": []
 	}
 	
 	Ethers.network_info[network] = new_network
 	
+	# Add the new network's onramp to the onramp_contracts of the other networks
 	for onramp in remote_onramp_contracts:
-		Ethers.network_info[onramp["network"]]["onramp_contracts"].push_back(onramp["contract"])
-		var network_onramp = {
-			"network": network,
-			"contract": onramp["contract"]
-		}
-		Ethers.network_info[onramp["network"]]["onramp_contracts_by_network"].push_back(network_onramp)
+		Ethers.network_info[onramp["network"]]["onramp_contracts"][network] = onramp["contract"]
 		
 	update_network_info()
 
@@ -176,15 +258,7 @@ func remove_network(removed_network):
 	Ethers.network_info.erase(removed_network)
 
 	for network in Ethers.network_info:
-		var removed_onramp
-		for onramp in network["onramp_contracts_by_network"]:
-			if onramp["network"] == removed_network:
-				removed_onramp = onramp
-				var contract = onramp["contract"]
-				network["onramp_contracts"].erase(contract)
-		
-		if removed_onramp:
-			network["onramp_contracts_by_network"].erase(removed_onramp)
+		network["onramp_contracts"].erase(removed_network)
 	
 	update_network_info()
 
@@ -308,27 +382,13 @@ var default_ccip_network_info = {
 		"chain_selector": "16015286601757825753",
 		"router": "0x0BF3dE8c5D3e8A2B34D2BEeB17ABfCeBaf363A59",
 		#"token_contract": "0xFd57b4ddBf88a4e07fF4e34C487b99af2Fe82a05",
-		"onramp_contracts": ["0xe4Dd3B16E09c016402585a8aDFdB4A18f772a07e", "0x69CaB5A0a08a12BaFD8f5B195989D709E396Ed4d", "0x2B70a05320cB069e0fB55084D402343F832556E7", "0x0477cA0a35eE05D3f9f424d88bC0977ceCf339D4"],
-		"onramp_contracts_by_network": 
-			[
-				{
-					"network": "Arbitrum Sepolia",
-					"contract": "0xe4Dd3B16E09c016402585a8aDFdB4A18f772a07e"
-				},
-				{
-					"network": "Optimism Sepolia",
-					"contract": "0x69CaB5A0a08a12BaFD8f5B195989D709E396Ed4d"
-				},
-				{
-					"network": "Base Sepolia",
-					"contract": "0x2B70a05320cB069e0fB55084D402343F832556E7"
-				},
-				{
-					"network": "Avalanche Fuji",
-					"contract": "0x0477cA0a35eE05D3f9f424d88bC0977ceCf339D4"
-				}
-			
-		],
+		"onramp_contracts": 
+			{
+				"Arbitrum Sepolia": "0xe4Dd3B16E09c016402585a8aDFdB4A18f772a07e",
+				"Optimism Sepolia": "0x69CaB5A0a08a12BaFD8f5B195989D709E396Ed4d",
+				"Base Sepolia": "0x2B70a05320cB069e0fB55084D402343F832556E7",
+				"Avalanche Fuji": "0x0477cA0a35eE05D3f9f424d88bC0977ceCf339D4"
+			},
 		"monitored_tokens": []
 		},
 		
@@ -344,27 +404,13 @@ var default_ccip_network_info = {
 		"chain_selector": "3478487238524512106",
 		"router": "0x2a9C5afB0d0e4BAb2BCdaE109EC4b0c4Be15a165",
 		#"token_contract": "0xA8C0c11bf64AF62CDCA6f93D3769B88BdD7cb93D",
-		"onramp_contracts": ["0x4205E1Ca0202A248A5D42F5975A8FE56F3E302e9", "0x701Fe16916dd21EFE2f535CA59611D818B017877", "0x7854E73C73e7F9bb5b0D5B4861E997f4C6E8dcC6", "0x1Cb56374296ED19E86F68fA437ee679FD7798DaA"],
-		"onramp_contracts_by_network": 
-			[
-				{
-					"network": "Ethereum Sepolia",
-					"contract": "0x4205E1Ca0202A248A5D42F5975A8FE56F3E302e9"
-				},
-				{
-					"network": "Optimism Sepolia",
-					"contract": "0x701Fe16916dd21EFE2f535CA59611D818B017877"
-				},
-				{
-					"network": "Base Sepolia",
-					"contract": "0x7854E73C73e7F9bb5b0D5B4861E997f4C6E8dcC6"
-				},
-				{
-					"network": "Avalanche Fuji",
-					"contract": "0x1Cb56374296ED19E86F68fA437ee679FD7798DaA"
-				}
-			
-		],
+		"onramp_contracts": 
+			{
+				"Ethereum Sepolia": "0x4205E1Ca0202A248A5D42F5975A8FE56F3E302e9",
+				"Optimism Sepolia": "0x701Fe16916dd21EFE2f535CA59611D818B017877",
+				"Base Sepolia": "0x7854E73C73e7F9bb5b0D5B4861E997f4C6E8dcC6",
+				"Avalanche Fuji": "0x1Cb56374296ED19E86F68fA437ee679FD7798DaA"
+			},
 		"monitored_tokens": []
 		},
 		
@@ -379,27 +425,13 @@ var default_ccip_network_info = {
 		"chain_selector": "5224473277236331295",
 		"router": "0x114A20A10b43D4115e5aeef7345a1A71d2a60C57",
 		#"token_contract": "0x8aF4204e30565DF93352fE8E1De78925F6664dA7",
-		"onramp_contracts": ["0xC8b93b46BF682c39B3F65Aa1c135bC8A95A5E43a", "0x1a86b29364D1B3fA3386329A361aA98A104b2742", "0xe284D2315a28c4d62C419e8474dC457b219DB969", "0x6b38CC6Fa938D5AB09Bdf0CFe580E226fDD793cE"],
-		"onramp_contracts_by_network": 
-			[
-				{
-					"network": "Ethereum Sepolia",
-					"contract": "0xC8b93b46BF682c39B3F65Aa1c135bC8A95A5E43a"
-				},
-				{
-					"network": "Arbitrum Sepolia",
-					"contract": "0x1a86b29364D1B3fA3386329A361aA98A104b2742"
-				},
-				{
-					"network": "Base Sepolia",
-					"contract": "0xe284D2315a28c4d62C419e8474dC457b219DB969"
-				},
-				{
-					"network": "Avalanche Fuji",
-					"contract": "0x6b38CC6Fa938D5AB09Bdf0CFe580E226fDD793cE"
-				}
-			
-		],
+		"onramp_contracts": 
+			{
+				"Ethereum Sepolia": "0xC8b93b46BF682c39B3F65Aa1c135bC8A95A5E43a",
+				"Arbitrum Sepolia": "0x1a86b29364D1B3fA3386329A361aA98A104b2742",
+				"Base Sepolia": "0xe284D2315a28c4d62C419e8474dC457b219DB969",
+				"Avalanche Fuji": "0x6b38CC6Fa938D5AB09Bdf0CFe580E226fDD793cE"
+			},
 		"monitored_tokens": []
 	},
 	
@@ -414,27 +446,13 @@ var default_ccip_network_info = {
 		"chain_selector": "10344971235874465080",
 		"router": "0xD3b06cEbF099CE7DA4AcCf578aaebFDBd6e88a93",
 		#"token_contract": "0x88A2d74F47a237a62e7A51cdDa67270CE381555e",
-		"onramp_contracts": ["0x6486906bB2d85A6c0cCEf2A2831C11A2059ebfea", "0x58622a80c6DdDc072F2b527a99BE1D0934eb2b50", "0x3b39Cd9599137f892Ad57A4f54158198D445D147", "0xAbA09a1b7b9f13E05A6241292a66793Ec7d43357"],
-		"onramp_contracts_by_network": 
-			[
-				{
-					"network": "Ethereum Sepolia",
-					"contract": "0x6486906bB2d85A6c0cCEf2A2831C11A2059ebfea"
-				},
-				{
-					"network": "Arbitrum Sepolia",
-					"contract": "0x58622a80c6DdDc072F2b527a99BE1D0934eb2b50"
-				},
-				{
-					"network": "Optimism Sepolia",
-					"contract": "0x3b39Cd9599137f892Ad57A4f54158198D445D147"
-				},
-				{
-					"network": "Avalanche Fuji",
-					"contract": "0xAbA09a1b7b9f13E05A6241292a66793Ec7d43357"
-				}
-			
-		],
+		"onramp_contracts": 
+			{
+				"Ethereum Sepolia": "0x6486906bB2d85A6c0cCEf2A2831C11A2059ebfea",
+				"Arbitrum Sepolia": "0x58622a80c6DdDc072F2b527a99BE1D0934eb2b50",
+				"Optimism Sepolia": "0x3b39Cd9599137f892Ad57A4f54158198D445D147",
+				"Avalanche Fuji": "0xAbA09a1b7b9f13E05A6241292a66793Ec7d43357"
+			},
 		"monitored_tokens": []
 	},
 	
@@ -449,27 +467,13 @@ var default_ccip_network_info = {
 		"chain_selector": "14767482510784806043",
 		"router": "0xF694E193200268f9a4868e4Aa017A0118C9a8177",
 		#"token_contract": "0xD21341536c5cF5EB1bcb58f6723cE26e8D8E90e4",
-		"onramp_contracts": ["0x5724B4Cc39a9690135F7273b44Dfd3BA6c0c69aD", "0x8bB16BEDbFd62D1f905ACe8DBBF2954c8EEB4f66", "0xC334DE5b020e056d0fE766dE46e8d9f306Ffa1E2", "0x1A674645f3EB4147543FCA7d40C5719cbd997362"],
-		"onramp_contracts_by_network": 
-			[
-				{
-					"network": "Ethereum Sepolia",
-					"contract": "0x5724B4Cc39a9690135F7273b44Dfd3BA6c0c69aD"
-				},
-				{
-					"network": "Arbitrum Sepolia",
-					"contract": "0x8bB16BEDbFd62D1f905ACe8DBBF2954c8EEB4f66"
-				},
-				{
-					"network": "Optimism Sepolia",
-					"contract": "0xC334DE5b020e056d0fE766dE46e8d9f306Ffa1E2"
-				},
-				{
-					"network": "Base Sepolia",
-					"contract": "0x1A674645f3EB4147543FCA7d40C5719cbd997362"
-				}
-			
-		],
+		"onramp_contracts": 
+			{
+				"Ethereum Sepolia": "0x5724B4Cc39a9690135F7273b44Dfd3BA6c0c69aD",
+				"Arbitrum Sepolia": "0x8bB16BEDbFd62D1f905ACe8DBBF2954c8EEB4f66",
+				"Optimism Sepolia": "0xC334DE5b020e056d0fE766dE46e8d9f306Ffa1E2",
+				"Base Sepolia": "0x1A674645f3EB4147543FCA7d40C5719cbd997362"
+			},
 		"monitored_tokens": []
 	}
 }
