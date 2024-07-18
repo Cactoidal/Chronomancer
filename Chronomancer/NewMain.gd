@@ -11,24 +11,14 @@ var account_tasks = {}
 var transaction_queue = {}
 var transaction_history = {}
 
-@onready var monitored_token_form = preload("res://scenes/MonitoredTokenForm.tscn")
+@onready var _monitored_token_form = preload("res://scenes/MonitoredTokenForm.tscn")
+@onready var _network_form = preload("res://scenes/NetworkForm.tscn")
 @onready var _account_object = preload("res://scenes/Account.tscn")
 @onready var _transaction_object = preload("res://scenes/Transaction.tscn")
 
 # Interface variables
 var tx_downshift = 0
 
-
-func _process(delta):
-	execute_tasks()
-
-func execute_tasks():
-	for account in account_tasks.keys():
-		var task = account_tasks[account]
-		# Call to Task API from here
-
-
-#####   INTERFACE   #####
 
 func _ready():
 	connect_buttons()
@@ -39,50 +29,83 @@ func _ready():
 	load_ccip_network_info()
 	load_application_manifest()
 	load_accounts()
-	
 
 
+func _process(delta):
+	execute_tasks()
 
-func new_network_form():
-	pass
+
+func execute_tasks():
+	for account in account_tasks.keys():
+		var task = account_tasks[account]
+		# Call to Task API from here
 
 
-func new_test_case_form():
-	pass
+#####   TASK MANAGEMENT   #####
 
+# TASK API here
+
+# CHRONOMANCER
 
 func new_monitored_token_form():
-	var new_form = monitored_token_form.instantiate()
-	add_child(new_form)
+	var monitored_token_form = _monitored_token_form.instantiate()
+	monitored_token_form.main = self
+	monitored_token_form.account = selected_account
+	add_child(monitored_token_form)
 
 
-func print_message(message):
-	$Message.text = message
-	fadeout($Message, 4.2)
+
+#####   MONITORED TOKEN MANAGEMENT   #####
+
+func load_monitored_tokens():
+	# Delete loaded token objects
+	
+	for monitored_token in application_manifest["monitored_tokens"]:
+		#Load tokens
+		pass
 
 
-func fadeout(node, time):
-	node.modulate.a = 1
-	var fadeout = create_tween()
-	fadeout.tween_property(node,"modulate:a", 0, time).set_trans(Tween.TRANS_LINEAR)
-	fadeout.play()
+
+# NOTE
+# When adding a monitored network for a monitored token, the serviced network must have an onramp
+# onramp contract matching the monitored network.
+# There will be a single maximum approval, and then the account can deposit/withdraw
+# tokens to ScryPool at will via the monitored token object.  
+func add_monitored_token(account, serviced_network, local_token_contract, token_name, token_decimals, monitored_networks, endpoint_contract, minimum, fee):
+	var path = "user://" + account + serviced_network + local_token_contract
+	
+	var new_monitored_token = {
+		"account": account,
+		"serviced_network": serviced_network,
+		"local_token_contract": local_token_contract,
+		"token_name": token_name,
+		"token_decimals": token_decimals,
+		"monitored_networks": monitored_networks,
+		"endpoint_contract":endpoint_contract,
+		"minimum": minimum,
+		"fee": fee,
+		"gas_balance": "0",
+		"token_balance": "0",
+		"token_node": ""	
+	}
+	var token_json = JSON.new().stringify(new_monitored_token)
+	var file = FileAccess.open(path, FileAccess.WRITE)
+	file.store_string(token_json)
+	file.close()
 
 
-# Opens the passed url in the system's default browser
-func open_link(url):
-	OS.shell_open(url)
+func delete_monitored_token(account, serviced_network, local_token_contract):
+	var path = "user://" + account + serviced_network + local_token_contract
+	DirAccess.remove_absolute(path)
 
 
-func connect_buttons():
-	$AddAccount.connect("pressed", open_create_account)
-	$SelectedAccount/CreateAccount/CreateAccount.connect("pressed", create_account)
-	$SelectedAccount/Login/Login.connect("pressed", login_account)
-	$SelectedAccount/AccountManager/ChooseTask/Chronomancer.connect("pressed", select_chronomancer_task)
-	$SelectedAccount/AccountManager/ChooseTask/TestCreator.connect("pressed", select_test_creator_task)
-	$SelectedAccount/AccountManager/CopyAddress.connect("pressed", copy_address)
-	$SelectedAccount/AccountManager/ExportKey.connect("pressed", export_private_key)
-	$SelectedAccount/AccountManager/ChangeTask/ChangeTask.connect("pressed", change_task)
-	$NetworkSettings.connect("pressed", new_network_form)
+
+
+# TEST CREATOR
+
+func new_test_case_form():
+	#test_form.main = self
+	pass
 
 
 
@@ -276,53 +299,10 @@ func export_private_key():
 
 
 
-#####   TASK MANAGEMENT   #####
-
-# TASK API here
-
-
-#####   MONITORED TOKEN MANAGEMENT   #####
-
-func load_monitored_tokens():
-	# Delete loaded token objects
-	
-	for monitored_token in application_manifest["monitored_tokens"]:
-		#Load tokens
-		pass
 
 
 
-# NOTE
-# When adding a monitored network for a monitored token, the serviced network must have an onramp
-# onramp contract matching the monitored network.
-# There will be a single maximum approval, and then the account can deposit/withdraw
-# tokens to ScryPool at will via the monitored token object.  
-func add_monitored_token(account, serviced_network, local_token_contract, token_name, token_decimals, monitored_networks, endpoint_contract, minimum, fee):
-	var path = "user://" + account + serviced_network + local_token_contract
-	
-	var new_monitored_token = {
-		"account": account,
-		"serviced_network": serviced_network,
-		"local_token_contract": local_token_contract,
-		"token_name": token_name,
-		"token_decimals": token_decimals,
-		"monitored_networks": monitored_networks,
-		"endpoint_contract":endpoint_contract,
-		"minimum": minimum,
-		"fee": fee,
-		"gas_balance": "0",
-		"token_balance": "0",
-		"token_node": ""	
-	}
-	var token_json = JSON.new().stringify(new_monitored_token)
-	var file = FileAccess.open(path, FileAccess.WRITE)
-	file.store_string(token_json)
-	file.close()
 
-
-func delete_monitored_token(account, serviced_network, local_token_contract):
-	var path = "user://" + account + serviced_network + local_token_contract
-	DirAccess.remove_absolute(path)
 
 
 
@@ -341,6 +321,13 @@ func load_ccip_network_info():
 		var file = FileAccess.open("user://ccip_network_info", FileAccess.READ)
 		Ethers.network_info = json.parse_string(file.get_as_text()).duplicate()
 
+
+func new_network_form():
+	var network_form = _network_form.instantiate()
+	network_form.main = self
+	network_form.account = selected_account
+	add_child(network_form)
+	
 
 func update_network_info():
 	var json = JSON.new()
@@ -443,12 +430,13 @@ func update_transaction(tx_object, transaction):
 	var tx_status = transaction["tx_status"]
 	
 	if transaction_hash != "":
-		var scan_url = Ethers.network_info[network]["scan_url"]
-		var scan_link = tx_object.get_node("Scan")
-		
-		if !scan_link.visible:
-			scan_link.connect("pressed", open_link.bind(scan_url + "tx/" + transaction_hash))
-			scan_link.visible = true
+		if "scan_url" in Ethers.network_info[network].keys():
+			var scan_url = Ethers.network_info[network]["scan_url"]
+			var scan_link = tx_object.get_node("Scan")
+			
+			if !scan_link.visible:
+				scan_link.connect("pressed", open_link.bind(scan_url + "tx/" + transaction_hash))
+				scan_link.visible = true
 	
 	if tx_status == "SUCCESS":
 		tx_object.get_node("Status").color = Color.GREEN
@@ -463,6 +451,39 @@ func get_receipt(callback):
 	# update balances
 	pass
 
+
+
+
+#####   INTERFACE   #####
+
+
+func print_message(message):
+	$Message.text = message
+	fadeout($Message, 4.2)
+
+
+func fadeout(node, time):
+	node.modulate.a = 1
+	var fadeout = create_tween()
+	fadeout.tween_property(node,"modulate:a", 0, time).set_trans(Tween.TRANS_LINEAR)
+	fadeout.play()
+
+
+# Opens the passed url in the system's default browser
+func open_link(url):
+	OS.shell_open(url)
+
+
+func connect_buttons():
+	$AddAccount.connect("pressed", open_create_account)
+	$SelectedAccount/CreateAccount/CreateAccount.connect("pressed", create_account)
+	$SelectedAccount/Login/Login.connect("pressed", login_account)
+	$SelectedAccount/AccountManager/ChooseTask/Chronomancer.connect("pressed", select_chronomancer_task)
+	$SelectedAccount/AccountManager/ChooseTask/TestCreator.connect("pressed", select_test_creator_task)
+	$SelectedAccount/AccountManager/CopyAddress.connect("pressed", copy_address)
+	$SelectedAccount/AccountManager/ExportKey.connect("pressed", export_private_key)
+	$SelectedAccount/AccountManager/ChangeTask/ChangeTask.connect("pressed", change_task)
+	$NetworkSettings.connect("pressed", new_network_form)
 
 
 
