@@ -115,15 +115,16 @@ func load_accounts():
 	if application_manifest["accounts"] == []:
 		$NoAccounts.visible = true
 	else:
-		var account_downshift = 0
+		var account_downshift = -50
+		var accounts = $Accounts/Accounts/Accounts
 		for account in application_manifest["accounts"]:
 			var account_object = _account_object.instantiate()
 			account_object.get_node("Account/AccountName").text = account
 			account_object.connect("pressed", select_account.bind(account))
-			#Accounts.add_child(new_account_object)
-			#new_account_object.position.y += account_downshift
-			#account_downshift += 87
-			#scroll length += 90
+			accounts.add_child(account_object)
+			account_object.position = Vector2(4, account_downshift)
+			account_downshift += 87
+			accounts.custom_minimum_size.y += 90
 		
 			available_accounts[account] = account_object
 			
@@ -394,6 +395,7 @@ func add_new_tx_object(local_id, transaction):
 	var account = transaction["account"]
 	var transaction_type = transaction["callback_args"]["transaction_type"]
 	var transaction_hash = transaction["transaction_hash"]
+	var transaction_log = $TransactionLog/Transactions/Transactions
 
 	# Build a transaction node for the UI
 	var tx_object = _transaction_object.instantiate()
@@ -411,15 +413,22 @@ func add_new_tx_object(local_id, transaction):
 	transaction_history[local_id] = tx_object
 	
 	# Position the new transaction node beneath the previous one
-	$Transactions/Transactions.add_child(tx_object)
-	tx_object.position.y += tx_downshift
+	transaction_log.add_child(tx_object)
+	tx_object.position = Vector2(15, tx_downshift)
 	
 	# The Control node inside the Transactions ScrollContainer must be
 	# continuously expanded
-	$Transactions/Transactions.custom_minimum_size.y += 128
+	transaction_log.custom_minimum_size.y += 128
 	
 	# Increment the downshift for the next transaction object
 	tx_downshift += 116
+	
+	# Once the log is full, start autoscrolling down
+	if tx_downshift >= 580:
+		var autoscroll = create_tween()
+		var distance = transaction_log.scroll_vertical + 116
+		autoscroll.tween_property(transaction_log, "scroll_vertical", distance, 0.5).set_trans(Tween.TRANS_QUAD)
+		autoscroll.play()
 	
 	tx_object.modulate.a = 0
 	var fadein = create_tween()
@@ -445,6 +454,8 @@ func update_transaction(tx_object, transaction):
 		tx_object.get_node("Status").color = Color.GREEN
 	elif tx_status != "PENDING":
 		tx_object.get_node("Status").color = Color.RED
+		tx_object.get_node("Error").visible = true
+		tx_object.get_node("Error").connect("pressed", print_message.bind(tx_status))
 
 
 func get_receipt(callback):
