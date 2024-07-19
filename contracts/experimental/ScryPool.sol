@@ -242,6 +242,10 @@ contract ScryPool is CCIPReceiver {
 
     }
 
+    function checkOrderStatus(bytes calldata _message) external view returns (fillStatus, bool) {
+        orderPool storage order = orderPools[_message];
+        return (order.status, order.rewardsPending);
+    }
 
 
     modifier noReentrancy() {
