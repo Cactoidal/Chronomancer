@@ -36,18 +36,21 @@ var tx_downshift = 0
 var log_poll_timer = 1
 var previous_blocks = {}
 var loaded_token_lanes = []
-var active_monitored_tokens = []
+var active_token_lanes = []
+var logged_messages = []
+
 @onready var _chronomancer_task = preload("res://scenes/ChronomancerTask.tscn")
 @onready var _token_lane = preload("res://scenes/TokenLane.tscn")
 @onready var _monitored_token_form = preload("res://scenes/MonitoredTokenForm.tscn")
 
+# DEBUG
 var test_lane = {
 		"local_network": "Base Sepolia",
 		"local_token": "0x88A2d74F47a237a62e7A51cdDa67270CE381555e",
 		"token_name": "CCIP-BnM",
 		"minimum_transfer": "0",
 		"minimum_reward_percent": "0",
-		"maximum_gas_fee": "10000000",
+		"maximum_gas_fee": "0.001",
 		"flat_rate_threshold": "100000000",
 		"remote_networks": {"Arbitrum Sepolia": "0xA8C0c11bf64AF62CDCA6f93D3769B88BdD7cb93D"}
 	}
@@ -65,22 +68,9 @@ func _ready():
 
 
 func _process(delta):
-	execute_tasks(delta)
+	chronomancer_process(delta)
+	test_creator_process(delta)
 	send_queued_transaction()
-
-
-func execute_tasks(delta):
-	var tasks = {
-		"Chronomancer": [],
-		"Test Creator": []
-	}
-	
-	for account in account_tasks.keys():
-		var task = account_tasks[account]
-		tasks[task].push_back(account)
-	
-	chronomancer_process(tasks["Chronomancer"], delta)
-	test_creator_process(tasks["Test Creator"], delta)
 
 
 func send_queued_transaction():
@@ -100,6 +90,17 @@ func send_queued_transaction():
 					transaction["callback_args"]
 				)
 				transaction_queue[account].pop_front()
+		
+		# Queue tasks:
+			# DEBUG
+			# Check that the account has enough gas and tokens
+			# to fill the order
+			
+			# DEBUG
+			# Check that the estimated gas price does not 
+			# exceed the maximum_gas_price
+
+
 
 #####   TASK MANAGEMENT   #####
 
@@ -127,7 +128,10 @@ func load_token_lanes():
 	
 	var lane_downshift = 1
 	
-	for token in application_manifest["monitored_tokens"]:
+	for _token in application_manifest["monitored_tokens"]:
+		
+		var token = _token.duplicate()
+		token["account"] = selected_account
 		
 		var token_lane = _token_lane.instantiate()
 		token_lanes.add_child(token_lane)
@@ -138,20 +142,13 @@ func load_token_lanes():
 		lane_downshift += 236
 		token_lanes.custom_minimum_size.y += 240
 		
-		token_lane.initialize(self, token, selected_account)
+		var active = false
+		if token in active_token_lanes:
+			active = true
 		
-		token_lane.get_node("ToggleMonitoring").connect("pressed", toggle_monitoring.bind(token_lane, token))
-		token_lane.get_node("ManageLane").connect("pressed", open_lane_manager.bind(token_lane,token))
-		token_lane.get_node("DeleteCheck/No").connect("pressed", cancel_lane_deletion.bind(token_lane))
-		token_lane.get_node("DeleteCheck/Yes").connect("pressed", confirm_lane_deletion.bind(token))
-		var lane_manager = token_lane.get_node("LaneManager")
-		lane_manager.get_node("Deposit").connect("pressed", deposit_tokens)
-		lane_manager.get_node("Withdraw").connect("pressed", withdraw_tokens)
-		lane_manager.get_node("CheckPending").connect("pressed", check_for_manual_execution)
-		lane_manager.get_node("Back").connect("pressed", close_lane_manager(token_lane))
-		lane_manager.get_node("Delete").connect("pressed", open_lane_deletion.bind(token_lane))
-	
-	
+		token_lane.initialize(self, token, selected_account, active)
+
+
 func new_monitored_token_form():
 	var monitored_token_form = _monitored_token_form.instantiate()
 	monitored_token_form.main = self
@@ -159,65 +156,10 @@ func new_monitored_token_form():
 	add_child(monitored_token_form)
 
 
-func toggle_monitoring(token_lane, token):
-	#check if deposited tokens available
-	pass
-
-
-func open_lane_manager(token_lane, token):
-	token_lane.get_node("LaneManager").visible = true
-
-
-func close_lane_manager(token_lane):
-	token_lane.get_node("LaneManager").visible = false
-
-
-func open_lane_deletion(token_lane):
-	#delete the token
-	#check if active (can't delete if active)
-	# can't delete if you have a balance on the contract
-	# can't delete if you have unclaimed rewards
-	token_lane.get_node("DeleteCheck").visible = true
-
-
-func confirm_lane_deletion(token):
-	#DEBUG
-	application_manifest["monitored_tokens"].erase(token)
-	save_application_manifest()
-	load_token_lanes()
-
-
-func cancel_lane_deletion(token_lane):
-	token_lane.get_node("DeleteCheck").visible = false
-
-
-func deposit_tokens():
-	var queue = transaction_queue[selected_account]
-	for transaction in queue:
-		if transaction["tx_type"] in ["Approval", "Deposit"]:
-			print_message("Please wait for pending deposit")
-			return
-
-
-func withdraw_tokens():
-	pass
-	
-
-func check_for_manual_execution():
-	print_message("Not yet implemented")
-	
-
-func claim_reward():
-	pass
-
-
-func bump_transaction():
-	pass
-
 # PROCESS
 
-func chronomancer_process(accounts, delta):
-	if accounts.is_empty():
+func chronomancer_process(delta):
+	if active_token_lanes.is_empty():
 		return
 	
 	log_poll_timer -= delta
@@ -226,21 +168,34 @@ func chronomancer_process(accounts, delta):
 		get_block_number()
 
 
-func get_block_number():
-	var network_list = []
-	for token in active_monitored_tokens:
-		for network in token["monitored_networks"].keys():
-			if !network in network_list:
-				network_list.append(network)
-
-	for network in network_list:
+func get_block_number():	
+	var remote_onramps = {}
+	
+	for token in active_token_lanes:
+		# For every token lane, get the set of monitored remote networks.
+		for remote_network in token["remote_networks"].keys():
+			
+			# Each monitored network will become a key in the remote_onramps dictionary.
+			# This will allow idempotent additions to each monitored network's array
+			# of onramp contracts, across all active lanes.
+			if !remote_network in remote_onramps.keys():
+				remote_onramps[remote_network] = []
+			
+			# Map each monitored network to the specific set of onramp contracts to be queried
+			# for CCIP messages.
+			var onramp = Ethers.network_info[remote_network]["onramp_contracts"][token["local_network"]]
+			if !onramp in remote_onramps[remote_network]:
+				remote_onramps[remote_network].push_back(onramp)
+	
+	# Get the most recent block number.
+	for network in remote_onramps.keys():
 		Ethers.perform_request(
 		"eth_blockNumber", 
 		[], 
 		network, 
 		self, 
 		"get_ccip_messages",
-		{"network_list": network_list}
+		{"onramps": remote_onramps[network]}
 		)
 
 
@@ -249,27 +204,197 @@ func get_ccip_messages(callback):
 		
 		var latest_block = callback["result"]
 		var network = callback["network"]
+		var onramps = callback["callback_args"]["onramps"]
 		
 		if latest_block == previous_blocks[network]:
 			return
-		
-		var network_list = callback["callback_args"]["network_list"]
-		network_list.erase(network)
-		var onramp_contracts = []
-		
-		for remote_network in network_list:
-			onramp_contracts.push_back(Ethers.network_info[network]["onramp_contracts"][remote_network])
 		
 		var previous_block = previous_blocks[network]
 		var params = {
 			"fromBlock": previous_block, 
 			# The array of onramp contracts
-			"address": onramp_contracts, 
+			"address": onramps, 
 			# The "CCIPSendRequested" event topic hash
 			"topics": ["0xd0c3c799bf9e2639de44391e7f524d229b2b55f5b1ea94b2bf7da42f7243dddd"]
 			}
+		
+		if previous_block != "latest":
+			params["toBlock"] = latest_block
+		
+		previous_blocks[network] = latest_block
+		
+		Ethers.perform_request(
+			"eth_getLogs", 
+			[params],
+			network,
+			self,
+			"decode_EVM2EVM_message"
+			)
+	else:
+		print_message("Failed to retrieve block number from " + callback["network"])
+	
 
-# TRANSACTION
+
+func decode_EVM2EVM_message(callback):
+	if callback["success"]:
+		var network = callback["network"]
+		for event in callback["result"]:
+			
+			# First, check the destination chain by determining which
+			# OnRamp sent the message.
+			var onramp_contract = event["address"]
+			var destination_network = ""
+			
+			# The list of onramp contracts is duplicated to avoid changes from
+			# propagating to the ccip_network_info dictionary.
+			var onramp_list = Ethers.network_info[network].duplicate()
+			for _onramp in onramp_list.keys():
+				var onramp = onramp_list[_onramp]
+				# Some RPC nodes return contract addresses with lowercase letters,
+				# while some do not.
+				if onramp != onramp_contract:
+					onramp = onramp.to_lower()
+				if onramp == onramp_contract:
+					destination_network = onramp["network"]
+
+			# The message data will be an EVM2EVM message in the form of
+			# ABI encoded bytes.
+			var message = event["data"]
+			
+			# You can ABI encode and decode values manually by using
+			# the Calldata singleton.  You must provide the input
+			# or output types along with the values to encode/decode.
+			var EVM2EVMMessage = {
+				"type": "tuple",
+				
+				"components": [
+					{"type": "uint64"}, # sourceChainSelector
+					{"type": "address"}, # sender
+					{"type": "address"}, # receiver
+					{"type": "uint64"}, # sequenceNumber
+					{"type": "uint256"}, # gasLimit
+					{"type": "bool"}, # strict
+					{"type": "uint64"}, # nonce
+					{"type": "address"}, # feeToken
+					{"type": "uint256"}, # feeTokenAmount
+					{"type": "bytes"}, # data
+					{"type": "tuple[]", # tokenAmounts
+					"components": [
+						{"type": "address"}, # token
+						{"type": "uint256"} # amount
+						]},
+					{"type": "bytes[]"}, # sourceTokenData
+					{"type": "bytes32"} # messageId
+				]
+				
+				}
+			
+			# The ABI Decoder will return an array containing the tuple, which
+			# can be accessed at index 0.  Once accessed, the 13 elements of the 
+			# EVM2EVM message can be accessed at their index.
+			var decoded_message = Calldata.abi_decode([EVM2EVMMessage], message)[0]
+			
+			# Check if the receiver is the Chronomancer endpoint.
+			var receiver = decoded_message[2]
+			var endpoint = Ethers.network_info[destination_network]["chronomancer_endpoint"]
+			
+			if receiver != endpoint:
+				return
+			
+			
+			# Check if the token is a monitored token, and
+			# get the matching local token.
+			var tokenAmounts = decoded_message[10]
+			# Some CCIP messages do not transmit tokens.
+			if tokenAmounts.is_empty():
+				return
+			# Right now, only checks for a single token.
+			var token_contract = tokenAmounts[0][0]
+			var token_amount = tokenAmounts[0][1]
+			
+			var local_token = ""
+			var minimum_reward_percent
+			var flat_rate_threshold
+			var minimum_transfer
+			var maximum_gas_fee
+			
+			for lane in active_token_lanes:
+				if lane["local_network"] == destination_network:
+					for remote_network in lane["remote_networks"]:
+						if lane["remote_networks"][remote_network] == token_contract:
+							local_token = lane["local_token"]
+							minimum_reward_percent = lane["minimum_reward_percent"]
+							flat_rate_threshold = lane["flat_rate_threshold"]
+							minimum_transfer = lane["minimum_transfer"]
+							maximum_gas_fee = lane["maximum_gas_fee"]
+			
+			if local_token == "":
+				return
+			
+			
+			# Check that the transfer amount meets or exceeds the minimum.
+			if token_amount < minimum_transfer:
+				return
+			
+			
+			# Check if the recipient is the Chronomancer endpoint.
+			var data = Calldata.abi_decode(
+				[{"type": "address"},
+				{"type": "uint256"},
+				{"type": "bytes"}
+				], 
+				decoded_message[9]
+				)
+			
+			if data[0] == endpoint:
+				return
+			
+			
+			# Check that the reward meets or exceeds the set reward percentage
+			# and flat rate threshold.
+			var expected_minimum_reward = float(Ethers.convert_to_smallnum(token_amount)) * float(minimum_reward_percent)
+			
+			if float(data[1]) < expected_minimum_reward:
+				if flat_rate_threshold != "":
+					if float(data[1]) < flat_rate_threshold:
+						return
+				else:
+					return
+			
+			
+			# Check that this message hasn't already been recorded.
+			var messageId = decoded_message[12]
+			
+			if messageId in logged_messages:
+				return
+			else:
+				logged_messages.push_back(messageId)
+			
+			
+			# Convert the EVM2EVM message to an Any2EVM Message,
+			# swapping the local token for the remote token.
+			# Then queue the order fill transaction.
+			
+			
+			
+			
+			
+			# Prepare the log dictionary.
+			var sender = decoded_message[1]
+			#var receiver = decoded_message[2]
+			
+			var _callback_args = {
+				"from_network": network,
+				"to_network": destination_network,
+				"sender": sender,
+				"receiver": receiver,
+				"messageId": messageId,
+				"contains_tokens": false
+			}
+			
+			
+
+
 
 
 
@@ -281,9 +406,8 @@ func get_ccip_messages(callback):
 func load_test_creator():
 	pass
 
-func test_creator_process(accounts, delta):
-	if accounts.is_empty():
-		return
+func test_creator_process(delta):
+	pass
 
 func new_test_case_form():
 	#test_form.main = self

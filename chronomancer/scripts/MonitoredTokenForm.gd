@@ -19,6 +19,11 @@ var remote_tokens = {}
 
 
 func _ready():
+	input.get_node("MinimumTransfer").text = "0"
+	input.get_node("MinimumRewardPercent").text = "0.1"
+	input.get_node("MaximumGasFee").text = "0.01"
+	input.get_node("FlatRateThreshold").text = ""
+	
 	$Form/Input/Confirm.connect("pressed", confirm)
 	$Form/Input/Cancel.connect("pressed", cancel)
 	$Form/ConfirmCancel/Yes.connect("confirm_cancel", cancel)
@@ -63,23 +68,13 @@ func confirm_add():
 	queue_free()
 
 
-var test_lane = {
-		"local_network": "Base Sepolia",
-		"local_token": "0x88A2d74F47a237a62e7A51cdDa67270CE381555e",
-		"minimum_transfer": "0",
-		"minimum_reward_percent": "0",
-		"maximum_gas_fee": "10000000",
-		"flat_rate_threshold": "100000000",
-		"remote_networks": {"Arbitrum Sepolia": "0xA8C0c11bf64AF62CDCA6f93D3769B88BdD7cb93D"}
-	}
-
 func get_monitored_token():
 	var local_network = input.get_node("LocalNetwork").text
 	var local_token = input.get_node("LocalToken").text
-	var minimum_transfer = float(input.get_node("MinimumTransfer").text)
-	var minimum_reward_percent = float(input.get_node("MinimumRewardPercent").text)
-	var maximum_gas_fee = float(input.get_node("MaximumGasFee").text)
-	var flat_rate_threshold = float(input.get_node("FlatRateThreshold").text)
+	minimum_transfer = float(input.get_node("MinimumTransfer").text)
+	minimum_reward_percent = float(input.get_node("MinimumRewardPercent").text)
+	maximum_gas_fee = float(input.get_node("MaximumGasFee").text)
+	flat_rate_threshold = float(input.get_node("FlatRateThreshold").text)
 	
 	
 	var monitored_token = {
