@@ -1,6 +1,6 @@
 extends Control
 
-# Saves accounts, token lanes, test cases, and pending transactions
+# Saves accounts, monitored token lanes, test cases, and pending transactions
 var application_manifest
 
 # Accounts mapped to their UI object
@@ -13,6 +13,9 @@ var selected_account
 # Accounts mapped to their assigned tasks (Chronomancer or Test Creator)
 var account_tasks = {}
 
+# The currently loaded task interface
+var active_task_interface
+
 # Mapping of transaction local_ids to their UI object, 
 # for updating transactions in the transaction log
 var transaction_history = {}
@@ -23,11 +26,33 @@ var transaction_queue = {}
 # Reusable UI elements
 @onready var _account_object = preload("res://scenes/Account.tscn")
 @onready var _transaction_object = preload("res://scenes/Transaction.tscn")
-@onready var _monitored_token_form = preload("res://scenes/MonitoredTokenForm.tscn")
 @onready var _network_form = preload("res://scenes/NetworkForm.tscn")
 
 # Interface variables
 var tx_downshift = 0
+
+# Chronomancer Task variables
+
+var log_poll_timer = 1
+var previous_blocks = {}
+var loaded_token_lanes = []
+var active_monitored_tokens = []
+@onready var _chronomancer_task = preload("res://scenes/ChronomancerTask.tscn")
+@onready var _token_lane = preload("res://scenes/TokenLane.tscn")
+@onready var _monitored_token_form = preload("res://scenes/MonitoredTokenForm.tscn")
+
+var test_lane = {
+		"local_network": "Base Sepolia",
+		"local_token": "0x88A2d74F47a237a62e7A51cdDa67270CE381555e",
+		"token_name": "CCIP-BnM",
+		"minimum_transfer": "0",
+		"minimum_reward_percent": "0",
+		"maximum_gas_fee": "10000000",
+		"flat_rate_threshold": "100000000",
+		"remote_networks": {"Arbitrum Sepolia": "0xA8C0c11bf64AF62CDCA6f93D3769B88BdD7cb93D"}
+	}
+
+# Test Creator Task variables
 
 
 func _ready():
@@ -40,21 +65,93 @@ func _ready():
 
 
 func _process(delta):
-	execute_tasks()
+	execute_tasks(delta)
+	send_queued_transaction()
 
 
-func execute_tasks():
+func execute_tasks(delta):
+	var tasks = {
+		"Chronomancer": [],
+		"Test Creator": []
+	}
+	
 	for account in account_tasks.keys():
 		var task = account_tasks[account]
-		# Call to Task API from here
+		tasks[task].push_back(account)
+	
+	chronomancer_process(tasks["Chronomancer"], delta)
+	test_creator_process(tasks["Test Creator"], delta)
 
+
+func send_queued_transaction():
+	for account in transaction_queue.keys():
+		var queue = transaction_queue[account]
+		if !queue.is_empty():
+			var transaction = queue[0].duplicate()
+			var network = transaction["network"]
+			if !Transaction.pending_transaction(account, network):
+				Ethers.send_transaction(
+					account,
+					network,
+					transaction["contract"],
+					transaction["calldata"],
+					self,
+					"get_receipt",
+					transaction["callback_args"]
+				)
+				transaction_queue[account].pop_front()
 
 #####   TASK MANAGEMENT   #####
 
-# TASK API here
 
-# CHRONOMANCER
+### CHRONOMANCER
 
+# SETUP
+
+func load_chronomancer():
+	var chronomancer_task = _chronomancer_task.instantiate()
+	add_child(chronomancer_task)
+	active_task_interface = chronomancer_task
+	load_token_lanes()
+	chronomancer_task.get_node("Task/CreateTokenLane").connect("pressed", new_monitored_token_form)
+
+	
+func load_token_lanes():
+	var chronomancer_task = active_task_interface
+	var token_lanes = chronomancer_task.get_node("Task/TokenLanes/TokenLanes/TokenLanes")
+	
+	for old_lane in loaded_token_lanes:
+		old_lane.queue_free()
+		token_lanes.custom_minimum_size.y -= 240
+	loaded_token_lanes = []
+	
+	var lane_downshift = 1
+	
+	for token in application_manifest["monitored_tokens"]:
+		
+		var token_lane = _token_lane.instantiate()
+		token_lanes.add_child(token_lane)
+		
+		loaded_token_lanes.push_back(token_lane)
+		
+		token_lane.position = Vector2(13, lane_downshift)
+		lane_downshift += 236
+		token_lanes.custom_minimum_size.y += 240
+		
+		token_lane.initialize(self, token, selected_account)
+		
+		token_lane.get_node("ToggleMonitoring").connect("pressed", toggle_monitoring.bind(token_lane, token))
+		token_lane.get_node("ManageLane").connect("pressed", open_lane_manager.bind(token_lane,token))
+		token_lane.get_node("DeleteCheck/No").connect("pressed", cancel_lane_deletion.bind(token_lane))
+		token_lane.get_node("DeleteCheck/Yes").connect("pressed", confirm_lane_deletion.bind(token))
+		var lane_manager = token_lane.get_node("LaneManager")
+		lane_manager.get_node("Deposit").connect("pressed", deposit_tokens)
+		lane_manager.get_node("Withdraw").connect("pressed", withdraw_tokens)
+		lane_manager.get_node("CheckPending").connect("pressed", check_for_manual_execution)
+		lane_manager.get_node("Back").connect("pressed", close_lane_manager(token_lane))
+		lane_manager.get_node("Delete").connect("pressed", open_lane_deletion.bind(token_lane))
+	
+	
 func new_monitored_token_form():
 	var monitored_token_form = _monitored_token_form.instantiate()
 	monitored_token_form.main = self
@@ -62,58 +159,136 @@ func new_monitored_token_form():
 	add_child(monitored_token_form)
 
 
+func toggle_monitoring(token_lane, token):
+	#check if deposited tokens available
+	pass
 
-#####   MONITORED TOKEN MANAGEMENT   #####
 
-func load_monitored_tokens():
-	# Delete loaded token objects
+func open_lane_manager(token_lane, token):
+	token_lane.get_node("LaneManager").visible = true
+
+
+func close_lane_manager(token_lane):
+	token_lane.get_node("LaneManager").visible = false
+
+
+func open_lane_deletion(token_lane):
+	#delete the token
+	#check if active (can't delete if active)
+	# can't delete if you have a balance on the contract
+	# can't delete if you have unclaimed rewards
+	token_lane.get_node("DeleteCheck").visible = true
+
+
+func confirm_lane_deletion(token):
+	#DEBUG
+	application_manifest["monitored_tokens"].erase(token)
+	save_application_manifest()
+	load_token_lanes()
+
+
+func cancel_lane_deletion(token_lane):
+	token_lane.get_node("DeleteCheck").visible = false
+
+
+func deposit_tokens():
+	var queue = transaction_queue[selected_account]
+	for transaction in queue:
+		if transaction["tx_type"] in ["Approval", "Deposit"]:
+			print_message("Please wait for pending deposit")
+			return
+
+
+func withdraw_tokens():
+	pass
 	
-	for monitored_token in application_manifest["monitored_tokens"]:
-		#Load tokens
-		pass
 
-
-
-# NOTE
-# When adding a monitored network for a monitored token, the serviced network must have an onramp
-# onramp contract matching the monitored network.
-# There will be a single maximum approval, and then the account can deposit/withdraw
-# tokens to ScryPool at will via the monitored token object.  
-func add_monitored_token(account, serviced_network, local_token_contract, token_name, token_decimals, monitored_networks, endpoint_contract, minimum, fee):
-	var path = "user://" + account + serviced_network + local_token_contract
+func check_for_manual_execution():
+	print_message("Not yet implemented")
 	
-	var new_monitored_token = {
-		"account": account,
-		"serviced_network": serviced_network,
-		"local_token_contract": local_token_contract,
-		"token_name": token_name,
-		"token_decimals": token_decimals,
-		"monitored_networks": monitored_networks,
-		"endpoint_contract":endpoint_contract,
-		"minimum": minimum,
-		"fee": fee,
-		"gas_balance": "0",
-		"token_balance": "0",
-		"token_node": ""	
-	}
-	var token_json = JSON.new().stringify(new_monitored_token)
-	var file = FileAccess.open(path, FileAccess.WRITE)
-	file.store_string(token_json)
-	file.close()
+
+func claim_reward():
+	pass
 
 
-func delete_monitored_token(account, serviced_network, local_token_contract):
-	var path = "user://" + account + serviced_network + local_token_contract
-	DirAccess.remove_absolute(path)
+func bump_transaction():
+	pass
+
+# PROCESS
+
+func chronomancer_process(accounts, delta):
+	if accounts.is_empty():
+		return
+	
+	log_poll_timer -= delta
+	if log_poll_timer < 0:
+		log_poll_timer = 1
+		get_block_number()
+
+
+func get_block_number():
+	var network_list = []
+	for token in active_monitored_tokens:
+		for network in token["monitored_networks"].keys():
+			if !network in network_list:
+				network_list.append(network)
+
+	for network in network_list:
+		Ethers.perform_request(
+		"eth_blockNumber", 
+		[], 
+		network, 
+		self, 
+		"get_ccip_messages",
+		{"network_list": network_list}
+		)
+
+
+func get_ccip_messages(callback):
+	if callback["success"]:
+		
+		var latest_block = callback["result"]
+		var network = callback["network"]
+		
+		if latest_block == previous_blocks[network]:
+			return
+		
+		var network_list = callback["callback_args"]["network_list"]
+		network_list.erase(network)
+		var onramp_contracts = []
+		
+		for remote_network in network_list:
+			onramp_contracts.push_back(Ethers.network_info[network]["onramp_contracts"][remote_network])
+		
+		var previous_block = previous_blocks[network]
+		var params = {
+			"fromBlock": previous_block, 
+			# The array of onramp contracts
+			"address": onramp_contracts, 
+			# The "CCIPSendRequested" event topic hash
+			"topics": ["0xd0c3c799bf9e2639de44391e7f524d229b2b55f5b1ea94b2bf7da42f7243dddd"]
+			}
+
+# TRANSACTION
 
 
 
 
-# TEST CREATOR
+
+
+### TEST CREATOR
+
+func load_test_creator():
+	pass
+
+func test_creator_process(accounts, delta):
+	if accounts.is_empty():
+		return
 
 func new_test_case_form():
 	#test_form.main = self
 	pass
+
 
 
 
@@ -123,10 +298,12 @@ func load_application_manifest():
 	if !FileAccess.file_exists("user://MANIFEST"):
 		application_manifest = {
 			"accounts": [],
-			"monitored_tokens": [],
+			"monitored_tokens": [test_lane],
 			"test_cases": [],
 			"cached_transactions": []
 			}
+		# DEBUG
+		# Need to save it
 	else:
 		var manifest = FileAccess.open("user://MANIFEST", FileAccess.READ).get_as_text()
 		var json = JSON.new()
@@ -138,8 +315,11 @@ func save_application_manifest():
 	
 
 func load_accounts():
+	var accounts = $Accounts/Accounts/Accounts
+	
 	for account in available_accounts.keys():
 		available_accounts[account].queue_free()
+		accounts.custom_minimum_size.y -= 90
 	available_accounts = {}
 	#Accounts reset scroll length
 	
@@ -147,7 +327,7 @@ func load_accounts():
 		$NoAccounts.visible = true
 	else:
 		var account_downshift = -50
-		var accounts = $Accounts/Accounts/Accounts
+		
 		for account in application_manifest["accounts"]:
 			var account_object = _account_object.instantiate()
 			account_object.get_node("Account/AccountName").text = account
@@ -237,6 +417,8 @@ func login_account():
 		$SelectedAccount/Login/Password.text = ""
 		password = Ethers.clear_memory()
 		password.clear()
+		
+		transaction_queue[account_name] = []
 	
 	else:
 		print_message("Login failed")
@@ -254,36 +436,29 @@ func load_account_manager():
 	$SelectedAccount/AccountManager.visible = true
 	
 	if account in account_tasks.keys():
-		load_account_task()
+		load_account_task(account_tasks[account])
 	else:
 		$SelectedAccount/AccountManager/ChooseTask.visible = true
 
 
-func select_chronomancer_task():
-	#DEBUG
-	account_tasks[selected_account] = "Chronomancer"
-	# Update the account object and load the task
+
+
+func load_account_task(task):
+	account_tasks[selected_account] = task
+	
 	for available_account in available_accounts.keys():
 		if selected_account == available_account:
-			available_accounts[available_account].get_node("Account/AccountTask").text = "Chronomancer"
+			available_accounts[available_account].get_node("Account/AccountTask").text = task
 	
-	load_account_task()
-
-
-func select_test_creator_task():
-	#DEBUG
-	account_tasks[selected_account] = "Test Creator"
-	# Update the account object and load the task
-	load_account_task()
-
-
-func load_account_task():
-	# DEBUG
+	if active_task_interface:
+		active_task_interface.queue_free()
+		
 	$SelectedAccount/AccountManager/ChangeTask.visible = true
 	$SelectedAccount/AccountManager/ChangeTask/Prompt.text = "Current Task:\n" + account_tasks[selected_account]
-	#load the appropriate task
-	# If the task is already running, don't overwrite it
-	$Task.visible = true
+	
+	match task:
+		"Chronomancer": load_chronomancer()
+		"Test Creator": load_test_creator()
 
 
 # DEBUG
@@ -445,8 +620,8 @@ func connect_buttons():
 	$AddAccount.connect("pressed", open_create_account)
 	$SelectedAccount/CreateAccount/CreateAccount.connect("pressed", create_account)
 	$SelectedAccount/Login/Login.connect("pressed", login_account)
-	$SelectedAccount/AccountManager/ChooseTask/Chronomancer.connect("pressed", select_chronomancer_task)
-	$SelectedAccount/AccountManager/ChooseTask/TestCreator.connect("pressed", select_test_creator_task)
+	$SelectedAccount/AccountManager/ChooseTask/Chronomancer.connect("pressed", load_account_task.bind("Chronomancer"))
+	$SelectedAccount/AccountManager/ChooseTask/TestCreator.connect("pressed", load_account_task.bind("Test Creator"))
 	$SelectedAccount/AccountManager/CopyAddress.connect("pressed", copy_address)
 	$SelectedAccount/AccountManager/ExportKey.connect("pressed", export_private_key)
 	$SelectedAccount/AccountManager/ChangeTask/ChangeTask.connect("pressed", change_task)
@@ -752,3 +927,303 @@ var default_ccip_network_info = {
 	}
 	
 }
+
+
+
+
+# ABI
+
+var SCRYPOOL_ABI = [
+	{
+		"inputs": [
+			{
+				"internalType": "address",
+				"name": "_endpoint",
+				"type": "address"
+			}
+		],
+		"stateMutability": "nonpayable",
+		"type": "constructor"
+	},
+	{
+		"inputs": [],
+		"name": "CannotQuitPool",
+		"type": "error"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "address",
+				"name": "router",
+				"type": "address"
+			}
+		],
+		"name": "InvalidRouter",
+		"type": "error"
+	},
+	{
+		"inputs": [],
+		"name": "MessageNotReceived",
+		"type": "error"
+	},
+	{
+		"inputs": [],
+		"name": "TooLateToJoinPool",
+		"type": "error"
+	},
+	{
+		"anonymous": false,
+		"inputs": [
+			{
+				"indexed": false,
+				"internalType": "bytes32",
+				"name": "",
+				"type": "bytes32"
+			}
+		],
+		"name": "FailedToFillOrder",
+		"type": "event"
+	},
+	{
+		"anonymous": false,
+		"inputs": [
+			{
+				"indexed": false,
+				"internalType": "bytes32",
+				"name": "",
+				"type": "bytes32"
+			}
+		],
+		"name": "FilledOrder",
+		"type": "event"
+	},
+	{
+		"anonymous": false,
+		"inputs": [
+			{
+				"indexed": false,
+				"internalType": "bytes32",
+				"name": "",
+				"type": "bytes32"
+			}
+		],
+		"name": "MessageReceived",
+		"type": "event"
+	},
+	{
+		"anonymous": false,
+		"inputs": [
+			{
+				"indexed": false,
+				"internalType": "address",
+				"name": "",
+				"type": "address"
+			},
+			{
+				"indexed": false,
+				"internalType": "uint256",
+				"name": "",
+				"type": "uint256"
+			}
+		],
+		"name": "RewardDisbursed",
+		"type": "event"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "address",
+				"name": "",
+				"type": "address"
+			}
+		],
+		"name": "availableLiquidity",
+		"outputs": [
+			{
+				"internalType": "uint256",
+				"name": "",
+				"type": "uint256"
+			}
+		],
+		"stateMutability": "view",
+		"type": "function"
+	},
+	{
+		"inputs": [
+			{
+				"components": [
+					{
+						"internalType": "bytes32",
+						"name": "messageId",
+						"type": "bytes32"
+					},
+					{
+						"internalType": "uint64",
+						"name": "sourceChainSelector",
+						"type": "uint64"
+					},
+					{
+						"internalType": "bytes",
+						"name": "sender",
+						"type": "bytes"
+					},
+					{
+						"internalType": "bytes",
+						"name": "data",
+						"type": "bytes"
+					},
+					{
+						"components": [
+							{
+								"internalType": "address",
+								"name": "token",
+								"type": "address"
+							},
+							{
+								"internalType": "uint256",
+								"name": "amount",
+								"type": "uint256"
+							}
+						],
+						"internalType": "struct Client.EVMTokenAmount[]",
+						"name": "destTokenAmounts",
+						"type": "tuple[]"
+					}
+				],
+				"internalType": "struct Client.Any2EVMMessage",
+				"name": "message",
+				"type": "tuple"
+			}
+		],
+		"name": "ccipReceive",
+		"outputs": [],
+		"stateMutability": "nonpayable",
+		"type": "function"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "bytes",
+				"name": "_message",
+				"type": "bytes"
+			}
+		],
+		"name": "claimOrderReward",
+		"outputs": [],
+		"stateMutability": "nonpayable",
+		"type": "function"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "address",
+				"name": "_token",
+				"type": "address"
+			},
+			{
+				"internalType": "uint256",
+				"name": "_amount",
+				"type": "uint256"
+			}
+		],
+		"name": "depositTokens",
+		"outputs": [],
+		"stateMutability": "nonpayable",
+		"type": "function"
+	},
+	{
+		"inputs": [],
+		"name": "getRouter",
+		"outputs": [
+			{
+				"internalType": "address",
+				"name": "",
+				"type": "address"
+			}
+		],
+		"stateMutability": "view",
+		"type": "function"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "bytes",
+				"name": "_message",
+				"type": "bytes"
+			}
+		],
+		"name": "joinPool",
+		"outputs": [],
+		"stateMutability": "nonpayable",
+		"type": "function"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "bytes",
+				"name": "_message",
+				"type": "bytes"
+			}
+		],
+		"name": "quitPool",
+		"outputs": [],
+		"stateMutability": "nonpayable",
+		"type": "function"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "bytes4",
+				"name": "interfaceId",
+				"type": "bytes4"
+			}
+		],
+		"name": "supportsInterface",
+		"outputs": [
+			{
+				"internalType": "bool",
+				"name": "",
+				"type": "bool"
+			}
+		],
+		"stateMutability": "pure",
+		"type": "function"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "address",
+				"name": "",
+				"type": "address"
+			},
+			{
+				"internalType": "address",
+				"name": "",
+				"type": "address"
+			}
+		],
+		"name": "userStakedTokens",
+		"outputs": [
+			{
+				"internalType": "uint256",
+				"name": "",
+				"type": "uint256"
+			}
+		],
+		"stateMutability": "view",
+		"type": "function"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "address",
+				"name": "_token",
+				"type": "address"
+			}
+		],
+		"name": "withdrawTokens",
+		"outputs": [],
+		"stateMutability": "nonpayable",
+		"type": "function"
+	}
+]

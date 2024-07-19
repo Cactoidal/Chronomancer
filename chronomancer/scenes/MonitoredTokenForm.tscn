@@ -36,7 +36,6 @@ grow_vertical = 2
 color = Color(0, 0, 0, 1)
 
 [node name="Input" type="Control" parent="Form"]
-visible = false
 anchors_preset = 0
 offset_right = 40.0
 offset_bottom = 40.0
@@ -603,6 +602,7 @@ mouse_default_cursor_shape = 2
 text = "No, Go Back"
 
 [node name="ConfirmAdd" type="Control" parent="Form"]
+visible = false
 anchors_preset = 0
 offset_right = 40.0
 offset_bottom = 40.0

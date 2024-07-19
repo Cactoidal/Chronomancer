@@ -58,10 +58,20 @@ func confirm_add():
 	
 	main.application_manifest["monitored_tokens"].push_back(monitored_token)
 	main.save_application_manifest()
-	main.load_monitored_tokens()
+	main.load_token_lanes()
 	
 	queue_free()
 
+
+var test_lane = {
+		"local_network": "Base Sepolia",
+		"local_token": "0x88A2d74F47a237a62e7A51cdDa67270CE381555e",
+		"minimum_transfer": "0",
+		"minimum_reward_percent": "0",
+		"maximum_gas_fee": "10000000",
+		"flat_rate_threshold": "100000000",
+		"remote_networks": {"Arbitrum Sepolia": "0xA8C0c11bf64AF62CDCA6f93D3769B88BdD7cb93D"}
+	}
 
 func get_monitored_token():
 	var local_network = input.get_node("LocalNetwork").text
@@ -75,6 +85,8 @@ func get_monitored_token():
 	var monitored_token = {
 		"local_network": local_network,
 		"local_token": local_token,
+		"token_name": local_token_info[0],
+		"token_decimals": local_token_info[1],
 		"minimum_transfer": minimum_transfer,
 		"minimum_reward_percent": minimum_reward_percent,
 		"maximum_gas_fee": maximum_gas_fee,
