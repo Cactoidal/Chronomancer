@@ -6,6 +6,9 @@ var main
 var account
 var active = false
 
+var local_network
+var local_token
+
 var gas_balance = "0"
 var token_balance = "0"
 var deposited_tokens = "0"
@@ -19,6 +22,18 @@ func initialize(_main, _token, _account, _active):
 	token = _token.duplicate()
 	account = _account
 	active = _active
+	local_network = token["local_network"]
+	local_token = token["local_token"]
+	
+	if !local_network in main.account_balances[account].keys():
+			main.account_balances[account][local_network] = {}
+	
+	main.account_balances[account][local_network][local_token] = {
+					"name": token["token_name"],
+					"decimals": token["token_decimals"],
+					"balance": "0",
+					"deposited_balance": "0"
+					}
 	
 	if active:
 		$ToggleMonitoring.text = "Stop Monitoring"
@@ -31,7 +46,7 @@ func initialize(_main, _token, _account, _active):
 	$DeleteCheck/No.connect("pressed", cancel_lane_deletion)
 	$DeleteCheck/Yes.connect("pressed", confirm_lane_deletion)
 	
-	$LaneManager/Deposit.connect("pressed", deposit_tokens)
+	$LaneManager/Deposit.connect("pressed", approve_tokens)
 	$LaneManager/Withdraw.connect("pressed", withdraw_tokens)
 	$LaneManager/CheckPending.connect("pressed", check_for_manual_execution)
 	$LaneManager/Back.connect("pressed", close_lane_manager)
@@ -40,7 +55,7 @@ func initialize(_main, _token, _account, _active):
 
 
 func get_token_text():
-	var token_text = "Serving " + token["token_name"] + "\non " + token["local_network" + "\nMonitoring messages from:\n"]
+	var token_text = "Serving " + token["token_name"] + "\non " + local_network + "\nMonitoring messages from:\n"
 	var token_text2 = ""
 	var remote_networks = token["remote_networks"].keys()
 	var index = 0
@@ -56,57 +71,63 @@ func get_token_text():
 
 
 func get_balances():
-	var network = token["local_network"]
+
 	Ethers.get_gas_balance(
-			network, 
+			local_network, 
 			account, 
 			self, 
 			"update_gas_balance"
 			)
 	
 	Ethers.get_erc20_balance(
-			network, 
+			local_network, 
 			Ethers.get_address(account), 
-			token["local_token"],
+			local_token,
 			token["token_decimals"],
 			self, 
 			"update_erc20_balance"
 			)
 
 
+
+
+
 func update_gas_balance(callback):
 	if callback["success"]:
 		gas_balance = callback["result"]
+		main.account_balances[account][local_network]["gas"] = gas_balance
 		$GasBalance.text = "Gas: " + gas_balance.left(6)
 		$LaneManager/GasBalance.text = "Gas Balance: " + gas_balance.left(6)
 	else:
-		main.print_message("Failed to retrieve gas balance on " + token["local_network"])
+		main.print_message("Failed to retrieve gas balance on " + local_network)
 
 
 func update_erc20_balance(callback):
 	if callback["success"]:
 		token_balance = callback["result"]
+		main.account_balances[account][local_network][local_token]["balance"] = token_balance
 		$LaneManager/TokenBalance.text = token["token_name"] + " Balance: " + token_balance.left(6)
 		
-		var calldata = Ethers.get_calldata("READ", main.SCRYPOOL_ABI, "userStakedTokens", [Ethers.get_address(account), token["local_token"]])
+		var calldata = Ethers.get_calldata("READ", main.SCRYPOOL_ABI, "userStakedTokens", [Ethers.get_address(account), local_token])
 		Ethers.read_from_contract(
-						token["local_network"],
-						token["local_token"],
+						local_network,
+						local_token,
 						calldata,
 						self,
 						"update_deposited_tokens"
 						)
 	else:
-		main.print_message("Failed to retrieve token balance on " + token["local_network"])
+		main.print_message("Failed to retrieve token balance on " + local_network)
 
 
 func update_deposited_tokens(callback):
 	if callback["success"]:
 		deposited_tokens = callback["result"][0]
+		main.account_balances[account][local_network][local_token]["deposited_balance"] = deposited_tokens
 		$LaneManager/TokenBalance.text = "Tokens: " + deposited_tokens.left(6)
 	
 	else:
-		main.print_message("Failed to retrieve deposited tokens on " + token["local_network"])
+		main.print_message("Failed to retrieve deposited tokens on " + local_network)
 
 
 func toggle_monitoring(token):
@@ -114,6 +135,7 @@ func toggle_monitoring(token):
 	if active:
 		active = false
 		$ToggleMonitoring.text = "Start Monitoring"
+		# DEBUG
 		main.active_token_lanes.erase(token)
 		return
 
@@ -124,18 +146,23 @@ func toggle_monitoring(token):
 	
 	active = true
 	$ToggleMonitoring.text = "Stop Monitoring"
+	# DEBUG
 	main.active_token_lanes.push_back(token)
+	
+	# DEBUG
+	# This could trigger a call to update the balances in main,
+	# and check the available liquidity for the token on ScryPool
 
 
 func check_if_ready():
 	if gas_balance == "0":
-		main.print_message("Not enough gas on " + token["local_network"])
+		main.print_message("Not enough gas on " + local_network)
 		return false
 	if deposited_tokens == "0":
 		main.print_message("Deposit " + token["token_name"] + " using Manage Lane button")
 		return false
 	if float(gas_balance) < float(token["maximum_gas_fee"]):
-		main.print_message(token["local_network"] + " gas below maximum gas fee")
+		main.print_message(local_network + " gas below maximum gas fee")
 		return false
 	if float(deposited_tokens) < float(token["minimum_transfer"]):
 		main.print_message("Deposit " + token["token_name"] + " using Manage Lane button")
@@ -177,7 +204,7 @@ func cancel_lane_deletion():
 	$DeleteCheck.visible = false
 
 
-func deposit_tokens():
+func approve_tokens():
 	if token_balance == "0":
 		main.print_message("Nothing to deposit")
 		return
@@ -186,9 +213,36 @@ func deposit_tokens():
 		return
 	
 	deposit_pending = true
-	var params = [token["local_token"], Ethers.convert_to_bignum(token_balance)]
 	
-	queue_transaction("depositTokens", params, "Deposit")
+	var scrypool_contract = Ethers.network_info[local_network]["scrypool_contract"]
+	var params = [scrypool_contract, Ethers.convert_to_bignum(token_balance)]
+	var callback_args = {"token_lane": self, "tx_type": "Approval"}
+	
+	main.queue_transaction(
+		account, 
+		local_network, 
+		local_token, 
+		"approve", 
+		params, 
+		callback_args
+		)
+
+
+func deposit_tokens():
+	deposit_pending = true
+	
+	var scrypool_contract = Ethers.network_info[local_network]["scrypool_contract"]
+	var params = [local_token, Ethers.convert_to_bignum(token_balance)]
+	var callback_args = {"token_lane": self, "tx_type": "Deposit"}
+	
+	main.queue_transaction(
+		account, 
+		local_network, 
+		scrypool_contract, 
+		"depositTokens", 
+		params, 
+		callback_args
+		)
 	
 	
 
@@ -202,9 +256,19 @@ func withdraw_tokens():
 		return
 	
 	withdrawal_pending = true
-	var params = [token["local_token"]]
+	var scrypool_contract = Ethers.network_info[local_network]["scrypool_contract"]
+	var params = [local_token]
+	var callback_args = {"token_lane": self, "tx_type": "Withdrawal"}
 	
-	queue_transaction("withdrawTokens", params, "Withdrawal")
+	main.queue_transaction(
+		account, 
+		local_network, 
+		scrypool_contract, 
+		"approve", 
+		params, 
+		callback_args
+		)
+	
 	
 
 func check_for_manual_execution():
@@ -218,24 +282,6 @@ func claim_reward():
 func pause():
 	#if out of gas or tokens
 	pass
-
-
-func queue_transaction(function_name, params, tx_type):
-	var calldata = Ethers.get_calldata(
-				"WRITE", 
-				main.SCRYPOOL_ABI, 
-				function_name, 
-				params
-				)
-	
-	var transaction = {
-		"network": token["local_network"],
-		"contract": token["local_token"],
-		"calldata": calldata,
-		"callback_args": {"token_lane": self, "tx_type": tx_type}
-	}
-	
-	main.transaction_queue[account].push_back(transaction)
 
 
 func deposit_complete():

@@ -172,6 +172,7 @@ mouse_default_cursor_shape = 2
 text = "Mode Sepolia"
 
 [node name="Close" type="Button" parent="Form/NetworkList"]
+layout_mode = 0
 offset_left = 989.0
 offset_top = 538.0
 offset_right = 1076.0

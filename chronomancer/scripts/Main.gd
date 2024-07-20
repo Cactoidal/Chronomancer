@@ -13,6 +13,9 @@ var selected_account
 # Accounts mapped to their assigned tasks (Chronomancer or Test Creator)
 var account_tasks = {}
 
+# Accounts mapped to networks mapped to gas and token balances
+var account_balances = {}  #account -> networks -> gas/tokens
+
 # The currently loaded task interface
 var active_task_interface
 
@@ -30,6 +33,7 @@ var transaction_queue = {}
 
 # Interface variables
 var tx_downshift = 0
+var bridge_slider_amount = 116
 
 # Chronomancer Task variables
 
@@ -48,6 +52,7 @@ var test_lane = {
 		"local_network": "Base Sepolia",
 		"local_token": "0x88A2d74F47a237a62e7A51cdDa67270CE381555e",
 		"token_name": "CCIP-BnM",
+		"token_decimals": "18",
 		"minimum_transfer": "0",
 		"minimum_reward_percent": "0",
 		"maximum_gas_fee": "0.001",
@@ -64,13 +69,14 @@ func _ready():
 	Ethers.register_transaction_log(self, "receive_transaction_object")
 	load_ccip_network_info()
 	load_application_manifest()
-	load_accounts()
+	load_account()
 
 
 func _process(delta):
 	chronomancer_process(delta)
-	test_creator_process(delta)
 	send_queued_transaction()
+	if slid_out:
+		check_bridge_inputs()
 
 
 func send_queued_transaction():
@@ -101,6 +107,29 @@ func send_queued_transaction():
 			# exceed the maximum_gas_price
 
 
+func queue_transaction(account, network, contract, function_name, params, callback_args):
+	var ABI = SCRYPOOL_ABI
+	var transaction_type = callback_args["transaction_type"]
+	
+	if transaction_type == "Approval":
+		ABI = Contract.ERC20
+	
+	var calldata = Ethers.get_calldata(
+				"WRITE", 
+				ABI, 
+				function_name, 
+				params
+				)
+	
+	var transaction = {
+		"network": network,
+		"contract": contract,
+		"calldata": calldata,
+		"callback_args": callback_args
+	}
+	
+	transaction_queue[account].push_back(transaction)
+
 
 #####   TASK MANAGEMENT   #####
 
@@ -110,6 +139,11 @@ func send_queued_transaction():
 # SETUP
 
 func load_chronomancer():
+	var fadein = create_tween()
+	fadein.tween_property($UI,"modulate:a", 1, 1.2).set_trans(Tween.TRANS_QUAD)
+	fadein.play()
+	# DEBUG
+	return
 	var chronomancer_task = _chronomancer_task.instantiate()
 	add_child(chronomancer_task)
 	active_task_interface = chronomancer_task
@@ -148,6 +182,9 @@ func load_token_lanes():
 		
 		token_lane.initialize(self, token, selected_account, active)
 
+
+# DEBUG
+# The lane should also retrieve and display its available ScryPool liquidity
 
 func new_monitored_token_form():
 	var monitored_token_form = _monitored_token_form.instantiate()
@@ -317,6 +354,7 @@ func decode_EVM2EVM_message(callback):
 			var flat_rate_threshold
 			var minimum_transfer
 			var maximum_gas_fee
+			var account
 			
 			for lane in active_token_lanes:
 				if lane["local_network"] == destination_network:
@@ -327,6 +365,7 @@ func decode_EVM2EVM_message(callback):
 							flat_rate_threshold = lane["flat_rate_threshold"]
 							minimum_transfer = lane["minimum_transfer"]
 							maximum_gas_fee = lane["maximum_gas_fee"]
+							account = lane["account"]
 			
 			if local_token == "":
 				return
@@ -362,6 +401,12 @@ func decode_EVM2EVM_message(callback):
 					return
 			
 			
+			# DEBUG
+			# If the transfer_amount exceeds the account's deposited token balance,
+			# check that Scrypool has sufficient liquidity before attemtping
+			# to fill
+			
+			
 			# Check that this message hasn't already been recorded.
 			var messageId = decoded_message[12]
 			
@@ -374,60 +419,99 @@ func decode_EVM2EVM_message(callback):
 			# Convert the EVM2EVM message to an Any2EVM Message,
 			# swapping the local token for the remote token.
 			# Then queue the order fill transaction.
+			var Any2EVMMessageStruct = {
+				"type": "tuple",
+				
+				"components": [
+					{"type": "bytes32"}, # messageId
+					{"type": "uint64"}, # sourceChainSelector
+					{"type": "address"}, # sender
+					{"type": "bytes"}, # data
+					{"type": "tuple[]", # tokenAmounts
+					"components": [
+						{"type": "address"}, # token
+						{"type": "uint256"} # amount
+						]},
+				]
+				
+				}
 			
 			
+			var Any2EVMMessage = [
+				messageId, #messageId
+				decoded_message[0], # sourceChainSelector
+				decoded_message[1], # sender
+				decoded_message[9], # data
+				[local_token, token_amount] # destTokenAmounts
+			]
 			
+			var params = [Calldata.abi_encode([Any2EVMMessageStruct], [Any2EVMMessage])]
+			var callback_args = {"transaction_type": "Order Fill", "ccip_message_id": messageId}
 			
-			
-			# Prepare the log dictionary.
-			var sender = decoded_message[1]
-			#var receiver = decoded_message[2]
-			
-			var _callback_args = {
-				"from_network": network,
-				"to_network": destination_network,
-				"sender": sender,
-				"receiver": receiver,
-				"messageId": messageId,
-				"contains_tokens": false
-			}
-			
-			
+			queue_transaction(
+				account, 
+				destination_network, 
+				Ethers.network_info[destination_network]["scrypool_contract"], 
+				"joinPool", 
+				params, 
+				callback_args
+				)
 
 
-
-
-
-
-
-
-### TEST CREATOR
-
-func load_test_creator():
-	pass
-
-func test_creator_process(delta):
-	pass
-
-func new_test_case_form():
-	#test_form.main = self
-	pass
-
+func mint():
+	var network = $UI/Bridge/Sender.text
+	
+	if !network in Ethers.network_info:
+		print_message("CCIP-BnM contract not found for " + network)
+		return
+	if Transaction.pending_transaction(selected_account, network):
+		print_message("Transaction ongoing on " + network)
+		return
+	if !has_network_gas(network):
+		print_message("Insufficient gas on " + network)
+		return
+		
+	var token_contract = Ethers.network_info[network]["bnm_contract"]
+	print_message("Copied CCIP-BnM contract to clipboard")
+	DisplayServer.clipboard_set(token_contract)
+	
+	var address = Ethers.get_address(selected_account)
+	
+	var function_selector = {
+		"name": "drip",
+		"inputs": [{"type": "address"}]
+	}
+	
+	var calldata = {
+		"calldata": Calldata.get_function_selector(function_selector) + Calldata.abi_encode( [{"type": "address"}], [address] )
+		}
+		
+	Ethers.send_transaction(
+				selected_account, 
+				network, 
+				token_contract, 
+				calldata, 
+				self, 
+				"get_receipt", 
+				{"transaction_type": "Mint", "token_contract": token_contract}
+				)
 
 
 
 #####   ACCOUNT MANAGEMENT   #####
 
+# DEBUG
 func load_application_manifest():
 	if !FileAccess.file_exists("user://MANIFEST"):
 		application_manifest = {
-			"accounts": [],
+			"account": "",
 			"monitored_tokens": [test_lane],
 			"test_cases": [],
-			"cached_transactions": []
+			"cached_transactions": [],
+			"approvals": {}
 			}
 		# DEBUG
-		# Need to save it
+		#save_application_manifest()
 	else:
 		var manifest = FileAccess.open("user://MANIFEST", FileAccess.READ).get_as_text()
 		var json = JSON.new()
@@ -438,43 +522,17 @@ func save_application_manifest():
 	FileAccess.open("user://MANIFEST", FileAccess.WRITE).store_string(str(application_manifest))
 	
 
-func load_accounts():
-	var accounts = $Accounts/Accounts/Accounts
-	
-	for account in available_accounts.keys():
-		available_accounts[account].queue_free()
-		accounts.custom_minimum_size.y -= 90
-	available_accounts = {}
-	#Accounts reset scroll length
-	
-	if application_manifest["accounts"] == []:
-		$NoAccounts.visible = true
+func load_account():
+	var account = application_manifest["account"]
+	if account == "":
+		$SelectedAccount/CreateAccount.visible = true
 	else:
-		var account_downshift = -50
+		$SelectedAccount/CreateAccount.visible = false
+		$SelectedAccount/Login.visible = true
 		
-		for account in application_manifest["accounts"]:
-			var account_object = _account_object.instantiate()
-			account_object.get_node("Account/AccountName").text = account
-			account_object.connect("pressed", select_account.bind(account))
-			accounts.add_child(account_object)
-			account_object.position = Vector2(4, account_downshift)
-			account_downshift += 87
-			accounts.custom_minimum_size.y += 90
-		
-			available_accounts[account] = account_object
-			
-			if account == application_manifest["accounts"][0]:
-				select_account(account)
-
-
-func open_create_account():
-	$Task.visible = false
-	$SelectedAccount/Login.visible = false
-	$SelectedAccount/AccountManager.visible = false
-	$SelectedAccount/CreateAccount.visible = true
-	$SelectedAccount/CreateAccount/Password.text = ""
-	$SelectedAccount/CreateAccount/ImportKey.text = ""
-	$SelectedAccount/CreateAccount/AccountName.text = ""
+		selected_account = account
+		$SelectedAccount/Login/AccountName.text = account
+		$SelectedAccount/Login/Password.text = ""
 
 
 func create_account():
@@ -490,14 +548,14 @@ func create_account():
 	if password == "":
 		print_message("Need to input password")
 		return
-	if imported_key.length() != 64 || !imported_key.is_valid_hex_number():
-		print_message("Imported key is not valid")
-		return
+	if imported_key != "":
+		if imported_key.length() != 64 || !imported_key.is_valid_hex_number():
+			print_message("Imported key is not valid")
+			return
 	Ethers.create_account(account_name, password, imported_key)
-	application_manifest["accounts"].push_back(account_name)
+	application_manifest["account"] = account_name
 	save_application_manifest()
-	load_accounts()
-	select_account(account_name)
+	load_account()
 	
 	password = Ethers.clear_memory()
 	password.clear()
@@ -506,29 +564,6 @@ func create_account():
 	$SelectedAccount/CreateAccount/Password.text = ""
 	$SelectedAccount/CreateAccount/ImportKey.text = ""
 	$SelectedAccount/CreateAccount/AccountName.text = ""
-	$NoAccounts.visible = false
-	
-
-
-func select_account(account):
-	for available_account in available_accounts.keys():
-		var highlight = available_accounts[available_account].get_node("Highlight")
-		if account == available_account:
-			highlight.visible = true
-		else:
-			highlight.visible = false
-	
-	$SelectedAccount/CreateAccount.visible = false
-	$SelectedAccount/Login.visible = false
-	$SelectedAccount/AccountManager.visible = false
-
-	selected_account = account
-	if account in Ethers.logins.keys():
-		load_account_manager()
-	else:
-		$SelectedAccount/Login/AccountName.text = account
-		$SelectedAccount/Login/Password.text = ""
-		$SelectedAccount/Login.visible = true
 
 
 func login_account():
@@ -536,60 +571,69 @@ func login_account():
 	var password = $SelectedAccount/Login/Password.text
 	
 	if Ethers.login(account_name, password):
-		load_account_manager()
-		$SelectedAccount/Login.visible = false
-		$SelectedAccount/Login/Password.text = ""
+		
 		password = Ethers.clear_memory()
 		password.clear()
+		$SelectedAccount/Login/Password.text = ""
+		$SelectedAccount/Login.visible = false
+		
+		$SelectedAccount/AccountManager.visible = true
+		$SelectedAccount/AccountManager/AccountName.text = account_name
+		$SelectedAccount/AccountManager/Address.text = Ethers.get_address(account_name)
+		
 		
 		transaction_queue[account_name] = []
-	
+		account_balances[account_name] = {}
+		
+		load_chronomancer()
+		
+		#get_balances(account_name, Ethers.network_info.keys())
+		
 	else:
 		print_message("Login failed")
 		return
+
+
+func get_balances(account, networks):
+	for network in networks:
+		Ethers.get_gas_balance(network, account, self, "update_gas_balance")
+
+
+func update_gas_balance(callback):
+	if callback["success"]:
+		var network = callback["network"]
+		var account = callback["account"]
 		
+		initialize_network_balance(network)
+		
+		for token in account_balances[account][network].keys():
+			if token != "gas":
+				var decimals = account_balances[account][network][token]["decimals"]
+				Ethers.get_erc20_balance(
+						network, 
+						Ethers.get_address(account), 
+						token, 
+						decimals, 
+						self, 
+						"update_erc20_balance",
+						{"token": token}
+						)
+
+func update_erc20_balance(callback):
+	if callback["success"]:
+		var network = callback["network"]
+		var account = callback["account"]
+		var token = callback["callback_args"]["token"]
+		account_balances[account][network][token]["balance"] = callback["result"]
 
 
 func load_account_manager():
 	var account = selected_account
-	$SelectedAccount/AccountManager/ChangeTask.visible = false
-	$SelectedAccount/AccountManager/ChooseTask.visible = false
-	
+
+	$SelectedAccount/AccountManager.visible = true
 	$SelectedAccount/AccountManager/AccountName.text = account
 	$SelectedAccount/AccountManager/Address.text = Ethers.get_address(account)
-	$SelectedAccount/AccountManager.visible = true
-	
-	if account in account_tasks.keys():
-		load_account_task(account_tasks[account])
-	else:
-		$SelectedAccount/AccountManager/ChooseTask.visible = true
-
-
-
-
-func load_account_task(task):
-	account_tasks[selected_account] = task
-	
-	for available_account in available_accounts.keys():
-		if selected_account == available_account:
-			available_accounts[available_account].get_node("Account/AccountTask").text = task
-	
-	if active_task_interface:
-		active_task_interface.queue_free()
-		
-	$SelectedAccount/AccountManager/ChangeTask.visible = true
-	$SelectedAccount/AccountManager/ChangeTask/Prompt.text = "Current Task:\n" + account_tasks[selected_account]
-	
-	match task:
-		"Chronomancer": load_chronomancer()
-		"Test Creator": load_test_creator()
-
-
-# DEBUG
-# Actually, changing tasks is probably unnecessary
-func change_task():
-	#prompt user to change task
-	pass
+	load_chronomancer()
 
 
 func copy_address():
@@ -599,7 +643,7 @@ func copy_address():
 
 
 func export_private_key():
-	var key = Ethers.get_key(selected_account)
+	var key = Ethers.get_key(selected_account).hex_encode()
 	DisplayServer.clipboard_set(key)
 	key = Ethers.clear_memory()
 	key.clear()
@@ -648,7 +692,7 @@ func add_new_tx_object(local_id, transaction):
 	var account = transaction["account"]
 	var transaction_type = transaction["callback_args"]["transaction_type"]
 	var transaction_hash = transaction["transaction_hash"]
-	var transaction_log = $TransactionLog/Transactions/Transactions
+	var transaction_log = $UI/TransactionLog/Transactions/Transactions
 
 	# Build a transaction node for the UI
 	var tx_object = _transaction_object.instantiate()
@@ -689,11 +733,17 @@ func add_new_tx_object(local_id, transaction):
 	fadein.play()
 
 
+# DEBUG
+# Update balances
 func update_transaction(tx_object, transaction):
 	var transaction_hash = transaction["transaction_hash"]
 	var transaction_type = transaction["callback_args"]["transaction_type"]
 	var network = transaction["network"]
 	var tx_status = transaction["tx_status"]
+	
+	var lane
+	if "token_lane" in transaction["callback_args"].keys():
+		lane = transaction["callback_args"]["token_lane"]
 	
 	if transaction_hash != "":
 		if "scan_url" in Ethers.network_info[network].keys():
@@ -703,19 +753,50 @@ func update_transaction(tx_object, transaction):
 			if !scan_link.visible:
 				scan_link.connect("pressed", open_link.bind(scan_url + "tx/" + transaction_hash))
 				scan_link.visible = true
+		
+		if transaction_type in ["CCIP Bridge", "Order Fill"]:
+			var ccip_link = tx_object.get_node("CCIP")
+			if !ccip_link.visible:
+				ccip_link.connect("pressed", open_link.bind("https://ccip.chain.link/tx/" + transaction_hash))
+				ccip_link.visible = true
+			
+			# DEBUG
+			#https://ccip.chain.link/msg/
+			
 	
 	if tx_status == "SUCCESS":
-		tx_object.get_node("Status").color = Color.GREEN
+		var receipt = transaction["transaction_receipt"]
+		if receipt["status"] == "0x1":
+			tx_object.get_node("Status").color = Color.GREEN
+			
+			if transaction_type in ["Mint", "Approve Router", "CCIP Bridge"]:
+				get_bridge_gas_balance(network)
+				if transaction_type in ["Mint", "CCIP Bridge"]:
+					var token_contract = transaction["callback_args"]["token_contract"]
+					get_bridge_token_balance(network, token_contract)
+			
+		else:
+			tx_object.get_node("Status").color = Color.RED
+			
+		if lane:
+			update_token_lane(lane, transaction_type, true)
+			
 	elif tx_status != "PENDING":
 		tx_object.get_node("Status").color = Color.RED
 		tx_object.get_node("Error").visible = true
 		tx_object.get_node("Error").connect("pressed", print_message.bind(tx_status))
+		if lane:
+			update_token_lane(lane, transaction_type, false)
 
 
-func get_receipt(callback):
-	#DEBUG
-	# update balances
-	pass
+func update_token_lane(token_lane, transaction_type, success):
+	if transaction_type == "Deposit":
+		token_lane.deposit_complete()
+	elif transaction_type == "Withdrawal":
+		token_lane.withdrawal_complete()
+	elif transaction_type == "Approval":
+		token_lane.deposit_tokems()
+
 
 
 
@@ -724,8 +805,15 @@ func get_receipt(callback):
 
 
 func print_message(message):
-	$Message.text = message
-	fadeout($Message, 4.2)
+	if $Message.get_children().size() > 1:
+		return
+		
+	for node in $Message.get_children():
+		node.queue_free()
+	var label = Label.new()
+	label.text = message
+	$Message.add_child(label)
+	fadeout(label, 4.2)
 
 
 func fadeout(node, time):
@@ -741,15 +829,357 @@ func open_link(url):
 
 
 func connect_buttons():
-	$AddAccount.connect("pressed", open_create_account)
 	$SelectedAccount/CreateAccount/CreateAccount.connect("pressed", create_account)
 	$SelectedAccount/Login/Login.connect("pressed", login_account)
-	$SelectedAccount/AccountManager/ChooseTask/Chronomancer.connect("pressed", load_account_task.bind("Chronomancer"))
-	$SelectedAccount/AccountManager/ChooseTask/TestCreator.connect("pressed", load_account_task.bind("Test Creator"))
 	$SelectedAccount/AccountManager/CopyAddress.connect("pressed", copy_address)
 	$SelectedAccount/AccountManager/ExportKey.connect("pressed", export_private_key)
-	$SelectedAccount/AccountManager/ChangeTask/ChangeTask.connect("pressed", change_task)
 	$NetworkSettings.connect("pressed", new_network_form)
+	$UI/Bridge.connect("pressed", slide_bridge)
+	$UI/Bridge/Mint.connect("pressed", mint)
+	$UI/Bridge/Initiate.connect("pressed", initiate_bridge)
+
+
+var slid_out = false
+var sliding = false
+func slide_bridge():
+	if sliding == true:
+		return
+	sliding = true
+	var slide = create_tween()
+	var next_position_y = $UI/Bridge.position.y
+	if slid_out:
+		next_position_y += bridge_slider_amount
+	else:
+		next_position_y -= bridge_slider_amount
+		
+	slide.tween_property($UI/Bridge,"position:y", next_position_y, 0.3).set_trans(Tween.TRANS_QUAD)
+	slide.tween_callback(slide_bridge_callback)
+	slide.play()
+
+
+func slide_bridge_callback():
+	sliding = false
+	if slid_out:
+		slid_out = false
+	else:
+		slid_out = true
+
+
+
+####     BRIDGING    ####
+
+var previous_sender_network = ""
+var previous_token_contract = ""
+func check_bridge_inputs():
+	var sender_network = $UI/Bridge/Sender.text
+	var token_contract = $UI/Bridge/Token.text
+	if sender_network != previous_sender_network:
+		$UI/Bridge/GasBalance.visible = false
+		$UI/Bridge/TokenBalance.visible = false
+		previous_sender_network = sender_network
+		if sender_network in Ethers.network_info.keys():
+			get_bridge_gas_balance(sender_network)
+			if is_valid_address(token_contract):
+				get_bridge_token_balance(sender_network, token_contract)
+	
+	
+	if token_contract != previous_token_contract:
+		$UI/Bridge/TokenBalance.visible = false
+		previous_token_contract = token_contract
+		if is_valid_address(token_contract) && sender_network in Ethers.network_info.keys():
+			get_bridge_token_balance(sender_network, token_contract)
+	
+
+func get_bridge_gas_balance(network):
+	Ethers.get_gas_balance(network, selected_account, self, "update_bridge_gas_balance")
+
+
+func update_bridge_gas_balance(callback):
+	if callback["success"]:
+		var network = callback["network"]
+		$UI/Bridge/GasBalance.text = "Gas: " + callback["result"].left(6)
+		$UI/Bridge/GasBalance.visible = true
+		if !network in account_balances[selected_account].keys():
+			account_balances[selected_account][network] = {}
+		account_balances[selected_account][network]["gas"] = callback["result"]
+
+
+func get_bridge_token_balance(network, token_contract):
+	Ethers.get_erc20_info(
+				network, 
+				Ethers.get_address(selected_account), 
+				token_contract, 
+				self, 
+				"update_bridge_token_balance", 
+				{"token_contract": token_contract}
+				)
+
+
+func update_bridge_token_balance(callback):
+	if callback["success"]:
+		var network = callback["network"]
+		var token_name = callback["result"][0]
+		var token_decimals = callback["result"][1]
+		var token_balance = callback["result"][2]
+		var token_contract = callback["callback_args"]["token_contract"]
+		
+		initialize_network_balance(network, token_contract)
+		account_balances[selected_account][network][token_contract]["name"] = token_name
+		account_balances[selected_account][network][token_contract]["decimals"] = token_decimals
+		account_balances[selected_account][network][token_contract]["balance"] = token_balance
+			
+		$UI/Bridge/TokenBalance.text = token_name + ": " + token_balance
+		$UI/Bridge/TokenBalance.visible = true
+
+
+func has_network_gas(network):
+	initialize_network_balance(network)
+	
+	if float(account_balances[selected_account][network]["gas"]) < float(Ethers.network_info[network]["minimum_gas_threshold"]):
+		return false
+	
+	return true
+
+
+# DEBUG
+# Put this in Ethers
+func has_enough_tokens(network, token_contract, _amount):
+	initialize_network_balance(network, token_contract)
+	
+	var decimals = account_balances[selected_account][network][token_contract]["decimals"]
+	
+	var balance = Ethers.convert_to_bignum(account_balances[selected_account][network][token_contract]["balance"], decimals)
+	var amount = Ethers.convert_to_bignum(_amount, decimals)
+	
+	# Tokens must be compared as BigNumbers for greater precision
+	
+	# If the balance is longer, it is larger
+	if balance.length() > amount.length():
+		return true
+	
+	# If the lengths are equal, compare integers down the length of the number
+	elif balance.length() == amount.length():
+		var index = 0
+		while index < balance.length():
+			if amount[index] > balance[index]:
+				return false
+			elif amount[index] < balance[index]:
+				return true
+			index += 1
+		
+		# The balance and amount are equal
+		return true
+
+	return false
+	
+	#print(float(amount))
+	#
+	#if float(account_balances[selected_account][network][token_contract]["balance"]) < float(amount):
+		#return false
+	#
+	#return true
+
+
+func initialize_network_balance(network, token_contract=""):
+	if !network in account_balances[selected_account].keys():
+		account_balances[selected_account][network] = {}
+	if !"gas" in account_balances[selected_account][network].keys():
+		account_balances[selected_account][network]["gas"] = "0"
+
+	if token_contract == "":
+		return
+	
+	if !token_contract in account_balances[selected_account][network].keys():
+		account_balances[selected_account][network][token_contract] = {
+					"name": "",
+					"decimals": "18",
+					"balance": "0",
+					"deposited_balance": "0"
+					}
+	
+
+
+func has_approval(network, token_contract):
+	if !network in application_manifest["approvals"].keys():
+		application_manifest["approvals"][network] = []
+		save_application_manifest()
+	if !token_contract in application_manifest["approvals"][network]:
+		return false
+	return true
+
+
+func is_valid_address(address):
+	#Address must be a string
+	if typeof(address) == 4:
+		if address.begins_with("0x") && address.length() == 42:
+			if address.trim_prefix("0x").is_valid_hex_number():
+				return true
+	return false
+
+
+
+func initiate_bridge():
+	var sender_network = $UI/Bridge/Sender.text
+	var destination_network = $UI/Bridge/Destination.text
+	var token_contract = $UI/Bridge/Token.text
+	var amount = $UI/Bridge/Amount.text
+	
+	if !sender_network in Ethers.network_info.keys():
+		print_message("Invalid sender network")
+		return
+	if !destination_network in Ethers.network_info.keys():
+		print_message("Invalid destination network")
+		return
+		
+	# DEBUG
+	#if Ethers.network_info[destination_network]["chronomancer_endpoint"] == "":
+		#print_message("No Chronomancer endpoint found for " + destination_network)
+		#return
+		
+	if !is_valid_address(token_contract):
+		print_message("Invalid token contract")
+		return
+	if Transaction.pending_transaction(selected_account, sender_network):
+		print_message("Transaction ongoing on " + sender_network)
+		return
+	if !has_network_gas(sender_network):
+		print_message("Insufficient gas on " + sender_network)
+		return
+	if !has_enough_tokens(sender_network, token_contract, amount):
+		print_message("Token balance less than transfer amount")
+		return
+	
+	var router = Ethers.network_info[sender_network]["router"]
+	var bridge_form = {
+		"sender_network": sender_network,
+		"destination_network": destination_network,
+		"token_contract": token_contract,
+		"amount": amount
+	}
+	
+	if !has_approval(sender_network, router):
+		Ethers.approve_erc20_allowance(
+				selected_account, 
+				sender_network, 
+				token_contract, 
+				router, 
+				"MAX", 
+				self, 
+				"handle_approval", 
+				{"transaction_type": "Approve Router", "approved_contract": router, "bridge_form": bridge_form}
+				)
+	else:
+		bridge(bridge_form)
+
+
+func handle_approval(callback):
+	if callback["success"]:
+		var network = callback["network"]
+		var approved_contract = callback["callback_args"]["approved_contract"]
+		var transaction_type = callback["callback_args"]["transaction_type"]
+		application_manifest["approvals"][network].push_back(approved_contract)
+		save_application_manifest()
+		
+		match transaction_type:
+			"Approve Router": bridge(callback["callback_args"]["bridge_form"])
+
+
+func bridge(bridge_form):
+	var sender_network = bridge_form["sender_network"]
+	var destination_network = bridge_form["destination_network"]
+	var token_contract = bridge_form["token_contract"]
+	var decimals = account_balances[selected_account][sender_network][token_contract]["decimals"]
+	var amount = Ethers.convert_to_bignum(bridge_form["amount"], decimals)
+	
+	# DEBUG
+	# add later
+	#var chronomancer_endpoint = Ethers.network_info[destination_network]["chronomancer_endpoint"]
+	
+	var recipient = Ethers.get_address(selected_account)
+	var reward = Ethers.convert_to_bignum(amount, decimals)
+	var test_payload = Calldata.abi_encode( [{"type": "string"}], ["test"] )
+	
+	var data = Calldata.abi_encode([{"type": "address"}, {"type": "uint256"}, {"type": "bytes"}], [recipient, reward, test_payload])
+	
+	var EVMTokenAmount = [
+		token_contract,
+		amount
+	]
+	
+	var EVMExtraArgsV1 = [
+		"90000" # Destination gas limit
+	]
+	
+	# EVM2Any messages expect some of their parameters to 
+	# be ABI encoded and sent as bytes.
+	var extra_args = "97a657c9" + Calldata.abi_encode( [{"type": "tuple", "components":[{"type": "uint256"}]}], [EVMExtraArgsV1] )
+	
+	var EVM2AnyMessage = [
+		# DEBUG
+		Calldata.abi_encode( [{"type": "address"}], [recipient] ), # ABI-encoded Chronomancer endpoint address
+		data, # Data payload, as bytes
+		[EVMTokenAmount], # EVMTokenAmounts
+		"0x0000000000000000000000000000000000000000", # Fee address (address(0) = native token)
+		extra_args # Extra args
+	]
+	
+	var chain_selector = Ethers.network_info[destination_network]["chain_selector"]
+	
+	var calldata = Ethers.get_calldata("READ", CCIP_ROUTER, "getFee", [chain_selector, EVM2AnyMessage])
+	
+	var router = Ethers.network_info[sender_network]["router"]
+	Ethers.read_from_contract(
+				sender_network, 
+				router, 
+				calldata, 
+				self, 
+				"send_bridge_transaction", 
+				{"chain_selector": chain_selector, "EVM2AnyMessage": EVM2AnyMessage, "token_contract": token_contract}
+				)
+
+
+func send_bridge_transaction(callback):
+	
+	if callback["success"]:
+		var network = callback["network"]
+		var callback_args = callback["callback_args"]
+		var EVM2AnyMessage = callback_args["EVM2AnyMessage"]
+		var chain_selector = callback_args["chain_selector"]
+		var router = Ethers.network_info[network]["router"]
+		var token_contract = callback_args["token_contract"]
+		
+		# Because a contract read can return multple values,
+		# successful returns from "read_from_contract()" will 
+		# always arrive as an array of decoded outputs.
+		var fee = callback["result"][0]
+		
+		# Bump up the fee to decrease chances of a revert.
+		# Excess value sent will be refunded by the CCIP router
+		fee = float(Ethers.convert_to_smallnum(fee))
+		fee *= 1.25
+		fee = Ethers.convert_to_bignum(str(fee))
+		
+		var calldata = Ethers.get_calldata("WRITE", CCIP_ROUTER, "ccipSend", [chain_selector, EVM2AnyMessage])
+		
+		# The fee value acquired above is passed as the "value" parameter.
+		Ethers.send_transaction(
+			selected_account, 
+			network, 
+			router, 
+			calldata, 
+			self, 
+			"get_receipt", 
+			{"transaction_type": "CCIP Bridge", "token_contract": token_contract}, 
+			"900000", 
+			fee
+			)
+
+
+# DEBUG
+func get_receipt(callback):
+	#DEBUG
+	# update balances
+	pass
 
 
 
@@ -1351,3 +1781,342 @@ var SCRYPOOL_ABI = [
 		"type": "function"
 	}
 ]
+
+
+var CCIP_ROUTER = [
+  {
+	"inputs": [],
+	"name": "InsufficientFeeTokenAmount",
+	"type": "error"
+  },
+  {
+	"inputs": [],
+	"name": "InvalidMsgValue",
+	"type": "error"
+  },
+  {
+	"inputs": [
+	  {
+		"internalType": "uint64",
+		"name": "destChainSelector",
+		"type": "uint64"
+	  }
+	],
+	"name": "UnsupportedDestinationChain",
+	"type": "error"
+  },
+  {
+	"inputs": [
+	  {
+		"internalType": "uint64",
+		"name": "destinationChainSelector",
+		"type": "uint64"
+	  },
+	  {
+		"components": [
+		  {
+			"internalType": "bytes",
+			"name": "receiver",
+			"type": "bytes"
+		  },
+		  {
+			"internalType": "bytes",
+			"name": "data",
+			"type": "bytes"
+		  },
+		  {
+			"components": [
+			  {
+				"internalType": "address",
+				"name": "token",
+				"type": "address"
+			  },
+			  {
+				"internalType": "uint256",
+				"name": "amount",
+				"type": "uint256"
+			  }
+			],
+			"internalType": "struct Client.EVMTokenAmount[]",
+			"name": "tokenAmounts",
+			"type": "tuple[]"
+		  },
+		  {
+			"internalType": "address",
+			"name": "feeToken",
+			"type": "address"
+		  },
+		  {
+			"internalType": "bytes",
+			"name": "extraArgs",
+			"type": "bytes"
+		  }
+		],
+		"internalType": "struct Client.EVM2AnyMessage",
+		"name": "message",
+		"type": "tuple"
+	  }
+	],
+	"name": "ccipSend",
+	"outputs": [
+	  {
+		"internalType": "bytes32",
+		"name": "",
+		"type": "bytes32"
+	  }
+	],
+	"stateMutability": "payable",
+	"type": "function"
+  },
+  {
+	"inputs": [
+	  {
+		"internalType": "uint64",
+		"name": "destinationChainSelector",
+		"type": "uint64"
+	  },
+	  {
+		"components": [
+		  {
+			"internalType": "bytes",
+			"name": "receiver",
+			"type": "bytes"
+		  },
+		  {
+			"internalType": "bytes",
+			"name": "data",
+			"type": "bytes"
+		  },
+		  {
+			"components": [
+			  {
+				"internalType": "address",
+				"name": "token",
+				"type": "address"
+			  },
+			  {
+				"internalType": "uint256",
+				"name": "amount",
+				"type": "uint256"
+			  }
+			],
+			"internalType": "struct Client.EVMTokenAmount[]",
+			"name": "tokenAmounts",
+			"type": "tuple[]"
+		  },
+		  {
+			"internalType": "address",
+			"name": "feeToken",
+			"type": "address"
+		  },
+		  {
+			"internalType": "bytes",
+			"name": "extraArgs",
+			"type": "bytes"
+		  }
+		],
+		"internalType": "struct Client.EVM2AnyMessage",
+		"name": "message",
+		"type": "tuple"
+	  }
+	],
+	"name": "getFee",
+	"outputs": [
+	  {
+		"internalType": "uint256",
+		"name": "fee",
+		"type": "uint256"
+	  }
+	],
+	"stateMutability": "view",
+	"type": "function"
+  },
+  {
+	"inputs": [
+	  {
+		"internalType": "uint64",
+		"name": "chainSelector",
+		"type": "uint64"
+	  }
+	],
+	"name": "getSupportedTokens",
+	"outputs": [
+	  {
+		"internalType": "address[]",
+		"name": "tokens",
+		"type": "address[]"
+	  }
+	],
+	"stateMutability": "view",
+	"type": "function"
+  },
+  {
+	"inputs": [
+	  {
+		"internalType": "uint64",
+		"name": "chainSelector",
+		"type": "uint64"
+	  }
+	],
+	"name": "isChainSupported",
+	"outputs": [
+	  {
+		"internalType": "bool",
+		"name": "supported",
+		"type": "bool"
+	  }
+	],
+	"stateMutability": "view",
+	"type": "function"
+  }
+]
+
+
+
+
+#####   NETWORK INFO   #####
+
+var ccip_network_info = {
+	
+	"Ethereum Sepolia": 
+		{
+		"chain_selector": "16015286601757825753",
+		"router": "0x0BF3dE8c5D3e8A2B34D2BEeB17ABfCeBaf363A59",
+		"token_contract": "0xFd57b4ddBf88a4e07fF4e34C487b99af2Fe82a05",
+		"onramp_contracts": ["0xe4Dd3B16E09c016402585a8aDFdB4A18f772a07e", "0x69CaB5A0a08a12BaFD8f5B195989D709E396Ed4d", "0x2B70a05320cB069e0fB55084D402343F832556E7", "0x0477cA0a35eE05D3f9f424d88bC0977ceCf339D4"],
+		"onramp_contracts_by_network": 
+			[
+				{
+					"network": "Arbitrum Sepolia",
+					"contract": "0xe4Dd3B16E09c016402585a8aDFdB4A18f772a07e"
+				},
+				{
+					"network": "Optimism Sepolia",
+					"contract": "0x69CaB5A0a08a12BaFD8f5B195989D709E396Ed4d"
+				},
+				{
+					"network": "Base Sepolia",
+					"contract": "0x2B70a05320cB069e0fB55084D402343F832556E7"
+				},
+				{
+					"network": "Avalanche Fuji",
+					"contract": "0x0477cA0a35eE05D3f9f424d88bC0977ceCf339D4"
+				}
+			
+		],
+		"monitored_tokens": []
+		},
+		
+	"Arbitrum Sepolia": 
+		{
+		"chain_selector": "3478487238524512106",
+		"router": "0x2a9C5afB0d0e4BAb2BCdaE109EC4b0c4Be15a165",
+		"token_contract": "0xA8C0c11bf64AF62CDCA6f93D3769B88BdD7cb93D",
+		"onramp_contracts": ["0x4205E1Ca0202A248A5D42F5975A8FE56F3E302e9", "0x701Fe16916dd21EFE2f535CA59611D818B017877", "0x7854E73C73e7F9bb5b0D5B4861E997f4C6E8dcC6", "0x1Cb56374296ED19E86F68fA437ee679FD7798DaA"],
+		"onramp_contracts_by_network": 
+			[
+				{
+					"network": "Ethereum Sepolia",
+					"contract": "0x4205E1Ca0202A248A5D42F5975A8FE56F3E302e9"
+				},
+				{
+					"network": "Optimism Sepolia",
+					"contract": "0x701Fe16916dd21EFE2f535CA59611D818B017877"
+				},
+				{
+					"network": "Base Sepolia",
+					"contract": "0x7854E73C73e7F9bb5b0D5B4861E997f4C6E8dcC6"
+				},
+				{
+					"network": "Avalanche Fuji",
+					"contract": "0x1Cb56374296ED19E86F68fA437ee679FD7798DaA"
+				}
+			
+		],
+		"monitored_tokens": []
+		},
+		
+	"Optimism Sepolia": {
+		"chain_selector": "5224473277236331295",
+		"router": "0x114A20A10b43D4115e5aeef7345a1A71d2a60C57",
+		"token_contract": "0x8aF4204e30565DF93352fE8E1De78925F6664dA7",
+		"onramp_contracts": ["0xC8b93b46BF682c39B3F65Aa1c135bC8A95A5E43a", "0x1a86b29364D1B3fA3386329A361aA98A104b2742", "0xe284D2315a28c4d62C419e8474dC457b219DB969", "0x6b38CC6Fa938D5AB09Bdf0CFe580E226fDD793cE"],
+		"onramp_contracts_by_network": 
+			[
+				{
+					"network": "Ethereum Sepolia",
+					"contract": "0xC8b93b46BF682c39B3F65Aa1c135bC8A95A5E43a"
+				},
+				{
+					"network": "Arbitrum Sepolia",
+					"contract": "0x1a86b29364D1B3fA3386329A361aA98A104b2742"
+				},
+				{
+					"network": "Base Sepolia",
+					"contract": "0xe284D2315a28c4d62C419e8474dC457b219DB969"
+				},
+				{
+					"network": "Avalanche Fuji",
+					"contract": "0x6b38CC6Fa938D5AB09Bdf0CFe580E226fDD793cE"
+				}
+			
+		],
+		"monitored_tokens": []
+	},
+	
+	"Base Sepolia": {
+		"chain_selector": "10344971235874465080",
+		"router": "0xD3b06cEbF099CE7DA4AcCf578aaebFDBd6e88a93",
+		"token_contract": "0x88A2d74F47a237a62e7A51cdDa67270CE381555e",
+		"onramp_contracts": ["0x6486906bB2d85A6c0cCEf2A2831C11A2059ebfea", "0x58622a80c6DdDc072F2b527a99BE1D0934eb2b50", "0x3b39Cd9599137f892Ad57A4f54158198D445D147", "0xAbA09a1b7b9f13E05A6241292a66793Ec7d43357"],
+		"onramp_contracts_by_network": 
+			[
+				{
+					"network": "Ethereum Sepolia",
+					"contract": "0x6486906bB2d85A6c0cCEf2A2831C11A2059ebfea"
+				},
+				{
+					"network": "Arbitrum Sepolia",
+					"contract": "0x58622a80c6DdDc072F2b527a99BE1D0934eb2b50"
+				},
+				{
+					"network": "Optimism Sepolia",
+					"contract": "0x3b39Cd9599137f892Ad57A4f54158198D445D147"
+				},
+				{
+					"network": "Avalanche Fuji",
+					"contract": "0xAbA09a1b7b9f13E05A6241292a66793Ec7d43357"
+				}
+			
+		],
+		"monitored_tokens": []
+	},
+	
+	"Avalanche Fuji": {
+		"chain_selector": "14767482510784806043",
+		"router": "0xF694E193200268f9a4868e4Aa017A0118C9a8177",
+		"token_contract": "0xD21341536c5cF5EB1bcb58f6723cE26e8D8E90e4",
+		"onramp_contracts": ["0x5724B4Cc39a9690135F7273b44Dfd3BA6c0c69aD", "0x8bB16BEDbFd62D1f905ACe8DBBF2954c8EEB4f66", "0xC334DE5b020e056d0fE766dE46e8d9f306Ffa1E2", "0x1A674645f3EB4147543FCA7d40C5719cbd997362"],
+		"onramp_contracts_by_network": 
+			[
+				{
+					"network": "Ethereum Sepolia",
+					"contract": "0x5724B4Cc39a9690135F7273b44Dfd3BA6c0c69aD"
+				},
+				{
+					"network": "Arbitrum Sepolia",
+					"contract": "0x8bB16BEDbFd62D1f905ACe8DBBF2954c8EEB4f66"
+				},
+				{
+					"network": "Optimism Sepolia",
+					"contract": "0xC334DE5b020e056d0fE766dE46e8d9f306Ffa1E2"
+				},
+				{
+					"network": "Base Sepolia",
+					"contract": "0x1A674645f3EB4147543FCA7d40C5719cbd997362"
+				}
+			
+		],
+		"monitored_tokens": []
+	}
+}
