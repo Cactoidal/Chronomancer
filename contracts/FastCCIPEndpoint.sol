@@ -55,6 +55,8 @@ contract FastCCIPEndpoint is CCIPReceiver {
         (address recipient, uint rewardAmount, ) = abi.decode(message.data, (address, uint, bytes));
         address token = message.destTokenAmounts[0].token;
         uint256 amount = message.destTokenAmounts[0].amount;
+
+        require(amount > rewardAmount);
         // The fill amount accounts for the reward
         amount = amount - rewardAmount;
 
