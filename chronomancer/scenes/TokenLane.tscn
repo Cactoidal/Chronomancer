@@ -11,7 +11,7 @@ gradient = SubResource("Gradient_cs6qf")
 [node name="TokenLane" type="ColorRect"]
 offset_left = 13.0
 offset_top = 1.0
-offset_right = 450.0
+offset_right = 645.0
 offset_bottom = 244.0
 script = ExtResource("1_eih4l")
 
@@ -19,7 +19,7 @@ script = ExtResource("1_eih4l")
 layout_mode = 0
 offset_left = 3.0
 offset_top = 3.0
-offset_right = 434.0
+offset_right = 629.0
 offset_bottom = 240.0
 texture = SubResource("GradientTexture2D_xuxon")
 
@@ -39,7 +39,6 @@ NETWORK
 NETWORK"
 
 [node name="TokenText2" type="Label" parent="."]
-visible = false
 layout_mode = 0
 offset_left = 226.0
 offset_top = 108.0
@@ -53,29 +52,68 @@ NETWORK"
 
 [node name="GasBalance" type="Label" parent="."]
 layout_mode = 0
-offset_left = 303.0
-offset_top = 30.0
-offset_right = 400.0
-offset_bottom = 53.0
+offset_left = 124.0
+offset_top = 5.0
+offset_right = 221.0
+offset_bottom = 28.0
 text = "Gas: 0"
 
 [node name="TokenBalance" type="Label" parent="."]
 layout_mode = 0
-offset_left = 303.0
-offset_top = 57.0
-offset_right = 426.0
-offset_bottom = 80.0
+offset_left = 290.0
+offset_top = 4.0
+offset_right = 413.0
+offset_bottom = 27.0
 text = "Tokens: 0"
+
+[node name="YourLiquidity" type="Label" parent="."]
+layout_mode = 0
+offset_left = 428.0
+offset_top = 47.0
+offset_right = 583.0
+offset_bottom = 96.0
+text = "Your Deposited Liquidity: 
+0"
+
+[node name="ScryPoolLiquidity" type="Label" parent="."]
+layout_mode = 0
+offset_left = 428.0
+offset_top = 100.0
+offset_right = 613.0
+offset_bottom = 149.0
+text = "ScryPool Total Liquidity:
+0"
 
 [node name="ToggleMonitoring" type="Button" parent="."]
 layout_mode = 0
-offset_left = 325.0
+offset_left = 520.0
 offset_top = 3.0
-offset_right = 461.0
+offset_right = 656.0
 offset_bottom = 34.0
 scale = Vector2(0.8, 0.8)
 mouse_default_cursor_shape = 2
 text = "Start Monitoring"
+
+[node name="Deposit" type="Button" parent="."]
+layout_mode = 0
+offset_left = 276.0
+offset_top = 31.0
+offset_right = 412.0
+offset_bottom = 62.0
+scale = Vector2(0.8, 0.8)
+mouse_default_cursor_shape = 2
+text = "Deposit
+"
+
+[node name="Withdraw" type="Button" parent="."]
+layout_mode = 0
+offset_left = 275.0
+offset_top = 60.0
+offset_right = 411.0
+offset_bottom = 91.0
+scale = Vector2(0.8, 0.8)
+mouse_default_cursor_shape = 2
+text = "Withdraw"
 
 [node name="ManageLane" type="Button" parent="."]
 layout_mode = 0
@@ -101,66 +139,42 @@ color = Color(0, 0, 0, 0.392157)
 layout_mode = 0
 offset_left = 20.0
 offset_top = 12.0
-offset_right = 416.0
+offset_right = 609.0
 offset_bottom = 230.0
 color = Color(0, 0, 0, 1)
 
-[node name="GasBalance" type="Label" parent="LaneManager"]
-layout_mode = 0
-offset_left = 42.0
-offset_top = 18.0
-offset_right = 184.0
-offset_bottom = 43.0
-text = "Gas Balance: 0"
-
-[node name="TokenBalance" type="Label" parent="LaneManager"]
-layout_mode = 0
-offset_left = 42.0
-offset_top = 46.0
-offset_right = 184.0
-offset_bottom = 71.0
-text = "Token Balance: 0"
-
-[node name="Deposit" type="Button" parent="LaneManager"]
-layout_mode = 0
-offset_left = 38.0
-offset_top = 86.0
-offset_right = 132.0
-offset_bottom = 117.0
-text = "Deposit"
-
-[node name="Withdraw" type="Button" parent="LaneManager"]
-layout_mode = 0
-offset_left = 159.0
-offset_top = 86.0
-offset_right = 261.0
-offset_bottom = 117.0
-text = "Withdraw"
-
 [node name="CheckPending" type="Button" parent="LaneManager"]
 layout_mode = 0
-offset_left = 29.0
+offset_left = 34.0
 offset_top = 166.0
-offset_right = 203.0
+offset_right = 208.0
 offset_bottom = 220.0
 text = "Check For
 Pending Rewards"
 
 [node name="Back" type="Button" parent="LaneManager"]
 layout_mode = 0
-offset_left = 309.0
-offset_top = 193.0
-offset_right = 411.0
-offset_bottom = 224.0
+offset_left = 34.0
+offset_top = 22.0
+offset_right = 136.0
+offset_bottom = 53.0
 text = "Back"
+
+[node name="EditLaneConfig" type="Button" parent="LaneManager"]
+layout_mode = 0
+offset_left = 34.0
+offset_top = 90.0
+offset_right = 167.0
+offset_bottom = 121.0
+text = "Edit Lane Config"
 
 [node name="Delete" type="Button" parent="LaneManager"]
 layout_mode = 0
-offset_left = 310.0
-offset_top = 19.0
-offset_right = 412.0
-offset_bottom = 50.0
-text = "Delete"
+offset_left = 388.0
+offset_top = 186.0
+offset_right = 592.0
+offset_bottom = 217.0
+text = "Permanently Delete Lane"
 
 [node name="DeleteCheck" type="ColorRect" parent="."]
 visible = false

@@ -221,6 +221,7 @@ mouse_default_cursor_shape = 2
 text = " + New Token Lane"
 
 [node name="Task" type="Panel" parent="UI"]
+visible = false
 layout_mode = 0
 offset_left = 288.0
 offset_top = 11.0

@@ -75,8 +75,7 @@ func _ready():
 func _process(delta):
 	chronomancer_process(delta)
 	send_queued_transaction()
-	if slid_out:
-		check_bridge_inputs()
+	check_bridge_inputs()
 
 
 func send_queued_transaction():
@@ -109,11 +108,7 @@ func send_queued_transaction():
 
 func queue_transaction(account, network, contract, function_name, params, callback_args):
 	var ABI = SCRYPOOL_ABI
-	var transaction_type = callback_args["transaction_type"]
-	
-	if transaction_type == "Approval":
-		ABI = Contract.ERC20
-	
+
 	var calldata = Ethers.get_calldata(
 				"WRITE", 
 				ABI, 
@@ -142,13 +137,15 @@ func load_chronomancer():
 	var fadein = create_tween()
 	fadein.tween_property($UI,"modulate:a", 1, 1.2).set_trans(Tween.TRANS_QUAD)
 	fadein.play()
-	# DEBUG
-	return
+	
+
 	var chronomancer_task = _chronomancer_task.instantiate()
-	add_child(chronomancer_task)
+	$UI.add_child(chronomancer_task)
 	active_task_interface = chronomancer_task
+	
+
 	load_token_lanes()
-	chronomancer_task.get_node("Task/CreateTokenLane").connect("pressed", new_monitored_token_form)
+	
 
 	
 func load_token_lanes():
@@ -159,6 +156,7 @@ func load_token_lanes():
 		old_lane.queue_free()
 		token_lanes.custom_minimum_size.y -= 240
 	loaded_token_lanes = []
+	active_token_lanes = []
 	
 	var lane_downshift = 1
 	
@@ -176,11 +174,7 @@ func load_token_lanes():
 		lane_downshift += 236
 		token_lanes.custom_minimum_size.y += 240
 		
-		var active = false
-		if token in active_token_lanes:
-			active = true
-		
-		token_lane.initialize(self, token, selected_account, active)
+		token_lane.initialize(self, token, selected_account)
 
 
 # DEBUG
@@ -208,7 +202,8 @@ func chronomancer_process(delta):
 func get_block_number():	
 	var remote_onramps = {}
 	
-	for token in active_token_lanes:
+	for lane in active_token_lanes:
+		var token = lane.token
 		# For every token lane, get the set of monitored remote networks.
 		for remote_network in token["remote_networks"].keys():
 			
@@ -242,6 +237,9 @@ func get_ccip_messages(callback):
 		var latest_block = callback["result"]
 		var network = callback["network"]
 		var onramps = callback["callback_args"]["onramps"]
+		
+		if !network in previous_blocks.keys():
+			previous_blocks[network] = "0"
 		
 		if latest_block == previous_blocks[network]:
 			return
@@ -284,15 +282,15 @@ func decode_EVM2EVM_message(callback):
 			
 			# The list of onramp contracts is duplicated to avoid changes from
 			# propagating to the ccip_network_info dictionary.
-			var onramp_list = Ethers.network_info[network].duplicate()
-			for _onramp in onramp_list.keys():
-				var onramp = onramp_list[_onramp]
+			var onramp_list = Ethers.network_info[network]["onramp_contracts"].duplicate()
+			for onramp_network in onramp_list.keys():
+				var onramp = onramp_list[onramp_network]
 				# Some RPC nodes return contract addresses with lowercase letters,
 				# while some do not.
 				if onramp != onramp_contract:
 					onramp = onramp.to_lower()
 				if onramp == onramp_contract:
-					destination_network = onramp["network"]
+					destination_network = onramp_network
 
 			# The message data will be an EVM2EVM message in the form of
 			# ABI encoded bytes.
@@ -301,7 +299,7 @@ func decode_EVM2EVM_message(callback):
 			# You can ABI encode and decode values manually by using
 			# the Calldata singleton.  You must provide the input
 			# or output types along with the values to encode/decode.
-			var EVM2EVMMessage = {
+			var EVM2EVMMessageStruct = {
 				"type": "tuple",
 				
 				"components": [
@@ -329,13 +327,15 @@ func decode_EVM2EVM_message(callback):
 			# The ABI Decoder will return an array containing the tuple, which
 			# can be accessed at index 0.  Once accessed, the 13 elements of the 
 			# EVM2EVM message can be accessed at their index.
-			var decoded_message = Calldata.abi_decode([EVM2EVMMessage], message)[0]
+			var decoded_message = Calldata.abi_decode([EVM2EVMMessageStruct], message)[0]
 			
 			# Check if the receiver is the Chronomancer endpoint.
 			var receiver = decoded_message[2]
-			var endpoint = Ethers.network_info[destination_network]["chronomancer_endpoint"]
+			var chronomancer_endpoint = Ethers.network_info[destination_network]["chronomancer_endpoint"]
 			
-			if receiver != endpoint:
+	
+			if receiver.to_lower() != chronomancer_endpoint.to_lower():
+				print_message("endpoint is not receiver")
 				return
 			
 			
@@ -344,6 +344,8 @@ func decode_EVM2EVM_message(callback):
 			var tokenAmounts = decoded_message[10]
 			# Some CCIP messages do not transmit tokens.
 			if tokenAmounts.is_empty():
+				#DEBUG
+				print_message("no tokens")
 				return
 			# Right now, only checks for a single token.
 			var token_contract = tokenAmounts[0][0]
@@ -357,17 +359,20 @@ func decode_EVM2EVM_message(callback):
 			var account
 			
 			for lane in active_token_lanes:
-				if lane["local_network"] == destination_network:
-					for remote_network in lane["remote_networks"]:
-						if lane["remote_networks"][remote_network] == token_contract:
-							local_token = lane["local_token"]
-							minimum_reward_percent = lane["minimum_reward_percent"]
-							flat_rate_threshold = lane["flat_rate_threshold"]
-							minimum_transfer = lane["minimum_transfer"]
-							maximum_gas_fee = lane["maximum_gas_fee"]
-							account = lane["account"]
+				var token = lane.token.duplicate()
+				if token["local_network"].to_lower() == destination_network.to_lower():
+					for remote_network in token["remote_networks"]:
+						if token["remote_networks"][remote_network].to_lower() == token_contract.to_lower():
+							local_token = token["local_token"]
+							minimum_reward_percent = token["minimum_reward_percent"]
+							flat_rate_threshold = token["flat_rate_threshold"]
+							minimum_transfer = token["minimum_transfer"]
+							maximum_gas_fee = token["maximum_gas_fee"]
+							account = token["account"]
 			
 			if local_token == "":
+				#DEBUG
+				print_message("invalid local token")
 				return
 			
 			
@@ -385,20 +390,28 @@ func decode_EVM2EVM_message(callback):
 				decoded_message[9]
 				)
 			
-			if data[0] == endpoint:
+			if data[0].to_lower() == chronomancer_endpoint.to_lower():
+				#DEBUG
+				print_message("recipient is chronomancer endpoint")
 				return
 			
 			
 			# Check that the reward meets or exceeds the set reward percentage
 			# and flat rate threshold.
+			# These need to use the BigNumber comparison function instead
 			var expected_minimum_reward = float(Ethers.convert_to_smallnum(token_amount)) * float(minimum_reward_percent)
 			
 			if float(data[1]) < expected_minimum_reward:
 				if flat_rate_threshold != "":
 					if float(data[1]) < flat_rate_threshold:
+						#DEBUG
+						print_message("Does not meet flat rate threshold")
 						return
 				else:
+					#DEBUG
+					print_message("Reward is less than minimum reward")
 					return
+					
 			
 			
 			# DEBUG
@@ -411,6 +424,8 @@ func decode_EVM2EVM_message(callback):
 			var messageId = decoded_message[12]
 			
 			if messageId in logged_messages:
+				#DEBUG
+				print_message("already logged this message")
 				return
 			else:
 				logged_messages.push_back(messageId)
@@ -425,8 +440,8 @@ func decode_EVM2EVM_message(callback):
 				"components": [
 					{"type": "bytes32"}, # messageId
 					{"type": "uint64"}, # sourceChainSelector
-					{"type": "address"}, # sender
-					{"type": "bytes"}, # data
+					{"type": "bytes"}, # ABI-encoded sender
+					{"type": "bytes"}, # ABI-encoded data
 					{"type": "tuple[]", # tokenAmounts
 					"components": [
 						{"type": "address"}, # token
@@ -436,13 +451,12 @@ func decode_EVM2EVM_message(callback):
 				
 				}
 			
-			
 			var Any2EVMMessage = [
 				messageId, #messageId
 				decoded_message[0], # sourceChainSelector
-				decoded_message[1], # sender
-				decoded_message[9], # data
-				[local_token, token_amount] # destTokenAmounts
+				Calldata.abi_encode([{"type": "address"}], [decoded_message[1]]), # ABI-encoded sender
+				decoded_message[9], # ABI-encoded data
+				[[local_token, token_amount]] # destTokenAmounts
 			]
 			
 			var params = [Calldata.abi_encode([Any2EVMMessageStruct], [Any2EVMMessage])]
@@ -502,6 +516,7 @@ func mint():
 
 # DEBUG
 func load_application_manifest():
+	# DEBUG
 	if !FileAccess.file_exists("user://MANIFEST"):
 		application_manifest = {
 			"account": "",
@@ -723,8 +738,8 @@ func add_new_tx_object(local_id, transaction):
 	# Once the log is full, start autoscrolling down
 	if tx_downshift >= 580:
 		var autoscroll = create_tween()
-		var distance = transaction_log.scroll_vertical + 116
-		autoscroll.tween_property(transaction_log, "scroll_vertical", distance, 0.5).set_trans(Tween.TRANS_QUAD)
+		var distance = transaction_log.get_parent().scroll_vertical + 116
+		autoscroll.tween_property(transaction_log.get_parent(), "scroll_vertical", distance, 0.5).set_trans(Tween.TRANS_QUAD)
 		autoscroll.play()
 	
 	tx_object.modulate.a = 0
@@ -771,9 +786,14 @@ func update_transaction(tx_object, transaction):
 			
 			if transaction_type in ["Mint", "Approve Router", "CCIP Bridge"]:
 				get_bridge_gas_balance(network)
-				if transaction_type in ["Mint", "CCIP Bridge"]:
+			if transaction_type in ["Mint", "CCIP Bridge"]:
 					var token_contract = transaction["callback_args"]["token_contract"]
 					get_bridge_token_balance(network, token_contract)
+			
+			if transaction_type == "Order Fill":
+				for token_lane in active_token_lanes:
+					if token_lane.local_network == network:
+						token_lane.get_balances()
 			
 		else:
 			tx_object.get_node("Status").color = Color.RED
@@ -790,13 +810,18 @@ func update_transaction(tx_object, transaction):
 
 
 func update_token_lane(token_lane, transaction_type, success):
-	if transaction_type == "Deposit":
-		token_lane.deposit_complete()
-	elif transaction_type == "Withdrawal":
-		token_lane.withdrawal_complete()
-	elif transaction_type == "Approval":
-		token_lane.deposit_tokems()
-
+	if transaction_type in ["Deposit", "Withdrawal"]:
+		token_lane.get_balances()
+		match transaction_type:
+			"Deposit": token_lane.deposit_pending = false
+			"Withdrawal": token_lane.withdrawal_pending = false
+	else:
+		Ethers.get_gas_balance(
+			token_lane.local_network, 
+			selected_account, 
+			token_lane, 
+			"update_gas_balance"
+			)
 
 
 
@@ -837,6 +862,7 @@ func connect_buttons():
 	$UI/Bridge.connect("pressed", slide_bridge)
 	$UI/Bridge/Mint.connect("pressed", mint)
 	$UI/Bridge/Initiate.connect("pressed", initiate_bridge)
+	$UI/NewLane.connect("pressed", new_monitored_token_form)
 
 
 var slid_out = false
@@ -951,6 +977,10 @@ func has_enough_tokens(network, token_contract, _amount):
 	var balance = Ethers.convert_to_bignum(account_balances[selected_account][network][token_contract]["balance"], decimals)
 	var amount = Ethers.convert_to_bignum(_amount, decimals)
 	
+	if amount == "0":
+		print_message("Transfer amount is zero")
+		return false
+	
 	# Tokens must be compared as BigNumbers for greater precision
 	
 	# If the balance is longer, it is larger
@@ -994,7 +1024,8 @@ func initialize_network_balance(network, token_contract=""):
 					"name": "",
 					"decimals": "18",
 					"balance": "0",
-					"deposited_balance": "0"
+					"deposited_balance": "0",
+					"total_liquidity": "0"
 					}
 	
 
@@ -1032,9 +1063,9 @@ func initiate_bridge():
 		return
 		
 	# DEBUG
-	#if Ethers.network_info[destination_network]["chronomancer_endpoint"] == "":
-		#print_message("No Chronomancer endpoint found for " + destination_network)
-		#return
+	if Ethers.network_info[destination_network]["chronomancer_endpoint"] == "":
+		print_message("No Chronomancer endpoint found for " + destination_network)
+		return
 		
 	if !is_valid_address(token_contract):
 		print_message("Invalid token contract")
@@ -1092,11 +1123,11 @@ func bridge(bridge_form):
 	var amount = Ethers.convert_to_bignum(bridge_form["amount"], decimals)
 	
 	# DEBUG
-	# add later
-	#var chronomancer_endpoint = Ethers.network_info[destination_network]["chronomancer_endpoint"]
+	var chronomancer_endpoint = Ethers.network_info[destination_network]["chronomancer_endpoint"]
 	
+	# DEBUG
 	var recipient = Ethers.get_address(selected_account)
-	var reward = Ethers.convert_to_bignum(amount, decimals)
+	var reward = Ethers.convert_to_bignum("0.001", decimals)
 	var test_payload = Calldata.abi_encode( [{"type": "string"}], ["test"] )
 	
 	var data = Calldata.abi_encode([{"type": "address"}, {"type": "uint256"}, {"type": "bytes"}], [recipient, reward, test_payload])
@@ -1116,7 +1147,7 @@ func bridge(bridge_form):
 	
 	var EVM2AnyMessage = [
 		# DEBUG
-		Calldata.abi_encode( [{"type": "address"}], [recipient] ), # ABI-encoded Chronomancer endpoint address
+		Calldata.abi_encode( [{"type": "address"}], [chronomancer_endpoint] ), # ABI-encoded Chronomancer endpoint address
 		data, # Data payload, as bytes
 		[EVMTokenAmount], # EVMTokenAmounts
 		"0x0000000000000000000000000000000000000000", # Fee address (address(0) = native token)
@@ -1275,6 +1306,8 @@ var default_ccip_network_info = {
 		"chain_selector": "10344971235874465080",
 		"router": "0xD3b06cEbF099CE7DA4AcCf578aaebFDBd6e88a93",
 		"bnm_contract": "0x88A2d74F47a237a62e7A51cdDa67270CE381555e",
+		"chronomancer_endpoint": "0x5e2080208a22A74E02D900cA774131278B5d9A57",
+		"scrypool_contract": "0xCC21bBA3E9da45bAC54f25be3914ad6ED18dCFdd",
 		"onramp_contracts": 
 			{
 				"Ethereum Sepolia": "0x6486906bB2d85A6c0cCEf2A2831C11A2059ebfea",
@@ -1652,6 +1685,30 @@ var SCRYPOOL_ABI = [
 		"name": "ccipReceive",
 		"outputs": [],
 		"stateMutability": "nonpayable",
+		"type": "function"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "bytes",
+				"name": "_message",
+				"type": "bytes"
+			}
+		],
+		"name": "checkOrderStatus",
+		"outputs": [
+			{
+				"internalType": "enum ScryPool.fillStatus",
+				"name": "",
+				"type": "uint8"
+			},
+			{
+				"internalType": "bool",
+				"name": "",
+				"type": "bool"
+			}
+		],
+		"stateMutability": "view",
 		"type": "function"
 	},
 	{

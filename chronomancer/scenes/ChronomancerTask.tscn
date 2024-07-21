@@ -13,8 +13,8 @@ mouse_filter = 2
 layout_mode = 0
 offset_left = 294.0
 offset_top = 11.0
-offset_right = 943.0
-offset_bottom = 603.0
+offset_right = 954.0
+offset_bottom = 498.0
 
 [node name="TokenLanes" type="Control" parent="Task"]
 anchors_preset = 0
@@ -25,29 +25,11 @@ offset_bottom = 40.0
 layout_mode = 0
 offset_left = -4.0
 offset_top = 8.0
-offset_right = 459.0
-offset_bottom = 582.0
+offset_right = 667.0
+offset_bottom = 483.0
 size_flags_vertical = 3
 follow_focus = true
 vertical_scroll_mode = 2
 
 [node name="TokenLanes" type="Control" parent="Task/TokenLanes/TokenLanes"]
 layout_mode = 2
-
-[node name="ToggleMonitoringAll" type="Button" parent="Task"]
-layout_mode = 0
-offset_left = 469.0
-offset_top = 282.0
-offset_right = 641.0
-offset_bottom = 313.0
-mouse_default_cursor_shape = 2
-text = "Start Monitoring All"
-
-[node name="CreateTokenLane" type="Button" parent="Task"]
-layout_mode = 0
-offset_left = 469.0
-offset_top = 10.0
-offset_right = 641.0
-offset_bottom = 41.0
-mouse_default_cursor_shape = 2
-text = "+ New Token Lane"

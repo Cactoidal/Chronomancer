@@ -26,10 +26,10 @@ func _ready():
 	
 	$Form/Input/Confirm.connect("pressed", confirm)
 	$Form/Input/Cancel.connect("pressed", cancel)
-	$Form/ConfirmCancel/Yes.connect("confirm_cancel", cancel)
-	$Form/ConfirmCancel/GoBack.connect("go_back", cancel)
-	$Form/ConfirmAdd/Confirm.connect("confirm_add", cancel)
-	$Form/ConfirmAdd/GoBack.connect("go_back", cancel)
+	$Form/ConfirmCancel/Yes.connect("pressed", confirm_cancel)
+	$Form/ConfirmCancel/GoBack.connect("pressed", go_back)
+	$Form/ConfirmAdd/Confirm.connect("pressed", confirm_add)
+	$Form/ConfirmAdd/GoBack.connect("pressed", go_back)
 
 
 func confirm():

@@ -28,9 +28,9 @@ anchor_top = 0.5
 anchor_right = 0.5
 anchor_bottom = 0.5
 offset_left = -546.0
-offset_top = -291.0
+offset_top = -306.0
 offset_right = 543.0
-offset_bottom = 291.0
+offset_bottom = 306.0
 grow_horizontal = 2
 grow_vertical = 2
 color = Color(0, 0, 0, 1)
@@ -135,12 +135,11 @@ offset_right = 1072.0
 offset_bottom = 198.0
 
 [node name="WorstCase" type="Label" parent="Form/Input"]
-visible = false
 layout_mode = 0
-offset_left = 523.0
-offset_top = 176.0
-offset_right = 860.0
-offset_bottom = 205.0
+offset_left = 516.0
+offset_top = 228.0
+offset_right = 853.0
+offset_bottom = 257.0
 text = "Worst Case: 0.00000 Gas for 0.00000 Tokens"
 
 [node name="Error" type="Label" parent="Form/Input"]
@@ -188,16 +187,16 @@ text = "Token Balance:"
 [node name="RemoteNetworksLabel" type="Label" parent="Form/Input"]
 layout_mode = 0
 offset_left = 10.0
-offset_top = 209.0
+offset_top = 235.0
 offset_right = 175.0
-offset_bottom = 232.0
+offset_bottom = 258.0
 text = "Remote Networks:"
 
 [node name="RemoteNetworks" type="Control" parent="Form/Input"]
 anchors_preset = 0
-offset_top = 32.0
+offset_top = 58.0
 offset_right = 40.0
-offset_bottom = 72.0
+offset_bottom = 98.0
 
 [node name="RemoteNetwork1" type="Control" parent="Form/Input/RemoteNetworks"]
 anchors_preset = 0
