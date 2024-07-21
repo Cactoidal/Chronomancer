@@ -89,6 +89,9 @@ contract ScryPool is CCIPReceiver {
         ( , uint rewardAmount, ) = abi.decode(message.data, (address, uint, bytes));
         uint orderAmount = message.destTokenAmounts[0].amount;
         address token = message.destTokenAmounts[0].token;
+
+        require(orderAmount > rewardAmount);
+        
         // The fill amount must account for the fee
         orderAmount = orderAmount - rewardAmount;
 
