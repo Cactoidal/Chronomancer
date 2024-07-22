@@ -1,6 +1,6 @@
 extends Control
 
-# Saves accounts, monitored token lanes, test cases, and pending transactions
+# Saves accounts, monitored token lanes, test cases, and pending rewards
 var application_manifest
 
 # Accounts mapped to their UI object
@@ -22,9 +22,6 @@ var active_task_interface
 # Mapping of transaction local_ids to their UI object, 
 # for updating transactions in the transaction log
 var transaction_history = {}
-
-# Accounts mapped to arrays of queued pending transactions
-var transaction_queue = {}
 
 var _minimum_gas_threshold = "0.0002"
 
@@ -78,59 +75,8 @@ func _ready():
 
 func _process(delta):
 	chronomancer_process(delta)
-	send_queued_transaction()
 	check_bridge_inputs()
 
-
-func send_queued_transaction():
-	for account in transaction_queue.keys():
-		var queue = transaction_queue[account]
-		if !queue.is_empty():
-			var transaction = queue[0].duplicate()
-			var network = transaction["network"]
-			if !Transaction.pending_transaction(account, network):
-				
-				
-				Ethers.send_transaction(
-					account,
-					network,
-					transaction["contract"],
-					transaction["calldata"],
-					self,
-					"get_receipt",
-					transaction["callback_args"]
-				)
-				transaction_queue[account].pop_front()
-		
-		# Queue tasks:
-			# DEBUG
-			# Check that the account has enough gas and tokens
-			# to fill the order
-			
-			# DEBUG
-			# Check that the estimated gas price does not 
-			# exceed the maximum_gas_price
-
-
-func queue_transaction(account, network, contract, function_name, params, callback_args, maximum_gas_fee="0.005"):
-	var ABI = SCRYPOOL_ABI
-
-	var calldata = Ethers.get_calldata(
-				"WRITE", 
-				ABI, 
-				function_name, 
-				params
-				)
-	
-	var transaction = {
-		"network": network,
-		"contract": contract,
-		"calldata": calldata,
-		"callback_args": callback_args,
-		"maximum_gas_fee": maximum_gas_fee
-	}
-	
-	transaction_queue[account].push_back(transaction)
 
 
 #####   TASK MANAGEMENT   #####
@@ -150,11 +96,9 @@ func load_chronomancer():
 	$UI.add_child(chronomancer_task)
 	active_task_interface = chronomancer_task
 	
-
 	load_token_lanes()
 	
 
-	
 func load_token_lanes():
 	var chronomancer_task = active_task_interface
 	var token_lanes = chronomancer_task.get_node("Task/TokenLanes/TokenLanes/TokenLanes")
@@ -183,9 +127,6 @@ func load_token_lanes():
 		
 		token_lane.initialize(self, token, selected_account)
 
-
-# DEBUG
-# The lane should also retrieve and display its available ScryPool liquidity
 
 func new_monitored_token_form():
 	var monitored_token_form = _monitored_token_form.instantiate()
@@ -342,9 +283,7 @@ func decode_EVM2EVM_message(callback):
 			
 	
 			if receiver.to_lower() != chronomancer_endpoint.to_lower():
-				print_message("endpoint is not receiver")
 				return
-			
 			
 			# Check if the token is a monitored token, and
 			# get the matching local token.
@@ -380,9 +319,6 @@ func decode_EVM2EVM_message(callback):
 							minimum_transfer = Ethers.convert_to_bignum(token["minimum_transfer"], token_decimals)
 							maximum_gas_fee = token["maximum_gas_fee"]
 							account = token["account"]
-			
-			
-			
 			
 			
 			if local_token == "":
@@ -430,21 +366,15 @@ func decode_EVM2EVM_message(callback):
 					return
 			
 			
-		
-			
 			# Reward cannot be equal to or larger than the transfer amount
 			if Ethers.big_uint_math(token_amount, "LESS THAN OR EQUAL", message_reward):
 				return
 		
 			# Won't attempt if ScryPool liquidity is too low
 			if Ethers.big_uint_math(scrypool_liquidity, "LESS THAN", token_amount):
+				print_message("Valid message rejected: ScryPool liquidity too low")
 				return
 	
-				
-			# DEBUG
-			# need to check gas balance and max gas price too
-			
-			
 			# Check that this message hasn't already been recorded.
 			var messageId = decoded_message[12]
 			
@@ -482,18 +412,48 @@ func decode_EVM2EVM_message(callback):
 				[[local_token, token_amount]] # destTokenAmounts
 			]
 			
-			var params = [Calldata.abi_encode([Any2EVMMessageStruct], [Any2EVMMessage])]
-			var callback_args = {"transaction_type": "Order Fill", "ccip_message_id": messageId}
+			var sequence_number = decoded_message[4]
 			
-			queue_transaction(
-				account, 
-				destination_network, 
-				Ethers.network_info[destination_network]["scrypool_contract"], 
-				"joinPool", 
-				params, 
-				callback_args,
-				maximum_gas_fee
-				)
+			var pending_reward = {
+				"sequence_number": sequence_number,
+				"message": Any2EVMMessage,
+				"message_id": messageId
+			}
+			
+			var calldata = Ethers.get_calldata(
+							"WRITE", 
+							SCRYPOOL_ABI, 
+							"joinPool", 
+							[Calldata.abi_encode([Any2EVMMessageStruct], [Any2EVMMessage])])
+				
+			var callback_args = {"transaction_type": "Order Fill", "ccip_message_id": messageId, "pending_reward": pending_reward}
+	
+			var ratio = 1
+			if minimum_transfer != "0":
+				ratio = Ethers.big_uint_math(token_amount, "DIVIDE", minimum_transfer)
+			
+			maximum_gas_fee = float(maximum_gas_fee) * float(ratio);
+	
+			Ethers.queue_transaction(
+							account, 
+							destination_network, 
+							Ethers.network_info[destination_network]["scrypool_contract"], 
+							calldata, 
+							self,
+							"get_receipt", 
+							callback_args,
+							str(maximum_gas_fee)
+							)
+
+
+
+
+
+func log_pending_reward(network, pending_reward):
+	if !network in application_manifest["pending_rewards"].keys():
+		application_manifest["pending_rewards"][network] = []
+	application_manifest["pending_rewards"][network].push_back(pending_reward)
+	save_application_manifest()
 
 
 func mint():
@@ -536,6 +496,9 @@ func mint():
 
 
 
+
+
+
 #####   ACCOUNT MANAGEMENT   #####
 
 # DEBUG
@@ -547,7 +510,8 @@ func load_application_manifest():
 			"monitored_tokens": [test_lane],
 			"test_cases": [],
 			"cached_transactions": [],
-			"approvals": {}
+			"approvals": {},
+			"pending_rewards": {}
 			}
 		# DEBUG
 		#save_application_manifest()
@@ -620,50 +584,46 @@ func login_account():
 		$SelectedAccount/AccountManager/AccountName.text = account_name
 		$SelectedAccount/AccountManager/Address.text = Ethers.get_address(account_name)
 		
-		
-		transaction_queue[account_name] = []
 		account_balances[account_name] = {}
 		
 		load_chronomancer()
-		
-		#get_balances(account_name, Ethers.network_info.keys())
 		
 	else:
 		print_message("Login failed")
 		return
 
-
-func get_balances(account, networks):
-	for network in networks:
-		Ethers.get_gas_balance(network, account, self, "update_gas_balance")
-
-
-func update_gas_balance(callback):
-	if callback["success"]:
-		var network = callback["network"]
-		var account = callback["account"]
-		
-		initialize_network_balance(network)
-		
-		for token in account_balances[account][network].keys():
-			if token != "gas":
-				var decimals = account_balances[account][network][token]["decimals"]
-				Ethers.get_erc20_balance(
-						network, 
-						Ethers.get_address(account), 
-						token, 
-						decimals, 
-						self, 
-						"update_erc20_balance",
-						{"token": token}
-						)
-
-func update_erc20_balance(callback):
-	if callback["success"]:
-		var network = callback["network"]
-		var account = callback["account"]
-		var token = callback["callback_args"]["token"]
-		account_balances[account][network][token]["balance"] = callback["result"]
+#
+#func get_balances(account, networks):
+	#for network in networks:
+		#Ethers.get_gas_balance(network, account, self, "update_gas_balance")
+#
+#
+#func update_gas_balance(callback):
+	#if callback["success"]:
+		#var network = callback["network"]
+		#var account = callback["account"]
+		#
+		#initialize_network_balance(network)
+		#
+		#for token in account_balances[account][network].keys():
+			#if token != "gas":
+				#var decimals = account_balances[account][network][token]["decimals"]
+				#Ethers.get_erc20_balance(
+						#network, 
+						#Ethers.get_address(account), 
+						#token, 
+						#decimals, 
+						#self, 
+						#"update_erc20_balance",
+						#{"token": token}
+						#)
+#
+#func update_erc20_balance(callback):
+	#if callback["success"]:
+		#var network = callback["network"]
+		#var account = callback["account"]
+		#var token = callback["callback_args"]["token"]
+		#account_balances[account][network][token]["balance"] = callback["result"]
 
 
 func load_account_manager():
@@ -696,6 +656,7 @@ func export_private_key():
 # calling this function in _ready() will overwrite Ethers' standard network info.
 func load_ccip_network_info():
 	var json = JSON.new()
+	# DEBUG
 	if FileAccess.file_exists("user://ccip_network_info") != true:
 		Ethers.network_info = default_ccip_network_info.duplicate()
 		var file = FileAccess.open("user://ccip_network_info", FileAccess.WRITE)
@@ -815,6 +776,9 @@ func update_transaction(tx_object, transaction):
 					get_bridge_token_balance(network, token_contract)
 			
 			if transaction_type == "Order Fill":
+				var pending_reward = transaction["callback_args"]["pending_reward"]
+				log_pending_reward(network, pending_reward)
+				
 				for token_lane in active_token_lanes:
 					if token_lane.local_network == network:
 						token_lane.get_balances()
@@ -947,6 +911,7 @@ func get_bridge_gas_balance(network):
 func update_bridge_gas_balance(callback):
 	if callback["success"]:
 		var network = callback["network"]
+		#var gas_symbol = Ethers.network_info[network]["gas_symbol"]
 		$UI/Bridge/GasBalance.text = "Gas: " + callback["result"].left(6)
 		$UI/Bridge/GasBalance.visible = true
 		if !network in account_balances[selected_account].keys():
@@ -988,14 +953,11 @@ func has_network_gas(network):
 	var gas = Ethers.convert_to_bignum(account_balances[selected_account][network]["gas"], 18)
 	
 	if Ethers.big_uint_math(gas, "LESS THAN", minimum_gas_threshold):
-	#if float(account_balances[selected_account][network]["gas"]) < float(Ethers.network_info[network]["minimum_gas_threshold"]):
 		return false
 	
 	return true
 
 
-# DEBUG
-# Put this in Ethers
 func has_enough_tokens(network, token_contract, _amount):
 	initialize_network_balance(network, token_contract)
 	var token_info = account_balances[selected_account][network][token_contract]
@@ -1013,54 +975,6 @@ func has_enough_tokens(network, token_contract, _amount):
 		return false
 	
 	return true
-	
-	
-	# If the balance is longer, it is larger
-	#if balance.length() > amount.length():
-		#return true
-	#
-	## If the lengths are equal, compare integers down the length of the number
-	#elif balance.length() == amount.length():
-		#var index = 0
-		#while index < balance.length():
-			#if amount[index] > balance[index]:
-				#return false
-			#elif amount[index] < balance[index]:
-				#return true
-			#index += 1
-		#
-		## The balance and amount are equal
-		#return true
-#
-	#return false
-	
-	#print(float(amount))
-	#
-	#if float(account_balances[selected_account][network][token_contract]["balance"]) < float(amount):
-		#return false
-	#
-	#return true
-
-
-func balance_greater_than_or_equal_to_amount(balance, amount):
-	# If the balance is longer, it is larger
-	if balance.length() > amount.length():
-		return true
-	
-	# If the lengths are equal, compare integers down the length of the number
-	elif balance.length() == amount.length():
-		var index = 0
-		while index < balance.length():
-			if amount[index] > balance[index]:
-				return false
-			elif amount[index] < balance[index]:
-				return true
-			index += 1
-		
-		# The balance and amount are equal
-		return true
-
-	return false
 
 
 func initialize_network_balance(network, token_contract=""):
@@ -1080,7 +994,6 @@ func initialize_network_balance(network, token_contract=""):
 					"deposited_balance": "0",
 					"total_liquidity": "0"
 					}
-	
 
 
 func has_approval(network, token_contract):
@@ -1279,6 +1192,7 @@ var default_ccip_network_info = {
 		"minimum_gas_threshold": "0.0002",
 		"maximum_gas_fee": "",
 		"scan_url": "https://sepolia.etherscan.io/",
+		"gas_symbol": "ETH",
 		#
 		"chain_selector": "16015286601757825753",
 		"router": "0x0BF3dE8c5D3e8A2B34D2BEeB17ABfCeBaf363A59",
@@ -1296,8 +1210,7 @@ var default_ccip_network_info = {
 				"Mode Sepolia": "0xc630fbD4D0F6AEB00aD0793FB827b54fBB78e981",
 				"Blast Sepolia": "0xDB75E9D9ca7577CcBd7232741be954cf26194a66",
 				"Celo Alfajores": "0x3C86d16F52C10B2ff6696a0e1b8E0BcfCC085948"
-			},
-		"monitored_tokens": []
+			}
 		},
 		
 	"Arbitrum Sepolia": 
@@ -1308,6 +1221,7 @@ var default_ccip_network_info = {
 		"minimum_gas_threshold": "0.0002",
 		"maximum_gas_fee": "",
 		"scan_url": "https://sepolia.arbiscan.io/",
+		"gas_symbol": "ETH",
 		#
 		"chain_selector": "3478487238524512106",
 		"router": "0x2a9C5afB0d0e4BAb2BCdaE109EC4b0c4Be15a165",
@@ -1320,8 +1234,7 @@ var default_ccip_network_info = {
 				"Avalanche Fuji": "0x1Cb56374296ED19E86F68fA437ee679FD7798DaA",
 				"Wemix Testnet": "0xBD4106fBE4699FE212A34Cc21b10BFf22b02d959",
 				"Gnosis Chiado": "0x973CbE752258D32AE82b60CD1CB656Eebb588dF0"
-			},
-		"monitored_tokens": []
+			}
 		},
 		
 	"Optimism Sepolia": {
@@ -1331,6 +1244,7 @@ var default_ccip_network_info = {
 		"minimum_gas_threshold": "0.0002",
 		"maximum_gas_fee": "",
 		"scan_url": "https://sepolia-optimism.etherscan.io/",
+		"gas_symbol": "ETH",
 		#
 		"chain_selector": "5224473277236331295",
 		"router": "0x114A20A10b43D4115e5aeef7345a1A71d2a60C57",
@@ -1344,8 +1258,7 @@ var default_ccip_network_info = {
 				"Polygon Amoy": "0x2Cf26fb01E9ccDb831414B766287c0A9e4551089",
 				"Wemix Testnet": "0xc7E53f6aB982af7A7C3e470c8cCa283d3399BDAd",
 				"Gnosis Chiado": "0x835a5b8e6CA17c2bB5A336c93a4E22478E6F1C8A"
-			},
-		"monitored_tokens": []
+			}
 	},
 	
 	"Base Sepolia": {
@@ -1355,6 +1268,7 @@ var default_ccip_network_info = {
 		"minimum_gas_threshold": "0.0002",
 		"maximum_gas_fee": "",
 		"scan_url": "https://sepolia.basescan.org/",
+		"gas_symbol": "ETH",
 		#
 		"chain_selector": "10344971235874465080",
 		"router": "0xD3b06cEbF099CE7DA4AcCf578aaebFDBd6e88a93",
@@ -1370,8 +1284,7 @@ var default_ccip_network_info = {
 				"BNB Chain Testnet": "0xD806966beAB5A3C75E5B90CDA4a6922C6A9F0c9d",
 				"Gnosis Chiado": "0x2Eff2d1BF5C557d6289D208a7a43608f5E3FeCc2",
 				"Mode Sepolia": "0x3d0115386C01436870a2c47e6297962284E70BA6"
-			},
-		"monitored_tokens": []
+			}
 	},
 	
 	"Avalanche Fuji": {
@@ -1381,6 +1294,7 @@ var default_ccip_network_info = {
 		"minimum_gas_threshold": "0.0002",
 		"maximum_gas_fee": "",
 		"scan_url": "https://testnet.snowtrace.io/",
+		"gas_symbol": "AVAX",
 		#
 		"chain_selector": "14767482510784806043",
 		"router": "0xF694E193200268f9a4868e4Aa017A0118C9a8177",
@@ -1395,8 +1309,7 @@ var default_ccip_network_info = {
 				"Polygon Amoy": "0x610F76A35E17DA4542518D85FfEa12645eF111Fc",
 				"Wemix Testnet": "0x677B5ab5C8522d929166c064d5700F147b15fa33",
 				"Gnosis Chiado": "0x1532e5b204ee2b2244170c78E743CB9c168F4DF9"
-			},
-		"monitored_tokens": []
+			}
 	},
 	
 	"BNB Chain Testnet": {
@@ -1406,6 +1319,7 @@ var default_ccip_network_info = {
 		"minimum_gas_threshold": "0.0002",
 		"maximum_gas_fee": "",
 		"scan_url": "https://testnet.bscscan.com",
+		"gas_symbol": "BNB",
 		#
 		"chain_selector": "13264668187771770619",
 		"router": "0xE1053aE1857476f36A3C62580FF9b016E8EE8F6f",
@@ -1418,8 +1332,7 @@ var default_ccip_network_info = {
 				"Polygon Amoy": "0xf37CcbfC04adc1B56a46B36F811D52C744a1AF78",
 				"Wemix Testnet": "0x89268Afc1BEA0782a27ba84124E3F42b196af927",
 				"Gnosis Chiado": "0x8735f991d41eA9cA9D2CC75cD201e4B7C866E63e"
-			},
-		"monitored_tokens": []
+			}
 	},
 	
 	"Wemix Testnet": {
@@ -1429,6 +1342,7 @@ var default_ccip_network_info = {
 		"minimum_gas_threshold": "0.0002",
 		"maximum_gas_fee": "",
 		"scan_url": "https://testnet.wemixscan.com",
+		"gas_symbol": "WEMIX",
 		#
 		"chain_selector": "9284632837123596123",
 		"router": "0xA8C0c11bf64AF62CDCA6f93D3769B88BdD7cb93D",
@@ -1442,8 +1356,7 @@ var default_ccip_network_info = {
 				"BNB Chain Testnet": "0x5AD6eed6Be0ffaDCA4105050CF0E584D87E0c2F1",
 				"Polygon Amoy": "0xd55148e841e76265B484d399eC71b7076ecB1216",
 				"Kroma Sepolia": "0x428C4dc89b6Bf908B82d77C9CBceA786ea8cc7D0"
-			},
-		"monitored_tokens": []
+			}
 	},
 	
 	"Gnosis Chiado": {
@@ -1453,6 +1366,7 @@ var default_ccip_network_info = {
 		"minimum_gas_threshold": "0.0002",
 		"maximum_gas_fee": "",
 		"scan_url": "https://gnosis-chiado.blockscout.com",
+		"gas_symbol": "ETH",
 		#
 		"chain_selector": "8871595565390010547",
 		"router": "0x19b1bac554111517831ACadc0FD119D23Bb14391",
@@ -1466,8 +1380,7 @@ var default_ccip_network_info = {
 				"Avalanche Fuji": "0x610F76A35E17DA4542518D85FfEa12645eF111Fc",
 				"BNB Chain Testnet": "0xE48E6AA1fc7D0411acEA95F8C6CaD972A37721D4",
 				"Polygon Amoy": "0x01800fCDd892e37f7829937271840A6F041bE62E"
-			},
-		"monitored_tokens": []
+			}
 	},
 	
 	"Polygon Amoy": {
@@ -1477,6 +1390,7 @@ var default_ccip_network_info = {
 		"minimum_gas_threshold": "0.0002",
 		"maximum_gas_fee": "",
 		"scan_url": "https://amoy.polygonscan.com",
+		"gas_symbol": "MATIC",
 		#
 		"chain_selector": "16281711391670634445",
 		"router": "0x9C32fCB86BF0f4a1A8921a9Fe46de3198bb884B2",
@@ -1489,8 +1403,7 @@ var default_ccip_network_info = {
 				"BNB Chain Testnet": "0xC6683ac4a0F62803Bec89a5355B36495ddF2C38b",
 				"Wemix Testnet": "0x26546096F64B5eF9A1DcDAe70Df6F4f8c2E10C61",
 				"Gnosis Chiado": "0x2331F6D614C9Fd613Ff59a1aB727f1EDf6c37A68"
-			},
-		"monitored_tokens": []
+			}
 	},
 	
 	"Kroma Sepolia": {
@@ -1500,6 +1413,7 @@ var default_ccip_network_info = {
 		"minimum_gas_threshold": "0.0002",
 		"maximum_gas_fee": "",
 		"scan_url": "https://sepolia.kromascan.com",
+		"gas_symbol": "ETH",
 		#
 		"chain_selector": "5990477251245693094",
 		"router": "0xA8C0c11bf64AF62CDCA6f93D3769B88BdD7cb93D",
@@ -1507,8 +1421,7 @@ var default_ccip_network_info = {
 		"onramp_contracts": 
 			{
 				"Wemix Testnet": "0x6ea155Fc77566D9dcE01B8aa5D7968665dc4f0C5"
-			},
-		"monitored_tokens": []
+			}
 	},
 	
 	"Celo Alfajores": {
@@ -1518,6 +1431,7 @@ var default_ccip_network_info = {
 		"minimum_gas_threshold": "0.0002",
 		"maximum_gas_fee": "",
 		"scan_url": "https://alfajores.celoscan.io",
+		"gas_symbol": "CELO",
 		#
 		"chain_selector": "3552045678561919002",
 		"router": "0xb00E95b773528E2Ea724DB06B75113F239D15Dca",
@@ -1525,8 +1439,7 @@ var default_ccip_network_info = {
 		"onramp_contracts": 
 			{
 				"Ethereum Sepolia": "0x16a020c4bbdE363FaB8481262D30516AdbcfcFc8"
-			},
-		"monitored_tokens": []
+			}
 	},
 	
 	"Blast Sepolia": {
@@ -1536,6 +1449,7 @@ var default_ccip_network_info = {
 		"minimum_gas_threshold": "0.0002",
 		"maximum_gas_fee": "",
 		"scan_url": "https://sepolia.blastscan.io",
+		"gas_symbol": "ETH",
 		#
 		"chain_selector": "2027362563942762617",
 		"router": "0xfb2f2A207dC428da81fbAFfDDe121761f8Be1194",
@@ -1543,8 +1457,7 @@ var default_ccip_network_info = {
 		"onramp_contracts": 
 			{
 				"Ethereum Sepolia": "0x85Ef19FC4C63c70744995DC38CAAEC185E0c619f"
-			},
-		"monitored_tokens": []
+			}
 	},
 	
 	"Mode Sepolia": {
@@ -1554,6 +1467,7 @@ var default_ccip_network_info = {
 		"minimum_gas_threshold": "0.0002",
 		"maximum_gas_fee": "",
 		"scan_url": "https://sepolia.explorer.mode.network",
+		"gas_symbol": "ETH",
 		#
 		"chain_selector": "829525985033418733",
 		"router": "0xc49ec0eB4beb48B8Da4cceC51AA9A5bD0D0A4c43",
@@ -1562,8 +1476,7 @@ var default_ccip_network_info = {
 			{
 				"Ethereum Sepolia": "0xfFdE9E8c34A27BEBeaCcAcB7b3044A0A364455C9",
 				"Base Sepolia": "0x73f7E074bd7291706a0C5412f51DB46441B1aDCB"
-			},
-		"monitored_tokens": []
+			}
 	}
 	
 }
@@ -2080,153 +1993,3 @@ var CCIP_ROUTER = [
 	"type": "function"
   }
 ]
-
-
-
-
-#####   NETWORK INFO   #####
-
-var ccip_network_info = {
-	
-	"Ethereum Sepolia": 
-		{
-		"chain_selector": "16015286601757825753",
-		"router": "0x0BF3dE8c5D3e8A2B34D2BEeB17ABfCeBaf363A59",
-		"token_contract": "0xFd57b4ddBf88a4e07fF4e34C487b99af2Fe82a05",
-		"onramp_contracts": ["0xe4Dd3B16E09c016402585a8aDFdB4A18f772a07e", "0x69CaB5A0a08a12BaFD8f5B195989D709E396Ed4d", "0x2B70a05320cB069e0fB55084D402343F832556E7", "0x0477cA0a35eE05D3f9f424d88bC0977ceCf339D4"],
-		"onramp_contracts_by_network": 
-			[
-				{
-					"network": "Arbitrum Sepolia",
-					"contract": "0xe4Dd3B16E09c016402585a8aDFdB4A18f772a07e"
-				},
-				{
-					"network": "Optimism Sepolia",
-					"contract": "0x69CaB5A0a08a12BaFD8f5B195989D709E396Ed4d"
-				},
-				{
-					"network": "Base Sepolia",
-					"contract": "0x2B70a05320cB069e0fB55084D402343F832556E7"
-				},
-				{
-					"network": "Avalanche Fuji",
-					"contract": "0x0477cA0a35eE05D3f9f424d88bC0977ceCf339D4"
-				}
-			
-		],
-		"monitored_tokens": []
-		},
-		
-	"Arbitrum Sepolia": 
-		{
-		"chain_selector": "3478487238524512106",
-		"router": "0x2a9C5afB0d0e4BAb2BCdaE109EC4b0c4Be15a165",
-		"token_contract": "0xA8C0c11bf64AF62CDCA6f93D3769B88BdD7cb93D",
-		"onramp_contracts": ["0x4205E1Ca0202A248A5D42F5975A8FE56F3E302e9", "0x701Fe16916dd21EFE2f535CA59611D818B017877", "0x7854E73C73e7F9bb5b0D5B4861E997f4C6E8dcC6", "0x1Cb56374296ED19E86F68fA437ee679FD7798DaA"],
-		"onramp_contracts_by_network": 
-			[
-				{
-					"network": "Ethereum Sepolia",
-					"contract": "0x4205E1Ca0202A248A5D42F5975A8FE56F3E302e9"
-				},
-				{
-					"network": "Optimism Sepolia",
-					"contract": "0x701Fe16916dd21EFE2f535CA59611D818B017877"
-				},
-				{
-					"network": "Base Sepolia",
-					"contract": "0x7854E73C73e7F9bb5b0D5B4861E997f4C6E8dcC6"
-				},
-				{
-					"network": "Avalanche Fuji",
-					"contract": "0x1Cb56374296ED19E86F68fA437ee679FD7798DaA"
-				}
-			
-		],
-		"monitored_tokens": []
-		},
-		
-	"Optimism Sepolia": {
-		"chain_selector": "5224473277236331295",
-		"router": "0x114A20A10b43D4115e5aeef7345a1A71d2a60C57",
-		"token_contract": "0x8aF4204e30565DF93352fE8E1De78925F6664dA7",
-		"onramp_contracts": ["0xC8b93b46BF682c39B3F65Aa1c135bC8A95A5E43a", "0x1a86b29364D1B3fA3386329A361aA98A104b2742", "0xe284D2315a28c4d62C419e8474dC457b219DB969", "0x6b38CC6Fa938D5AB09Bdf0CFe580E226fDD793cE"],
-		"onramp_contracts_by_network": 
-			[
-				{
-					"network": "Ethereum Sepolia",
-					"contract": "0xC8b93b46BF682c39B3F65Aa1c135bC8A95A5E43a"
-				},
-				{
-					"network": "Arbitrum Sepolia",
-					"contract": "0x1a86b29364D1B3fA3386329A361aA98A104b2742"
-				},
-				{
-					"network": "Base Sepolia",
-					"contract": "0xe284D2315a28c4d62C419e8474dC457b219DB969"
-				},
-				{
-					"network": "Avalanche Fuji",
-					"contract": "0x6b38CC6Fa938D5AB09Bdf0CFe580E226fDD793cE"
-				}
-			
-		],
-		"monitored_tokens": []
-	},
-	
-	"Base Sepolia": {
-		"chain_selector": "10344971235874465080",
-		"router": "0xD3b06cEbF099CE7DA4AcCf578aaebFDBd6e88a93",
-		"token_contract": "0x88A2d74F47a237a62e7A51cdDa67270CE381555e",
-		"onramp_contracts": ["0x6486906bB2d85A6c0cCEf2A2831C11A2059ebfea", "0x58622a80c6DdDc072F2b527a99BE1D0934eb2b50", "0x3b39Cd9599137f892Ad57A4f54158198D445D147", "0xAbA09a1b7b9f13E05A6241292a66793Ec7d43357"],
-		"onramp_contracts_by_network": 
-			[
-				{
-					"network": "Ethereum Sepolia",
-					"contract": "0x6486906bB2d85A6c0cCEf2A2831C11A2059ebfea"
-				},
-				{
-					"network": "Arbitrum Sepolia",
-					"contract": "0x58622a80c6DdDc072F2b527a99BE1D0934eb2b50"
-				},
-				{
-					"network": "Optimism Sepolia",
-					"contract": "0x3b39Cd9599137f892Ad57A4f54158198D445D147"
-				},
-				{
-					"network": "Avalanche Fuji",
-					"contract": "0xAbA09a1b7b9f13E05A6241292a66793Ec7d43357"
-				}
-			
-		],
-		"monitored_tokens": []
-	},
-	
-	"Avalanche Fuji": {
-		"chain_selector": "14767482510784806043",
-		"router": "0xF694E193200268f9a4868e4Aa017A0118C9a8177",
-		"token_contract": "0xD21341536c5cF5EB1bcb58f6723cE26e8D8E90e4",
-		"onramp_contracts": ["0x5724B4Cc39a9690135F7273b44Dfd3BA6c0c69aD", "0x8bB16BEDbFd62D1f905ACe8DBBF2954c8EEB4f66", "0xC334DE5b020e056d0fE766dE46e8d9f306Ffa1E2", "0x1A674645f3EB4147543FCA7d40C5719cbd997362"],
-		"onramp_contracts_by_network": 
-			[
-				{
-					"network": "Ethereum Sepolia",
-					"contract": "0x5724B4Cc39a9690135F7273b44Dfd3BA6c0c69aD"
-				},
-				{
-					"network": "Arbitrum Sepolia",
-					"contract": "0x8bB16BEDbFd62D1f905ACe8DBBF2954c8EEB4f66"
-				},
-				{
-					"network": "Optimism Sepolia",
-					"contract": "0xC334DE5b020e056d0fE766dE46e8d9f306Ffa1E2"
-				},
-				{
-					"network": "Base Sepolia",
-					"contract": "0x1A674645f3EB4147543FCA7d40C5719cbd997362"
-				}
-			
-		],
-		"monitored_tokens": []
-	}
-}

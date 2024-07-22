@@ -42,7 +42,7 @@ func initialize(_main, _token, _account):
 	
 	$Deposit.connect("pressed", approve_tokens)
 	$Withdraw.connect("pressed", withdraw_tokens)
-	$LaneManager/CheckPending.connect("pressed", check_for_manual_execution)
+	$LaneManager/CheckPending.connect("pressed", check_pending_rewards)
 	$LaneManager/Back.connect("pressed", close_lane_manager)
 	$LaneManager/Delete.connect("pressed", open_lane_deletion)
 	$LaneManager/EditLaneConfig.connect("pressed", edit_token_lane)
@@ -90,6 +90,9 @@ func get_balances():
 func update_gas_balance(callback):
 	if callback["success"]:
 		gas_balance = callback["result"]
+		var network = callback["network"]
+		#var gas_symbol = Ethers.network_info[network]["gas_symbol"]
+		
 		main.account_balances[account][local_network]["gas"] = gas_balance
 		$GasBalance.text = "Gas: " + gas_balance.left(6)
 	else:
@@ -255,20 +258,27 @@ func deposit_tokens():
 	deposit_pending = true
 	
 	var scrypool_contract = Ethers.network_info[local_network]["scrypool_contract"]
-	var params = [local_token, Ethers.convert_to_bignum(token_balance, token_decimals)]
+	
+	var calldata = Ethers.get_calldata(
+							"WRITE", 
+							main.SCRYPOOL_ABI, 
+							"depositTokens", 
+							[local_token, Ethers.convert_to_bignum(token_balance, token_decimals)])
+					
 	var callback_args = {"token_lane": self, "transaction_type": "Deposit"}
 	
-	main.queue_transaction(
-		account, 
-		local_network, 
-		scrypool_contract, 
-		"depositTokens", 
-		params, 
-		callback_args,
-		maximum_gas_fee
-		)
-	
-	
+	# DEBUG
+	# change callback node from main(?)
+	Ethers.queue_transaction(
+				account, 
+				local_network, 
+				scrypool_contract, 
+				calldata, 
+				main,
+				"get_receipt", 
+				callback_args,
+				maximum_gas_fee
+				)
 
 
 func withdraw_tokens():
@@ -281,34 +291,135 @@ func withdraw_tokens():
 	
 	withdrawal_pending = true
 	var scrypool_contract = Ethers.network_info[local_network]["scrypool_contract"]
-	var params = [local_token]
+	
+	var calldata = Ethers.get_calldata(
+							"WRITE", 
+							main.SCRYPOOL_ABI, 
+							"withdrawTokens", 
+							[local_token])
+				
 	var callback_args = {"token_lane": self, "transaction_type": "Withdrawal"}
 	
-	main.queue_transaction(
-		account, 
-		local_network, 
-		scrypool_contract, 
-		"withdrawTokens", 
-		params, 
-		callback_args,
-		maximum_gas_fee
-		)
+	# DEBUG
+	# change callback node from main(?)
+	Ethers.queue_transaction(
+				account, 
+				local_network, 
+				scrypool_contract, 
+				calldata, 
+				main,
+				"get_receipt", 
+				callback_args,
+				maximum_gas_fee
+				)
+
+
+# NOTE
+# The sequence number can be used to query an OffRamp contract to obtain
+# the status of a message.  This is useful for checking whether the message
+# needs to be manually executed.  Currenly check_pending_rewards() does not
+# check the OffRamps, instead only checking ScryPool for any rewards
+# that must be manually claimed or failed pools that must be manually exited.
+func check_pending_rewards():
 	
+	if !local_network in main.application_manifest["pending_rewards"].keys():
+		main.application_manifest["pending_rewards"][local_network] = []
+		main.save_application_manifest()
 	
-
-func check_for_manual_execution():
-	main.print_message("Not yet implemented")
+	var pending_rewards = main.application_manifest["pending_rewards"][local_network]
 	
+	if pending_rewards.is_empty():
+		main.print_message("No pending rewards found")
+		return
+	
+	for pending_reward in pending_rewards:
+		
+		#NOTE
+		#For reference:
+		
+		#pending_reward = {
+				#"sequence_number": sequence_number,
+				#"message": Any2EVMMessage,
+				#"message_id": messageId
+			#}
+		
+		var calldata = Ethers.get_calldata(
+						"READ", 
+						main.SCRYPOOL_ABI, 
+						"checkOrderStatus", 
+						[pending_reward["message"]]
+						)
+						
+		var scrypool_contract = Ethers.network_info[local_network]["scrypool_contract"]
+		
+		Ethers.read_from_contract(
+						local_network,
+						scrypool_contract,
+						calldata,
+						self,
+						"handle_pending_reward",
+						{"pending_reward": pending_reward["message"]}
+						)
+		
+		
+func handle_pending_reward(callback):
+	if callback["success"]:
+		var fill_status = callback["result"][0] #enum
+		var rewards_pending = callback["result"][1] #bool
+		var pending_reward = callback["callback_args"]["pending_reward"]
+		var order_success = false
+		match fill_status:
+			"0": return
+			"1": order_success = true
+			"2": claim_reward_or_quit_pool(pending_reward, "quitPool", "Quit Pool")
+			
+		if order_success:
+			if rewards_pending:
+				claim_reward_or_quit_pool(pending_reward, "claimOrderReward", "Claim Reward")
+			else:
+				clear_pending_reward(pending_reward)
+		
 
-func claim_reward():
-	pass
+func claim_reward_or_quit_pool(pending_reward, contract_function, transaction_type):
+	var scrypool_contract = Ethers.network_info[local_network]["scrypool_contract"]
+	
+	var calldata = Ethers.get_calldata(
+							"WRITE", 
+							main.SCRYPOOL_ABI, 
+							contract_function, 
+							[pending_reward["message"]])
+				
+	var callback_args = {
+		"token_lane": self, 
+		"transaction_type": transaction_type, 
+		"pending_reward": pending_reward
+		}
+	
+	Ethers.queue_transaction(
+				account, 
+				local_network, 
+				scrypool_contract, 
+				calldata, 
+				self,
+				"finish_pending_reward", 
+				callback_args,
+				maximum_gas_fee
+				)
 
 
-func pause():
-	#if out of gas or tokens
-	pass
+func finish_pending_reward(callback):
+	if callback["success"]:
+		var pending_reward = callback["callback_args"]["pending_reward"]
+		clear_pending_reward(pending_reward)
 
 
+func clear_pending_reward(pending_reward):
+	main.application_manifest["pending_rewards"][local_network].erase(pending_reward)
+	main.save_application_manifest()
+
+
+# DEBUG
+# implement
 func edit_token_lane():
 	# DEBUG
 	# Don't open if active is true
@@ -318,6 +429,7 @@ func edit_token_lane():
 	main.add_child(monitored_token_form)
 	
 	#use the token to fill in all the fields of the form
+
 
 func handle_approval(callback):
 	if callback["success"]:

@@ -152,7 +152,7 @@ func get_gas_price(callback):
 			"data": data
 		}, "latest", 
 		# State override of the balance is required 
-		# to estimate gas for complex transactions (perhaps?)
+		# to estimate gas for complex transactions (I guess?)
 		{Ethers.get_address(account) : {"balance": "0x" + Ethers.convert_to_bignum("7777777", 18)}}]
 		
 		Ethers.perform_request(
