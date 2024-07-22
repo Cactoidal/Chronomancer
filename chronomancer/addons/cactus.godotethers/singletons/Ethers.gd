@@ -367,10 +367,10 @@ func decode_rpc_response(_callback):
 		callback_node.call(callback_function, callback)
 
 
-func send_transaction(account, network, contract, _calldata, callback_node, callback_function, callback_args={}, gas_limit="900000", value="0"):
+func send_transaction(account, network, contract, _calldata, callback_node, callback_function, callback_args={}, maximum_gas_fee="", value="0"):
 	var calldata = _calldata["calldata"]
 	calldata = calldata.trim_prefix("0x")
-	Transaction.send_transaction(account, network, contract, gas_limit, value, calldata, callback_node, callback_function, callback_args)
+	Transaction.send_transaction(account, network, contract, maximum_gas_fee, value, calldata, callback_node, callback_function, callback_args)
 
 
 # For ETH transfers
@@ -612,6 +612,28 @@ func convert_to_smallnum(bignum, token_decimals=18):
 		smallnum = smallnum.left(zero_parse_index).trim_suffix(".")
 	
 	return smallnum
+
+
+func big_uint_math(number1, operation, number2):
+	var output
+	if operation in ["ADD", "SUBTRACT", "DIVIDE", "MULTIPLY"]:
+		output = GodotSigner.arithmetic(number1, number2, operation)
+	if operation in ["GREATER THAN", "LESS THAN", "GREATER THAN OR EQUAL", "LESS THAN OR EQUAL", "EQUAL"]:
+		output = GodotSigner.compare(number1, number2, operation)
+	return output
+
+
+func calculate_calldata_gas_units(calldata):
+	var gas_units = 0
+	for byte in calldata:
+		if byte == "0":
+			gas_units += 4
+		else:
+			gas_units += 16
+	
+	return gas_units
+			
+
 
 
 func emit_error(error_string):

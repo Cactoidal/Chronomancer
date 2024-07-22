@@ -15,6 +15,8 @@ var token_balance = "0"
 var deposited_tokens = "0"
 var total_liquidity = "0"
 
+var maximum_gas_fee = "0.1"
+
 var deposit_pending = false
 var withdrawal_pending = false
 
@@ -26,6 +28,7 @@ func initialize(_main, _token, _account):
 	local_network = token["local_network"]
 	local_token = token["local_token"]
 	token_decimals = token["token_decimals"]
+	maximum_gas_fee = token["maximum_gas_fee"]
 	
 	main.initialize_network_balance(local_network, local_token)
 	
@@ -252,7 +255,7 @@ func deposit_tokens():
 	deposit_pending = true
 	
 	var scrypool_contract = Ethers.network_info[local_network]["scrypool_contract"]
-	var params = [local_token, Ethers.convert_to_bignum(token_balance)]
+	var params = [local_token, Ethers.convert_to_bignum(token_balance, token_decimals)]
 	var callback_args = {"token_lane": self, "transaction_type": "Deposit"}
 	
 	main.queue_transaction(
@@ -261,7 +264,8 @@ func deposit_tokens():
 		scrypool_contract, 
 		"depositTokens", 
 		params, 
-		callback_args
+		callback_args,
+		maximum_gas_fee
 		)
 	
 	
@@ -286,7 +290,8 @@ func withdraw_tokens():
 		scrypool_contract, 
 		"withdrawTokens", 
 		params, 
-		callback_args
+		callback_args,
+		maximum_gas_fee
 		)
 	
 	

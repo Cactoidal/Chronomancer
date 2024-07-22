@@ -26,6 +26,8 @@ var transaction_history = {}
 # Accounts mapped to arrays of queued pending transactions
 var transaction_queue = {}
 
+var _minimum_gas_threshold = "0.0002"
+
 # Reusable UI elements
 @onready var _account_object = preload("res://scenes/Account.tscn")
 @onready var _transaction_object = preload("res://scenes/Transaction.tscn")
@@ -43,6 +45,7 @@ var loaded_token_lanes = []
 var active_token_lanes = []
 var logged_messages = []
 
+
 @onready var _chronomancer_task = preload("res://scenes/ChronomancerTask.tscn")
 @onready var _token_lane = preload("res://scenes/TokenLane.tscn")
 @onready var _monitored_token_form = preload("res://scenes/MonitoredTokenForm.tscn")
@@ -55,7 +58,7 @@ var test_lane = {
 		"token_decimals": "18",
 		"minimum_transfer": "0",
 		"minimum_reward_percent": "0",
-		"maximum_gas_fee": "0.001",
+		"maximum_gas_fee": "0.002",
 		"flat_rate_threshold": "100000000",
 		"remote_networks": {"Arbitrum Sepolia": "0xA8C0c11bf64AF62CDCA6f93D3769B88BdD7cb93D"}
 	}
@@ -72,6 +75,7 @@ func _ready():
 	load_account()
 
 
+
 func _process(delta):
 	chronomancer_process(delta)
 	send_queued_transaction()
@@ -85,6 +89,8 @@ func send_queued_transaction():
 			var transaction = queue[0].duplicate()
 			var network = transaction["network"]
 			if !Transaction.pending_transaction(account, network):
+				
+				
 				Ethers.send_transaction(
 					account,
 					network,
@@ -106,7 +112,7 @@ func send_queued_transaction():
 			# exceed the maximum_gas_price
 
 
-func queue_transaction(account, network, contract, function_name, params, callback_args):
+func queue_transaction(account, network, contract, function_name, params, callback_args, maximum_gas_fee="0.005"):
 	var ABI = SCRYPOOL_ABI
 
 	var calldata = Ethers.get_calldata(
@@ -120,7 +126,8 @@ func queue_transaction(account, network, contract, function_name, params, callba
 		"network": network,
 		"contract": contract,
 		"calldata": calldata,
-		"callback_args": callback_args
+		"callback_args": callback_args,
+		"maximum_gas_fee": maximum_gas_fee
 	}
 	
 	transaction_queue[account].push_back(transaction)
@@ -344,42 +351,42 @@ func decode_EVM2EVM_message(callback):
 			var tokenAmounts = decoded_message[10]
 			# Some CCIP messages do not transmit tokens.
 			if tokenAmounts.is_empty():
-				#DEBUG
-				print_message("no tokens")
 				return
 			# Right now, only checks for a single token.
 			var token_contract = tokenAmounts[0][0]
 			var token_amount = tokenAmounts[0][1]
 			
 			var local_token = ""
+			var token_decimals
 			var minimum_reward_percent
 			var flat_rate_threshold
 			var minimum_transfer
 			var maximum_gas_fee
 			var account
+			var scrypool_liquidity
+			var deposited_liquidity
 			
 			for lane in active_token_lanes:
 				var token = lane.token.duplicate()
+				scrypool_liquidity = lane.total_liquidity
+				deposited_liquidity = lane.deposited_tokens
 				if token["local_network"].to_lower() == destination_network.to_lower():
 					for remote_network in token["remote_networks"]:
 						if token["remote_networks"][remote_network].to_lower() == token_contract.to_lower():
 							local_token = token["local_token"]
-							minimum_reward_percent = token["minimum_reward_percent"]
-							flat_rate_threshold = token["flat_rate_threshold"]
-							minimum_transfer = token["minimum_transfer"]
+							token_decimals = token["token_decimals"]
+							minimum_reward_percent = Ethers.convert_to_bignum(token["minimum_reward_percent"], token_decimals)
+							flat_rate_threshold = Ethers.convert_to_bignum(token["flat_rate_threshold"], token_decimals)
+							minimum_transfer = Ethers.convert_to_bignum(token["minimum_transfer"], token_decimals)
 							maximum_gas_fee = token["maximum_gas_fee"]
 							account = token["account"]
 			
+			
+			
+			
+			
 			if local_token == "":
-				#DEBUG
-				print_message("invalid local token")
 				return
-			
-			
-			# Check that the transfer amount meets or exceeds the minimum.
-			if token_amount < minimum_transfer:
-				return
-			
 			
 			# Check if the recipient is the Chronomancer endpoint.
 			var data = Calldata.abi_decode(
@@ -391,41 +398,57 @@ func decode_EVM2EVM_message(callback):
 				)
 			
 			if data[0].to_lower() == chronomancer_endpoint.to_lower():
-				#DEBUG
-				print_message("recipient is chronomancer endpoint")
+				return
+			
+			
+			# Check that user's deposited tokens meet or exceed the minimum transfer amount.
+			if Ethers.big_uint_math(deposited_liquidity, "LESS THAN OR EQUAL", minimum_transfer):
+				return
+			
+			
+			# Check that the transfer amount meets or exceeds the minimum.
+			if Ethers.big_uint_math(token_amount, "LESS THAN OR EQUAL", minimum_transfer):
 				return
 			
 			
 			# Check that the reward meets or exceeds the set reward percentage
-			# and flat rate threshold.
-			# These need to use the BigNumber comparison function instead
-			var expected_minimum_reward = float(Ethers.convert_to_smallnum(token_amount)) * float(minimum_reward_percent)
+			# and flat rate threshold.  Also check that the reward does not equal
+			# or exceed the transfer amount.
 			
-			if float(data[1]) < expected_minimum_reward:
+			var expected_minimum_reward = "0"
+			
+			if minimum_reward_percent != "0":
+				expected_minimum_reward = Ethers.big_uint_math(token_amount, "DIVIDE", minimum_reward_percent)
+			
+			var message_reward = data[1]
+			
+			if Ethers.big_uint_math(message_reward, "LESS THAN", expected_minimum_reward):
 				if flat_rate_threshold != "":
-					if float(data[1]) < flat_rate_threshold:
-						#DEBUG
-						print_message("Does not meet flat rate threshold")
+					if Ethers.big_uint_math(message_reward, "LESS THAN", flat_rate_threshold):
 						return
 				else:
-					#DEBUG
-					print_message("Reward is less than minimum reward")
 					return
-					
 			
 			
+		
+			
+			# Reward cannot be equal to or larger than the transfer amount
+			if Ethers.big_uint_math(token_amount, "LESS THAN OR EQUAL", message_reward):
+				return
+		
+			# Won't attempt if ScryPool liquidity is too low
+			if Ethers.big_uint_math(scrypool_liquidity, "LESS THAN", token_amount):
+				return
+	
+				
 			# DEBUG
-			# If the transfer_amount exceeds the account's deposited token balance,
-			# check that Scrypool has sufficient liquidity before attemtping
-			# to fill
+			# need to check gas balance and max gas price too
 			
 			
 			# Check that this message hasn't already been recorded.
 			var messageId = decoded_message[12]
 			
 			if messageId in logged_messages:
-				#DEBUG
-				print_message("already logged this message")
 				return
 			else:
 				logged_messages.push_back(messageId)
@@ -468,7 +491,8 @@ func decode_EVM2EVM_message(callback):
 				Ethers.network_info[destination_network]["scrypool_contract"], 
 				"joinPool", 
 				params, 
-				callback_args
+				callback_args,
+				maximum_gas_fee
 				)
 
 
@@ -960,8 +984,11 @@ func update_bridge_token_balance(callback):
 
 func has_network_gas(network):
 	initialize_network_balance(network)
+	var minimum_gas_threshold = Ethers.convert_to_bignum(_minimum_gas_threshold, 18)
+	var gas = Ethers.convert_to_bignum(account_balances[selected_account][network]["gas"], 18)
 	
-	if float(account_balances[selected_account][network]["gas"]) < float(Ethers.network_info[network]["minimum_gas_threshold"]):
+	if Ethers.big_uint_math(gas, "LESS THAN", minimum_gas_threshold):
+	#if float(account_balances[selected_account][network]["gas"]) < float(Ethers.network_info[network]["minimum_gas_threshold"]):
 		return false
 	
 	return true
@@ -971,18 +998,51 @@ func has_network_gas(network):
 # Put this in Ethers
 func has_enough_tokens(network, token_contract, _amount):
 	initialize_network_balance(network, token_contract)
+	var token_info = account_balances[selected_account][network][token_contract]
 	
-	var decimals = account_balances[selected_account][network][token_contract]["decimals"]
+	var decimals = token_info["decimals"]
 	
-	var balance = Ethers.convert_to_bignum(account_balances[selected_account][network][token_contract]["balance"], decimals)
+	var balance = Ethers.convert_to_bignum(token_info["balance"], decimals)
 	var amount = Ethers.convert_to_bignum(_amount, decimals)
 	
 	if amount == "0":
 		print_message("Transfer amount is zero")
 		return false
 	
-	# Tokens must be compared as BigNumbers for greater precision
+	if Ethers.big_uint_math(balance, "LESS THAN", amount):
+		return false
 	
+	return true
+	
+	
+	# If the balance is longer, it is larger
+	#if balance.length() > amount.length():
+		#return true
+	#
+	## If the lengths are equal, compare integers down the length of the number
+	#elif balance.length() == amount.length():
+		#var index = 0
+		#while index < balance.length():
+			#if amount[index] > balance[index]:
+				#return false
+			#elif amount[index] < balance[index]:
+				#return true
+			#index += 1
+		#
+		## The balance and amount are equal
+		#return true
+#
+	#return false
+	
+	#print(float(amount))
+	#
+	#if float(account_balances[selected_account][network][token_contract]["balance"]) < float(amount):
+		#return false
+	#
+	#return true
+
+
+func balance_greater_than_or_equal_to_amount(balance, amount):
 	# If the balance is longer, it is larger
 	if balance.length() > amount.length():
 		return true
@@ -1001,13 +1061,6 @@ func has_enough_tokens(network, token_contract, _amount):
 		return true
 
 	return false
-	
-	#print(float(amount))
-	#
-	#if float(account_balances[selected_account][network][token_contract]["balance"]) < float(amount):
-		#return false
-	#
-	#return true
 
 
 func initialize_network_balance(network, token_contract=""):
@@ -1201,7 +1254,7 @@ func send_bridge_transaction(callback):
 			self, 
 			"get_receipt", 
 			{"transaction_type": "CCIP Bridge", "token_contract": token_contract}, 
-			"900000", 
+			"0.1", 
 			fee
 			)
 
@@ -1223,7 +1276,7 @@ var default_ccip_network_info = {
 		"chain_id": "11155111",
 		"rpcs": ["https://ethereum-sepolia-rpc.publicnode.com", "https://rpc2.sepolia.org"],
 		"rpc_cycle": 0,
-		"minimum_gas_threshold": 0.0002,
+		"minimum_gas_threshold": "0.0002",
 		"maximum_gas_fee": "",
 		"scan_url": "https://sepolia.etherscan.io/",
 		#
@@ -1252,7 +1305,7 @@ var default_ccip_network_info = {
 		"chain_id": "421614",
 		"rpcs": ["https://sepolia-rollup.arbitrum.io/rpc"],
 		"rpc_cycle": 0,
-		"minimum_gas_threshold": 0.0002,
+		"minimum_gas_threshold": "0.0002",
 		"maximum_gas_fee": "",
 		"scan_url": "https://sepolia.arbiscan.io/",
 		#
@@ -1275,7 +1328,7 @@ var default_ccip_network_info = {
 		"chain_id": "11155420",
 		"rpcs": ["https://sepolia.optimism.io"],
 		"rpc_cycle": 0,
-		"minimum_gas_threshold": 0.0002,
+		"minimum_gas_threshold": "0.0002",
 		"maximum_gas_fee": "",
 		"scan_url": "https://sepolia-optimism.etherscan.io/",
 		#
@@ -1299,7 +1352,7 @@ var default_ccip_network_info = {
 		"chain_id": "84532",
 		"rpcs": ["https://sepolia.base.org", "https://base-sepolia-rpc.publicnode.com"],
 		"rpc_cycle": 0,
-		"minimum_gas_threshold": 0.0002,
+		"minimum_gas_threshold": "0.0002",
 		"maximum_gas_fee": "",
 		"scan_url": "https://sepolia.basescan.org/",
 		#
@@ -1325,7 +1378,7 @@ var default_ccip_network_info = {
 		"chain_id": "43113",
 		"rpcs": ["https://avalanche-fuji-c-chain-rpc.publicnode.com"],
 		"rpc_cycle": 0,
-		"minimum_gas_threshold": 0.0002,
+		"minimum_gas_threshold": "0.0002",
 		"maximum_gas_fee": "",
 		"scan_url": "https://testnet.snowtrace.io/",
 		#
@@ -1350,7 +1403,7 @@ var default_ccip_network_info = {
 		"chain_id": "97",
 		"rpcs": ["https://bsc-testnet-rpc.publicnode.com"],
 		"rpc_cycle": 0,
-		"minimum_gas_threshold": 0.0002,
+		"minimum_gas_threshold": "0.0002",
 		"maximum_gas_fee": "",
 		"scan_url": "https://testnet.bscscan.com",
 		#
@@ -1373,7 +1426,7 @@ var default_ccip_network_info = {
 		"chain_id": "1112",
 		"rpcs": ["https://api.test.wemix.com"],
 		"rpc_cycle": 0,
-		"minimum_gas_threshold": 0.0002,
+		"minimum_gas_threshold": "0.0002",
 		"maximum_gas_fee": "",
 		"scan_url": "https://testnet.wemixscan.com",
 		#
@@ -1397,7 +1450,7 @@ var default_ccip_network_info = {
 		"chain_id": "10200",
 		"rpcs": ["https://1rpc.io/gnosis"],
 		"rpc_cycle": 0,
-		"minimum_gas_threshold": 0.0002,
+		"minimum_gas_threshold": "0.0002",
 		"maximum_gas_fee": "",
 		"scan_url": "https://gnosis-chiado.blockscout.com",
 		#
@@ -1421,7 +1474,7 @@ var default_ccip_network_info = {
 		"chain_id": "80002",
 		"rpcs": ["https://polygon-amoy-bor-rpc.publicnode.com", "https://rpc-amoy.polygon.technology", "https://polygon-amoy.drpc.org"],
 		"rpc_cycle": 0,
-		"minimum_gas_threshold": 0.0002,
+		"minimum_gas_threshold": "0.0002",
 		"maximum_gas_fee": "",
 		"scan_url": "https://amoy.polygonscan.com",
 		#
@@ -1444,7 +1497,7 @@ var default_ccip_network_info = {
 		"chain_id": "2358",
 		"rpcs": ["https://api.sepolia.kroma.network"],
 		"rpc_cycle": 0,
-		"minimum_gas_threshold": 0.0002,
+		"minimum_gas_threshold": "0.0002",
 		"maximum_gas_fee": "",
 		"scan_url": "https://sepolia.kromascan.com",
 		#
@@ -1462,7 +1515,7 @@ var default_ccip_network_info = {
 		"chain_id": "44787",
 		"rpcs": ["https://alfajores-forno.celo-testnet.org"],
 		"rpc_cycle": 0,
-		"minimum_gas_threshold": 0.0002,
+		"minimum_gas_threshold": "0.0002",
 		"maximum_gas_fee": "",
 		"scan_url": "https://alfajores.celoscan.io",
 		#
@@ -1480,7 +1533,7 @@ var default_ccip_network_info = {
 		"chain_id": "168587773",
 		"rpcs": ["https://sepolia.blast.io", "https://blast-sepolia.drpc.org"],
 		"rpc_cycle": 0,
-		"minimum_gas_threshold": 0.0002,
+		"minimum_gas_threshold": "0.0002",
 		"maximum_gas_fee": "",
 		"scan_url": "https://sepolia.blastscan.io",
 		#
@@ -1498,7 +1551,7 @@ var default_ccip_network_info = {
 		"chain_id": "919",
 		"rpcs": ["https://sepolia.mode.network"],
 		"rpc_cycle": 0,
-		"minimum_gas_threshold": 0.0002,
+		"minimum_gas_threshold": "0.0002",
 		"maximum_gas_fee": "",
 		"scan_url": "https://sepolia.explorer.mode.network",
 		#
