@@ -23,7 +23,8 @@ func send_transaction(
 	calldata, 
 	callback_node, 
 	callback_function, 
-	callback_args={}
+	callback_args={},
+	eth_transfer_args=false
 	):
 		
 		if !pending_transaction(account, network):
@@ -46,7 +47,7 @@ func send_transaction(
 			"transaction_receipt": "",
 			"check_for_receipt": false,
 			"tx_receipt_poll_timer": 4,
-			"eth_transfer": false,
+			"eth_transfer_args": eth_transfer_args,
 			"tx_status": "PENDING",
 			"local_id": Crypto.new().generate_random_bytes(32)
 			}
@@ -135,15 +136,13 @@ func get_gas_price(callback):
 		transaction["gas_price"] = int(ceil((callback["result"].hex_to_int() * 1.1))) 
 		var gas_price_hex = "%x" % transaction["gas_price"]
 		
-		# DEBUG
 		var to = transaction["contract"]
-		var data = "0x0"
-		if transaction["eth_transfer"]:
-			to = transaction["contract_args"][0]
+		var data = ""
+		if transaction["eth_transfer_args"]:
+			to = transaction["eth_transfer_args"][0]
 		else:
 			data = "0x" + transaction["calldata"]
 		
-		# DEBUG
 		var params = [{
 			"to": to,
 			"from": Ethers.get_address(account),
@@ -192,7 +191,7 @@ func estimate_gas_fee(callback):
 		var chain_id = network_info[network]["chain_id"]
 		var rpc = network_info[network]["rpcs"][0]
 		
-		if !transaction["eth_transfer"]:
+		if !transaction["eth_transfer_args"]:
 			
 			# Contract Interaction
 			
@@ -213,14 +212,12 @@ func estimate_gas_fee(callback):
 			return
 		
 		# ETH transfer
-		# DEBUG
-		# Needs to be updated with the new gas estimate sequence
 		
 		var params = [Ethers.get_key(account), chain_id, transaction["contract"], rpc, transaction["gas_price"], transaction["tx_count"]]
-		for arg in transaction["contract_args"]:
+		for arg in transaction["eth_transfer_args"]:
 			params.push_back(arg)
 		
-		var calldata = "0x" + GodotSigner.callv(transaction["contract_function"], params)
+		var calldata = "0x" + GodotSigner.callv("transfer", params)
 		params = Ethers.clear_memory()
 		params.clear()
 		
@@ -310,42 +307,3 @@ func emit_error(error_string, account, network):
 	var transaction = pending_transactions[account][network]
 	transaction["tx_status"] = error
 	finish_transaction(account, network, transaction)
-
-
-# Used by Ethers.transfer() for sending ETH
-func start_eth_transfer(
-	account,
-	network,
-	contract, 
-	contract_function, 
-	contract_args,
-	callback_node, 
-	callback_function, 
-	callback_args={}
-	):
-		
-		if !pending_transaction(account, network):
-			
-			var transaction = {
-			"callback_node": callback_node,
-			"callback_function": callback_function,
-			"callback_args": callback_args,
-			"network": network,
-			"account": account,
-			"contract": contract,
-			"contract_function": contract_function,
-			"contract_args": contract_args,
-			"initialized": false,
-			"tx_count": 0,
-			"gas_price": 0,
-			"maximum_gas_fee": "",
-			"transaction_hash": "",
-			"transaction_receipt": "",
-			"check_for_receipt": false,
-			"tx_receipt_poll_timer": 4,
-			"eth_transfer": true,
-			"tx_status": "PENDING",
-			"local_id": Crypto.new().generate_random_bytes(32)
-			}
-		
-			pending_transactions[account][network] = transaction

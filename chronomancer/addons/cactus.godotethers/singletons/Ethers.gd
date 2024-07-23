@@ -47,10 +47,8 @@ func clear_memory():
 	return Crypto.new().generate_random_bytes(256)
 
 
-# DEBUG
 func _process(delta):
 	send_queued_transaction()
-	pass
 
 
 #########  KEY MANAGEMENT  #########
@@ -380,21 +378,23 @@ func decode_rpc_response(_callback):
 func send_transaction(account, network, contract, _calldata, callback_node, callback_function, callback_args={}, maximum_gas_fee="", value="0"):
 	var calldata = _calldata["calldata"]
 	calldata = calldata.trim_prefix("0x")
-	Transaction.send_transaction(account, network, contract, maximum_gas_fee, value, calldata, callback_node, callback_function, callback_args)
+	Transaction.send_transaction(account, network, contract, maximum_gas_fee, value, calldata, callback_node, callback_function, callback_args, false)
 
 
 # For ETH transfers
-func transfer(account, network, recipient, amount, callback_node, callback_function, callback_args={}):
-	Transaction.start_eth_transfer(
-		account,
-		network,
-		"placeholder",
-		"transfer",
-		[recipient, amount],
-		callback_node,
-		callback_function,
-		callback_args
-	)
+func transfer(account, network, recipient, amount, callback_node, callback_function, callback_args={}, maximum_gas_fee=""):
+	Transaction.send_transaction(
+			account, 
+			network, 
+			"", 
+			maximum_gas_fee, 
+			"0", 
+			"", 
+			callback_node, 
+			callback_function, 
+			callback_args, 
+			[recipient, amount]
+			)
 
 
 func perform_request(method, params, network, callback_node, callback_function, callback_args={}, specified_rpc=false, retries=3):
@@ -453,7 +453,6 @@ func transmit_transaction_object(transaction):
 			transaction_logs.erase(log)
 
 
-# DEBUG
 func queue_transaction(account, network, contract, calldata, callback_node, callback_function, callback_args={}, maximum_gas_fee="", value="0"):
 
 	var transaction = {
@@ -481,7 +480,6 @@ func send_queued_transaction():
 				var transaction = queue[0].duplicate()
 				if !Transaction.pending_transaction(account, network):
 					
-					# DEBUG
 					send_transaction(
 						account,
 						network,

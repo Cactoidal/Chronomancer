@@ -379,6 +379,10 @@ func decode_EVM2EVM_message(callback):
 				return
 	
 			# Check that this message hasn't already been recorded.
+			
+			# DEBUG 
+			# perhaps check the application manifest instead,
+			# since it gets pruned
 			var messageId = decoded_message[12]
 			
 			if messageId in logged_messages:
@@ -415,11 +419,13 @@ func decode_EVM2EVM_message(callback):
 				[[local_token, token_amount]] # destTokenAmounts
 			]
 			
+			var message_bytes = Calldata.abi_encode([Any2EVMMessageStruct], [Any2EVMMessage])
+			
 			var sequence_number = decoded_message[4]
 			
 			var pending_reward = {
 				"sequence_number": sequence_number,
-				"message": Any2EVMMessage,
+				"message": message_bytes,
 				"message_id": messageId
 			}
 			
@@ -427,7 +433,7 @@ func decode_EVM2EVM_message(callback):
 							"WRITE", 
 							SCRYPOOL_ABI, 
 							"joinPool", 
-							[Calldata.abi_encode([Any2EVMMessageStruct], [Any2EVMMessage])])
+							[message_bytes])
 				
 			var callback_args = {"transaction_type": "Order Fill", "ccip_message_id": messageId, "pending_reward": pending_reward}
 	

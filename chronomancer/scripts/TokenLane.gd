@@ -215,9 +215,20 @@ func open_lane_deletion():
 
 
 func confirm_lane_deletion():
-	main.application_manifest["monitored_tokens"].erase(token)
-	main.save_application_manifest()
-	main.load_token_lanes()
+	var index = 0
+	for monitored_token in main.application_manifest["monitored_tokens"]:
+		if local_network == monitored_token["local_network"]:
+			if local_token == monitored_token["local_token"]:
+				var matches = true
+				for remote_network in monitored_token["remote_networks"].keys():
+					if !remote_network in token["remote_networks"].keys():
+						matches = false
+				
+				if matches:
+					main.application_manifest["monitored_tokens"].remove_at(index)
+					main.save_application_manifest()
+					main.load_token_lanes()
+		index += 1
 
 
 func cancel_lane_deletion():
@@ -328,18 +339,18 @@ func check_pending_rewards():
 	
 	var pending_rewards = main.application_manifest["pending_rewards"][local_network]
 	
+
+	
 	if pending_rewards.is_empty():
 		main.print_message("No pending rewards found")
 		return
 	
 	for pending_reward in pending_rewards:
-		
-		#NOTE
 		#For reference:
 		
 		#pending_reward = {
 				#"sequence_number": sequence_number,
-				#"message": Any2EVMMessage,
+				#"message": Any2EVMMessage as bytes,
 				#"message_id": messageId
 			#}
 		
@@ -358,7 +369,7 @@ func check_pending_rewards():
 						calldata,
 						self,
 						"handle_pending_reward",
-						{"pending_reward": pending_reward["message"]}
+						{"pending_reward": pending_reward}
 						)
 		
 		
@@ -368,6 +379,11 @@ func handle_pending_reward(callback):
 		var rewards_pending = callback["result"][1] #bool
 		var pending_reward = callback["callback_args"]["pending_reward"]
 		var order_success = false
+		print("fill status:")
+		print(fill_status)
+		print("rewards pending:")
+		print(rewards_pending)
+		print(typeof(rewards_pending))
 		match fill_status:
 			"0": return # PENDING
 			"1": order_success = true # SUCCESS
@@ -414,9 +430,15 @@ func finish_pending_reward(callback):
 		get_balances()
 
 
-func clear_pending_reward(pending_reward):
-	main.application_manifest["pending_rewards"][local_network].erase(pending_reward)
-	main.save_application_manifest()
+func clear_pending_reward(removed_reward):
+	var index = 0
+	for pending_reward in main.application_manifest["pending_rewards"][local_network]:
+		if removed_reward["message_id"] == pending_reward["message_id"]:
+			main.application_manifest["pending_rewards"][local_network].remove_at(index)
+			main.save_application_manifest()
+		index += 1
+
+
 
 
 # DEBUG
