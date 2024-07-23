@@ -149,6 +149,7 @@ offset_left = 34.0
 offset_top = 166.0
 offset_right = 208.0
 offset_bottom = 220.0
+mouse_default_cursor_shape = 2
 text = "Check For
 Pending Rewards"
 
@@ -158,6 +159,7 @@ offset_left = 34.0
 offset_top = 22.0
 offset_right = 136.0
 offset_bottom = 53.0
+mouse_default_cursor_shape = 2
 text = "Back"
 
 [node name="EditLaneConfig" type="Button" parent="LaneManager"]
@@ -166,6 +168,7 @@ offset_left = 34.0
 offset_top = 90.0
 offset_right = 167.0
 offset_bottom = 121.0
+mouse_default_cursor_shape = 2
 text = "Edit Lane Config"
 
 [node name="Delete" type="Button" parent="LaneManager"]
@@ -174,6 +177,7 @@ offset_left = 388.0
 offset_top = 186.0
 offset_right = 592.0
 offset_bottom = 217.0
+mouse_default_cursor_shape = 2
 text = "Permanently Delete Lane"
 
 [node name="DeleteCheck" type="ColorRect" parent="."]

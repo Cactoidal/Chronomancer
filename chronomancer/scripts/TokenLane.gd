@@ -201,16 +201,16 @@ func close_lane_manager():
 
 
 func open_lane_deletion():	
-	if active:
-		main.print_message("Cannot delete active lane")
+	if main.lane_is_active():	
+		main.print_message("Cannot delete lanes while a lane is active")
 		return
 	if deposited_tokens != "0":
 		main.print_message("Cannot delete lane with deposited tokens")
 		return
-	
-	#DEBUG
-	# also can't delete if you have unclaimed rewards
-		
+	if !main.application_manifest["pending_rewards"][local_network].is_empty():
+		main.print_message("Cannot delete lane with pending rewards")
+		return
+
 	$DeleteCheck.visible = true
 
 
@@ -369,9 +369,9 @@ func handle_pending_reward(callback):
 		var pending_reward = callback["callback_args"]["pending_reward"]
 		var order_success = false
 		match fill_status:
-			"0": return
-			"1": order_success = true
-			"2": claim_reward_or_quit_pool(pending_reward, "quitPool", "Quit Pool")
+			"0": return # PENDING
+			"1": order_success = true # SUCCESS
+			"2": claim_reward_or_quit_pool(pending_reward, "quitPool", "Quit Pool") # FAILURE
 			
 		if order_success:
 			if rewards_pending:
@@ -411,6 +411,7 @@ func finish_pending_reward(callback):
 	if callback["success"]:
 		var pending_reward = callback["callback_args"]["pending_reward"]
 		clear_pending_reward(pending_reward)
+		get_balances()
 
 
 func clear_pending_reward(pending_reward):
@@ -419,16 +420,35 @@ func clear_pending_reward(pending_reward):
 
 
 # DEBUG
-# implement
 func edit_token_lane():
-	# DEBUG
-	# Don't open if active is true
+	if main.lane_is_active():	
+		main.print_message("Cannot edit lanes while a lane is active")
+		return
 	var monitored_token_form = main._monitored_token_form.instantiate()
 	monitored_token_form.main = main
 	monitored_token_form.account = account
 	main.add_child(monitored_token_form)
 	
-	#use the token to fill in all the fields of the form
+	var token_form = token.duplicate()
+	var input = monitored_token_form.input
+	
+	input.get_node("LocalNetwork").text = local_network
+	input.get_node("LocalToken").text = local_token
+	input.get_node("MinimumTransfer").text = token_form["minimum_transfer"]
+	input.get_node("MinimumRewardPercent").text = token_form["minimum_reward_percent"]
+	input.get_node("MaximumGasFee").text = maximum_gas_fee
+	input.get_node("FlatRateThreshold").text = token_form["flat_rate_threshold"]
+	var index = 0
+	for network in token_form["remote_networks"].keys():
+		var remote_token = token_form["remote_networks"][network]
+		var remote_network = input.get_node("RemoteNetworks").get_children()[index]
+		remote_network.get_node("RemoteNetwork").text = network
+		remote_network.get_node("RemoteToken").text = remote_token
+		index += 1
+	
+	monitored_token_form.check_local_token()
+	monitored_token_form.check_remote_tokens()
+
 
 
 func handle_approval(callback):

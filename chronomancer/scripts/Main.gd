@@ -129,6 +129,9 @@ func load_token_lanes():
 
 
 func new_monitored_token_form():
+	if lane_is_active():
+		print_message("Cannot add new lanes while a lane is active")
+		return
 	var monitored_token_form = _monitored_token_form.instantiate()
 	monitored_token_form.main = self
 	monitored_token_form.account = selected_account
@@ -495,6 +498,12 @@ func mint():
 				)
 
 
+func lane_is_active():
+	for lane in active_token_lanes:
+		if lane.active:
+			return true
+	
+	return false
 
 
 

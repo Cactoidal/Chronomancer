@@ -224,18 +224,6 @@ func form_valid():
 				show_error("Flat rate lower than minimum reward")
 				return false
 	
-	
-	#DEBUG
-	# These checks are more appropriate when the account actually
-	# attempts to monitor incoming messages.
-	
-	#if float(local_gas_balance) < float(maximum_gas_fee):
-		#show_error("Insufficient gas on local network")
-		#return false
-	#if local_token_info[2] < float(minimum_transfer):
-		#show_error("Insufficient local token balance")
-		#return false
-	
 	var token_name = local_token_info[0]
 	var no_remote_networks = true
 	
@@ -256,11 +244,11 @@ func form_valid():
 				return false
 			
 			if !remote_token in remote_tokens.keys():
-				show_error("Invalid token address for " + remote_network_name)
+				show_error("Invalid token for " + remote_network_name)
 				return false
 			
 			if remote_tokens[remote_token] != token_name:
-				show_error("Mismatched token '" + remote_token + "' on " + remote_network_name)
+				show_error("Mismatched token on " + remote_network_name)
 				return false
 	
 	if no_remote_networks:
