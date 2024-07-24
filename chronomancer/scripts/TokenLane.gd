@@ -46,6 +46,9 @@ func initialize(_main, _token, _account):
 	$LaneManager/Back.connect("pressed", close_lane_manager)
 	$LaneManager/Delete.connect("pressed", open_lane_deletion)
 	$LaneManager/EditLaneConfig.connect("pressed", edit_token_lane)
+	
+	$LaneConfig/Confirm.connect("pressed", confirm_lane_changes)
+	$LaneConfig/Cancel.connect("pressed", cancel_lane_changes)
 
 
 
@@ -105,15 +108,18 @@ func update_erc20_balance(callback):
 		main.account_balances[account][local_network][local_token]["balance"] = token_balance
 		$TokenBalance.text = token["token_name"] + " Balance: " + token_balance
 		
-		var scrypool_contract = Ethers.network_info[local_network]["scrypool_contract"]
-		var calldata = Ethers.get_calldata("READ", main.SCRYPOOL_ABI, "userStakedTokens", [Ethers.get_address(account), local_token])
-		Ethers.read_from_contract(
-						local_network,
-						scrypool_contract,
-						calldata,
-						self,
-						"update_deposited_tokens"
-						)
+		if "scrypool_contract" in Ethers.network_info[local_network].keys():
+			var scrypool_contract = Ethers.network_info[local_network]["scrypool_contract"]
+			var calldata = Ethers.get_calldata("READ", main.SCRYPOOL_ABI, "userStakedTokens", [Ethers.get_address(account), local_token])
+			Ethers.read_from_contract(
+							local_network,
+							scrypool_contract,
+							calldata,
+							self,
+							"update_deposited_tokens"
+							)
+		else:
+			main.print_message("No ScryPool contract found on " + callback["network"])
 	else:
 		main.print_message("Failed to retrieve token balance on " + local_network)
 
@@ -204,9 +210,14 @@ func open_lane_deletion():
 	if main.lane_is_active():	
 		main.print_message("Cannot delete lanes while a lane is active")
 		return
+		
 	if deposited_tokens != "0":
 		main.print_message("Cannot delete lane with deposited tokens")
 		return
+		
+	if !local_network in main.application_manifest["pending_rewards"].keys():
+		main.application_manifest["pending_rewards"][local_network] = []
+		
 	if !main.application_manifest["pending_rewards"][local_network].is_empty():
 		main.print_message("Cannot delete lane with pending rewards")
 		return
@@ -217,17 +228,10 @@ func open_lane_deletion():
 func confirm_lane_deletion():
 	var index = 0
 	for monitored_token in main.application_manifest["monitored_tokens"]:
-		if local_network == monitored_token["local_network"]:
-			if local_token == monitored_token["local_token"]:
-				var matches = true
-				for remote_network in monitored_token["remote_networks"].keys():
-					if !remote_network in token["remote_networks"].keys():
-						matches = false
-				
-				if matches:
-					main.application_manifest["monitored_tokens"].remove_at(index)
-					main.save_application_manifest()
-					main.load_token_lanes()
+		if monitored_token["lane_id"] == token["lane_id"]:
+			main.application_manifest["monitored_tokens"].remove_at(index)
+			main.save_application_manifest()
+			main.load_token_lanes()
 		index += 1
 
 
@@ -342,7 +346,7 @@ func check_pending_rewards():
 
 	
 	if pending_rewards.is_empty():
-		main.print_message("No pending rewards found")
+		main.print_message("No pending rewards found on " + local_network)
 		return
 	
 	for pending_reward in pending_rewards:
@@ -379,11 +383,7 @@ func handle_pending_reward(callback):
 		var rewards_pending = callback["result"][1] #bool
 		var pending_reward = callback["callback_args"]["pending_reward"]
 		var order_success = false
-		print("fill status:")
-		print(fill_status)
-		print("rewards pending:")
-		print(rewards_pending)
-		print(typeof(rewards_pending))
+		
 		match fill_status:
 			"0": return # PENDING
 			"1": order_success = true # SUCCESS
@@ -437,39 +437,47 @@ func clear_pending_reward(removed_reward):
 			main.application_manifest["pending_rewards"][local_network].remove_at(index)
 			main.save_application_manifest()
 		index += 1
+	
+	if main.application_manifest["pending_rewards"][local_network].is_empty():
+		main.print_message("No more pending rewards for " + local_network)
 
 
-
-
-# DEBUG
 func edit_token_lane():
-	if main.lane_is_active():	
-		main.print_message("Cannot edit lanes while a lane is active")
-		return
-	var monitored_token_form = main._monitored_token_form.instantiate()
-	monitored_token_form.main = main
-	monitored_token_form.account = account
-	main.add_child(monitored_token_form)
-	
 	var token_form = token.duplicate()
-	var input = monitored_token_form.input
+	$LaneConfig.visible = true
+	$LaneConfig/MinimumTransfer.text = token_form["minimum_transfer"]
+	$LaneConfig/MinimumRewardPercent.text = token_form["minimum_reward_percent"]
+	$LaneConfig/MaximumGasFee.text = maximum_gas_fee
+	$LaneConfig/FlatRateThreshold.text = token_form["flat_rate_threshold"]
 	
-	input.get_node("LocalNetwork").text = local_network
-	input.get_node("LocalToken").text = local_token
-	input.get_node("MinimumTransfer").text = token_form["minimum_transfer"]
-	input.get_node("MinimumRewardPercent").text = token_form["minimum_reward_percent"]
-	input.get_node("MaximumGasFee").text = maximum_gas_fee
-	input.get_node("FlatRateThreshold").text = token_form["flat_rate_threshold"]
+	# DEBUG
+	# put on process
+	var min_reward = float(token_form["minimum_transfer"]) * float(token_form["minimum_reward_percent"])
+	$LaneConfig/WorstCase.text = "Worst Case: " + maximum_gas_fee + " Gas for " + str(min_reward) + " Tokens"
+	
+
+func confirm_lane_changes():
+	# DEBUG
+	# need error check
+	
+	token["minimum_transfer"] = str( float($LaneConfig/MinimumTransfer.text) )
+	token["minimum_reward_percent"] = str( float($LaneConfig/MinimumRewardPercent.text) )
+	maximum_gas_fee = str( float($LaneConfig/MaximumGasFee.text) )
+	token["maximum_gas_fee"] = str( float($LaneConfig/MaximumGasFee.text) )
+	token["flat_rate_threshold"] = str( float($LaneConfig/FlatRateThreshold.text) )
+	
 	var index = 0
-	for network in token_form["remote_networks"].keys():
-		var remote_token = token_form["remote_networks"][network]
-		var remote_network = input.get_node("RemoteNetworks").get_children()[index]
-		remote_network.get_node("RemoteNetwork").text = network
-		remote_network.get_node("RemoteToken").text = remote_token
+	for monitored_token in main.application_manifest["monitored_tokens"]:
+		if monitored_token["lane_id"] == token["lane_id"]:
+			main.application_manifest["monitored_tokens"][index] = token.duplicate()
+			main.save_application_manifest()
 		index += 1
-	
-	monitored_token_form.check_local_token()
-	monitored_token_form.check_remote_tokens()
+		
+	$LaneConfig.visible = false
+
+
+func cancel_lane_changes():
+	$LaneConfig.visible = false
 
 
 

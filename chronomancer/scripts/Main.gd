@@ -57,7 +57,8 @@ var test_lane = {
 		"minimum_reward_percent": "0",
 		"maximum_gas_fee": "0.002",
 		"flat_rate_threshold": "100000000",
-		"remote_networks": {"Arbitrum Sepolia": "0xA8C0c11bf64AF62CDCA6f93D3769B88BdD7cb93D"}
+		"remote_networks": {"Arbitrum Sepolia": "0xA8C0c11bf64AF62CDCA6f93D3769B88BdD7cb93D"},
+		"lane_id": Crypto.new().generate_random_bytes(32).hex_encode()
 	}
 
 # Test Creator Task variables
@@ -528,8 +529,8 @@ func load_application_manifest():
 			"approvals": {},
 			"pending_rewards": {}
 			}
-		# DEBUG
-		#save_application_manifest()
+		
+		save_application_manifest()
 	else:
 		var manifest = FileAccess.open("user://MANIFEST", FileAccess.READ).get_as_text()
 		var json = JSON.new()

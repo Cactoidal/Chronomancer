@@ -17,6 +17,8 @@ var local_gas_balance = "0"
 var local_token_info = []
 var remote_tokens = {}
 
+var pending_remote_tokens = []
+
 
 func _ready():
 	input.get_node("MinimumTransfer").text = "0"
@@ -30,6 +32,14 @@ func _ready():
 	$Form/ConfirmCancel/GoBack.connect("pressed", go_back)
 	$Form/ConfirmAdd/Confirm.connect("pressed", confirm_add)
 	$Form/ConfirmAdd/GoBack.connect("pressed", go_back)
+	
+	for empty_dictionary in range(input.get_node("RemoteNetworks").get_children().size()):
+		pending_remote_tokens.push_back(
+			{
+			"remote_network": "",
+			"remote_token": ""
+			}
+		)
 
 
 func confirm():
@@ -71,10 +81,10 @@ func confirm_add():
 func get_monitored_token():
 	var local_network = input.get_node("LocalNetwork").text
 	var local_token = input.get_node("LocalToken").text
-	minimum_transfer = float(input.get_node("MinimumTransfer").text)
-	minimum_reward_percent = float(input.get_node("MinimumRewardPercent").text)
-	maximum_gas_fee = float(input.get_node("MaximumGasFee").text)
-	flat_rate_threshold = float(input.get_node("FlatRateThreshold").text)
+	minimum_transfer = str( float(input.get_node("MinimumTransfer").text) )
+	minimum_reward_percent = str ( float(input.get_node("MinimumRewardPercent").text) )
+	maximum_gas_fee = str( float(input.get_node("MaximumGasFee").text) )
+	flat_rate_threshold = str( float(input.get_node("FlatRateThreshold").text) )
 	
 	
 	var monitored_token = {
@@ -86,7 +96,8 @@ func get_monitored_token():
 		"minimum_reward_percent": minimum_reward_percent,
 		"maximum_gas_fee": maximum_gas_fee,
 		"flat_rate_threshold": flat_rate_threshold,
-		"remote_networks": {}
+		"remote_networks": {},
+		"lane_id": Crypto.new().generate_random_bytes(32).hex_encode()
 	}
 	
 	
@@ -116,7 +127,21 @@ func check_local_network():
 		local_gas_balance = "0"
 		if local_network in Ethers.network_info.keys():
 			Ethers.get_gas_balance(local_network, account, self, "update_network_gas_balance")
-
+		
+		var local_token = input.get_node("LocalToken").text
+		previous_local_token = local_token
+		input.get_node("TokenBalanceLabel").visible = false
+		local_token_info = []
+		if is_valid_address(local_token): 
+			if previous_local_network in Ethers.network_info.keys():
+				Ethers.get_erc20_info(
+						previous_local_network, 
+						Ethers.get_address(account), 
+						local_token, 
+						self, 
+						"update_local_token_info"
+						)
+		
 
 func update_network_gas_balance(callback):
 	input.get_node("GasBalanceLabel").visible = true
@@ -155,7 +180,56 @@ func update_local_token_info(callback):
 		input.get_node("TokenBalanceLabel").text = "Failed to retrieve Token Info"
 
 
+
 func check_remote_tokens():
+	
+	var index = 0
+	for network in input.get_node("RemoteNetworks").get_children():
+		var network_name = network.get_node("RemoteNetwork").text
+		var remote_token = network.get_node("RemoteToken").text
+		
+		if pending_remote_tokens[index]["remote_network"] != network_name:
+			pending_remote_tokens[index]["remote_network"] = network_name
+			if network_name in Ethers.network_info.keys():
+				if is_valid_address(remote_token):
+					remote_tokens[remote_token] = ""
+					Ethers.get_erc20_info(
+							network_name, 
+							Ethers.get_address(account), 
+							remote_token, 
+							self, 
+							"update_remote_token_name",
+							{"remote_token": remote_token}
+							)
+		
+		if pending_remote_tokens[index]["remote_token"] != remote_token:
+			pending_remote_tokens[index]["remote_token"] = remote_token
+			if network_name in Ethers.network_info.keys():
+				if is_valid_address(remote_token):
+					remote_tokens[remote_token] = ""
+					Ethers.get_erc20_info(
+							network_name, 
+							Ethers.get_address(account), 
+							remote_token, 
+							self, 
+							"update_remote_token_name",
+							{"remote_token": remote_token}
+							)
+		
+		index += 1
+
+
+func update_remote_token_name(callback):
+	if callback["success"]:
+		var remote_token = callback["callback_args"]["remote_token"]
+		remote_tokens[remote_token] = callback["result"][0]
+		
+
+
+func OLDcheck_remote_tokens():
+	# DEBUG
+	# Also needs to check when network changes
+	
 	for network in input.get_node("RemoteNetworks").get_children():
 		var network_name = network.get_node("RemoteNetwork").text
 		var remote_token = network.get_node("RemoteToken").text
@@ -174,7 +248,7 @@ func check_remote_tokens():
 							)
 
 
-func update_remote_token_name(callback):
+func OLDupdate_remote_token_name(callback):
 	if callback["success"]:
 		var remote_token = callback["callback_args"]["remote_token"]
 		remote_tokens[remote_token] = callback["result"][0]
