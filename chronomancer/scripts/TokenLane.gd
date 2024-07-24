@@ -15,7 +15,7 @@ var token_balance = "0"
 var deposited_tokens = "0"
 var total_liquidity = "0"
 
-var maximum_gas_fee = "0.1"
+var maximum_gas_fee = ""
 
 var deposit_pending = false
 var withdrawal_pending = false
@@ -50,6 +50,14 @@ func initialize(_main, _token, _account):
 	$LaneConfig/Confirm.connect("pressed", confirm_lane_changes)
 	$LaneConfig/Cancel.connect("pressed", cancel_lane_changes)
 
+
+func _process(delta):
+	if $LaneConfig.visible:
+		var _minimum_transfer = $LaneConfig/MinimumTransfer.text
+		var _minimum_reward_percent = $LaneConfig/MinimumRewardPercent.text
+		var _maximum_gas_fee = $LaneConfig/MaximumGasFee.text
+		var min_reward = float(_minimum_transfer) * float(_minimum_reward_percent)
+		$LaneConfig/WorstCase.text = "Worst Case: " + _maximum_gas_fee + " Gas for " + str(min_reward) + " Tokens"
 
 
 func get_token_text():
@@ -167,32 +175,29 @@ func toggle_monitoring():
 	
 	# DEBUG
 	# turned off for now
-	#check_if_ready()
+	check_if_ready()
 	
 	active = true
 	$ToggleMonitoring.text = "Stop Monitoring"
-	# DEBUG
 	main.active_token_lanes.push_back(self)
 	
-	# DEBUG
-	# This could trigger a call to update the balances in main,
-	# and check the available liquidity for the token on ScryPool
-
-
-# DEBUG
-# fix
+	
 func check_if_ready():
 	if gas_balance == "0":
-		main.print_message("Not enough gas on " + local_network)
+		main.print_message("Warning: Not enough gas on " + local_network)
 		return false
+		
 	if deposited_tokens == "0":
-		main.print_message("Deposit " + token["token_name"] + " using Manage Lane button")
+		main.print_message("Warning: Need to deposit " + token["token_name"] + " in ScryPool")
 		return false
-	if float(gas_balance) < float(token["maximum_gas_fee"]):
-		main.print_message(local_network + " gas below maximum gas fee")
-		return false
-	if float(deposited_tokens) < float(token["minimum_transfer"]):
-		main.print_message("Deposit " + token["token_name"] + " using Manage Lane button")
+	
+	if maximum_gas_fee != "":
+		if Ethers.big_uint_math( Ethers.convert_to_bignum(gas_balance), "LESS THAN", Ethers.convert_to_bignum(maximum_gas_fee) ):
+			main.print_message("Warning: " + local_network + " gas below maximum base gas fee")
+			return false
+	
+	if Ethers.big_uint_math( Ethers.convert_to_bignum(deposited_tokens, token_decimals), "LESS THAN", Ethers.convert_to_bignum(token["minimum_transfer"], token_decimals) ):
+		main.print_message("Warning: Need to deposit " + token["token_name"] + " in ScryPool")
 		return false
 	
 	return true
@@ -332,7 +337,7 @@ func withdraw_tokens():
 # NOTE
 # The sequence number can be used to query an OffRamp contract to obtain
 # the status of a message.  This is useful for checking whether the message
-# needs to be manually executed.  Currenly check_pending_rewards() does not
+# needs to be manually executed.  Currenly however check_pending_rewards() does not
 # check the OffRamps, instead only checking ScryPool for any rewards
 # that must be manually claimed or failed pools that must be manually exited.
 func check_pending_rewards():
@@ -450,21 +455,23 @@ func edit_token_lane():
 	$LaneConfig/MaximumGasFee.text = maximum_gas_fee
 	$LaneConfig/FlatRateThreshold.text = token_form["flat_rate_threshold"]
 	
-	# DEBUG
-	# put on process
-	var min_reward = float(token_form["minimum_transfer"]) * float(token_form["minimum_reward_percent"])
-	$LaneConfig/WorstCase.text = "Worst Case: " + maximum_gas_fee + " Gas for " + str(min_reward) + " Tokens"
-	
 
 func confirm_lane_changes():
-	# DEBUG
-	# need error check
+	var _maximum_gas_fee = float($LaneConfig/MaximumGasFee.text)
+	var _flat_rate_threshold = float($LaneConfig/FlatRateThreshold.text)
+	var _minimum_transfer = float($LaneConfig/MinimumTransfer.text)
+	var _minimum_reward_percent = float($LaneConfig/MinimumRewardPercent.text)
+	var min_reward = float(_minimum_transfer) * float(_minimum_reward_percent)
 	
-	token["minimum_transfer"] = str( float($LaneConfig/MinimumTransfer.text) )
-	token["minimum_reward_percent"] = str( float($LaneConfig/MinimumRewardPercent.text) )
-	maximum_gas_fee = str( float($LaneConfig/MaximumGasFee.text) )
-	token["maximum_gas_fee"] = str( float($LaneConfig/MaximumGasFee.text) )
-	token["flat_rate_threshold"] = str( float($LaneConfig/FlatRateThreshold.text) )
+	if min_reward > _flat_rate_threshold:
+		main.print_message("Flat rate lower than minimum reward")
+		return
+	
+	token["minimum_transfer"] = str(_minimum_transfer)
+	token["minimum_reward_percent"] = str(_minimum_reward_percent)
+	maximum_gas_fee = str(_maximum_gas_fee)
+	token["maximum_gas_fee"] = str(_maximum_gas_fee)
+	token["flat_rate_threshold"] = str(_flat_rate_threshold)
 	
 	var index = 0
 	for monitored_token in main.application_manifest["monitored_tokens"]:

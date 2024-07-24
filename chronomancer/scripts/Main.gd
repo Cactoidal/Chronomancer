@@ -3,15 +3,9 @@ extends Control
 # Saves accounts, monitored token lanes, test cases, and pending rewards
 var application_manifest
 
-# Accounts mapped to their UI object
-var available_accounts = {}
-
 # Account in the "selected account" panel, for the purpose of logging in
 # and managing an account task
 var selected_account
-
-# Accounts mapped to their assigned tasks (Chronomancer or Test Creator)
-var account_tasks = {}
 
 # Accounts mapped to networks mapped to gas and token balances
 var account_balances = {}  #account -> networks -> gas/tokens
@@ -61,7 +55,6 @@ var test_lane = {
 		"lane_id": Crypto.new().generate_random_bytes(32).hex_encode()
 	}
 
-# Test Creator Task variables
 
 
 func _ready():
@@ -457,8 +450,6 @@ func decode_EVM2EVM_message(callback):
 
 
 
-
-
 func log_pending_reward(network, pending_reward):
 	if !network in application_manifest["pending_rewards"].keys():
 		application_manifest["pending_rewards"][network] = []
@@ -517,9 +508,8 @@ func lane_is_active():
 
 #####   ACCOUNT MANAGEMENT   #####
 
-# DEBUG
+
 func load_application_manifest():
-	# DEBUG
 	if !FileAccess.file_exists("user://MANIFEST"):
 		application_manifest = {
 			"account": "",
@@ -608,39 +598,6 @@ func login_account():
 		print_message("Login failed")
 		return
 
-#
-#func get_balances(account, networks):
-	#for network in networks:
-		#Ethers.get_gas_balance(network, account, self, "update_gas_balance")
-#
-#
-#func update_gas_balance(callback):
-	#if callback["success"]:
-		#var network = callback["network"]
-		#var account = callback["account"]
-		#
-		#initialize_network_balance(network)
-		#
-		#for token in account_balances[account][network].keys():
-			#if token != "gas":
-				#var decimals = account_balances[account][network][token]["decimals"]
-				#Ethers.get_erc20_balance(
-						#network, 
-						#Ethers.get_address(account), 
-						#token, 
-						#decimals, 
-						#self, 
-						#"update_erc20_balance",
-						#{"token": token}
-						#)
-#
-#func update_erc20_balance(callback):
-	#if callback["success"]:
-		#var network = callback["network"]
-		#var account = callback["account"]
-		#var token = callback["callback_args"]["token"]
-		#account_balances[account][network][token]["balance"] = callback["result"]
-
 
 func load_account_manager():
 	var account = selected_account
@@ -672,7 +629,7 @@ func export_private_key():
 # calling this function in _ready() will overwrite Ethers' standard network info.
 func load_ccip_network_info():
 	var json = JSON.new()
-	# DEBUG
+
 	if FileAccess.file_exists("user://ccip_network_info") != true:
 		Ethers.network_info = default_ccip_network_info.duplicate()
 		var file = FileAccess.open("user://ccip_network_info", FileAccess.WRITE)
@@ -749,8 +706,6 @@ func add_new_tx_object(local_id, transaction):
 	fadein.play()
 
 
-# DEBUG
-# Update balances
 func update_transaction(tx_object, transaction):
 	var transaction_hash = transaction["transaction_hash"]
 	var transaction_type = transaction["callback_args"]["transaction_type"]
@@ -775,9 +730,6 @@ func update_transaction(tx_object, transaction):
 			if !ccip_link.visible:
 				ccip_link.connect("pressed", open_link.bind("https://ccip.chain.link/tx/" + transaction_hash))
 				ccip_link.visible = true
-			
-			# DEBUG
-			#https://ccip.chain.link/msg/
 			
 	
 	if tx_status == "SUCCESS":
@@ -1108,6 +1060,7 @@ func bridge(bridge_form):
 	var chronomancer_endpoint = Ethers.network_info[destination_network]["chronomancer_endpoint"]
 	
 	# DEBUG
+	# Calculate some % reward
 	var recipient = Ethers.get_address(selected_account)
 	var reward = Ethers.convert_to_bignum("0.001", decimals)
 	var test_payload = Calldata.abi_encode( [{"type": "string"}], ["test"] )
@@ -1382,7 +1335,7 @@ var default_ccip_network_info = {
 		"minimum_gas_threshold": "0.0002",
 		"maximum_gas_fee": "",
 		"scan_url": "https://gnosis-chiado.blockscout.com",
-		"gas_symbol": "ETH",
+		"gas_symbol": "xDAI",
 		#
 		"chain_selector": "8871595565390010547",
 		"router": "0x19b1bac554111517831ACadc0FD119D23Bb14391",
