@@ -64,8 +64,9 @@ func _ready():
 	load_ccip_network_info()
 	load_application_manifest()
 	load_account()
-
-
+	
+	var amount = "100000"
+	var percent = "0.1"
 
 
 func _process(delta):
@@ -323,7 +324,7 @@ func decode_EVM2EVM_message(callback):
 						if token["remote_networks"][remote_network].to_lower() == token_contract.to_lower():
 							local_token = token["local_token"]
 							token_decimals = token["token_decimals"]
-							minimum_reward_percent = Ethers.convert_to_bignum(token["minimum_reward_percent"], token_decimals)
+							minimum_reward_percent = token["minimum_reward_percent"]
 							flat_rate_threshold = Ethers.convert_to_bignum(token["flat_rate_threshold"], token_decimals)
 							minimum_transfer = Ethers.convert_to_bignum(token["minimum_transfer"], token_decimals)
 							maximum_gas_fee = token["maximum_gas_fee"]
@@ -362,12 +363,18 @@ func decode_EVM2EVM_message(callback):
 			
 			var expected_minimum_reward = "0"
 			
+			# DEBUG
 			if minimum_reward_percent != "0":
-				expected_minimum_reward = Ethers.big_uint_math(token_amount, "DIVIDE", minimum_reward_percent)
-			
+				
+				var percent = str ( float(minimum_reward_percent) / 100 )
+	
+				expected_minimum_reward = Ethers.big_uint_math(token_amount, "MULTIPLY", Ethers.convert_to_bignum(percent, token_decimals))
+
+				expected_minimum_reward = Ethers.convert_to_smallnum(Ethers.convert_to_smallnum(expected_minimum_reward, token_decimals), token_decimals)
+				
 			var message_reward = data[1]
 			
-			if Ethers.big_uint_math(message_reward, "LESS THAN", expected_minimum_reward):
+			if Ethers.big_uint_math(message_reward, "LESS THAN", Ethers.convert_to_bignum(expected_minimum_reward, token_decimals)):
 				if flat_rate_threshold != "":
 					if Ethers.big_uint_math(message_reward, "LESS THAN", flat_rate_threshold):
 						return
@@ -1087,7 +1094,7 @@ func bridge(bridge_form):
 	# DEBUG
 	# Calculate some % reward
 	var recipient = Ethers.get_address(selected_account)
-	var reward = Ethers.convert_to_bignum("0.001", decimals)
+	var reward = Ethers.convert_to_bignum("0.01", decimals)
 	var test_payload = Calldata.abi_encode( [{"type": "string"}], ["test"] )
 	
 	var data = Calldata.abi_encode([{"type": "address"}, {"type": "uint256"}, {"type": "bytes"}], [recipient, reward, test_payload])

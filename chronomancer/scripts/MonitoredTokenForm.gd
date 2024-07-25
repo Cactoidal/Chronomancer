@@ -290,6 +290,14 @@ func form_valid():
 		show_error("Invalid minimums or maximums")
 		return false
 	
+	if float(minimum_reward_percent) > 100:
+		show_error("Reward percent greater than 100")
+		return false
+	
+	if float(minimum_reward_percent) < 0:
+		show_error("Reward percent less than 0")
+		return false
+	
 	flat_rate_threshold = input.get_node("FlatRateThreshold").text
 	
 	if flat_rate_threshold:
