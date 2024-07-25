@@ -20,6 +20,7 @@ var maximum_gas_fee = ""
 var deposit_pending = false
 var withdrawal_pending = false
 
+var balance_refresh_timer = 0
 
 func initialize(_main, _token, _account):
 	main = _main
@@ -34,6 +35,7 @@ func initialize(_main, _token, _account):
 	
 	get_token_text()
 	get_balances()
+	balance_refresh_timer = 7
 	
 	$ToggleMonitoring.connect("pressed", toggle_monitoring)
 	$ManageLane.connect("pressed", open_lane_manager)
@@ -52,6 +54,12 @@ func initialize(_main, _token, _account):
 
 
 func _process(delta):
+	if token:
+		balance_refresh_timer -= delta
+		if balance_refresh_timer < 0:
+			balance_refresh_timer = 7
+			get_balances()
+	
 	if $LaneConfig.visible:
 		var _minimum_transfer = $LaneConfig/MinimumTransfer.text
 		var _minimum_reward_percent = $LaneConfig/MinimumRewardPercent.text
@@ -347,8 +355,6 @@ func check_pending_rewards():
 		main.save_application_manifest()
 	
 	var pending_rewards = main.application_manifest["pending_rewards"][local_network]
-	
-
 	
 	if pending_rewards.is_empty():
 		main.print_message("No pending rewards found on " + local_network)

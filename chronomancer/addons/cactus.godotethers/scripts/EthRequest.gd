@@ -16,6 +16,7 @@ var prune_timer = 12
 func resolve_ethereum_request(result, response_code, headers, body):
 	if response_code == 200:
 		var body_string = body.get_string_from_ascii()
+		
 		if body_string.begins_with("{"):
 			var json = JSON.new()
 			var get_result = json.parse_string(body.get_string_from_ascii())

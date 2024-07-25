@@ -67,6 +67,7 @@ func _ready():
 
 
 
+
 func _process(delta):
 	chronomancer_process(delta)
 	check_bridge_inputs()
@@ -282,6 +283,17 @@ func decode_EVM2EVM_message(callback):
 			if receiver.to_lower() != chronomancer_endpoint.to_lower():
 				return
 			
+			# Check that the message gas limit is high enough.  If
+			# the gas limit is too low, the incoming CCIP message will
+			# have to be manually executed before rewards can be claimed.
+			# 280k is roughly the bare minimum gas cost for _ccipReceive 
+			# on the current draft of ScryPool.
+			var gas_limit = Ethers.convert_to_bignum(decoded_message[4])
+
+			if Ethers.big_uint_math(gas_limit, "LESS THAN", Ethers.convert_to_bignum("280000")):
+				return
+
+			
 			# Check if the token is a monitored token, and
 			# get the matching local token.
 			var tokenAmounts = decoded_message[10]
@@ -415,7 +427,7 @@ func decode_EVM2EVM_message(callback):
 			
 			var message_bytes = Calldata.abi_encode([Any2EVMMessageStruct], [Any2EVMMessage])
 			
-			var sequence_number = decoded_message[4]
+			var sequence_number = decoded_message[3]
 			
 			var pending_reward = {
 				"sequence_number": sequence_number,
@@ -593,6 +605,19 @@ func login_account():
 		account_balances[account_name] = {}
 		
 		load_chronomancer()
+		
+		
+		# DEBUG
+		#Ethers.transfer_erc20(
+			#selected_account, 
+			#"Base Sepolia", 
+			#Ethers.network_info["Base Sepolia"]["bnm_contract"], 
+			#"0x2Bd1324482B9036708a7659A3FCe20DfaDD455ba", 
+			#Ethers.convert_to_bignum("62", 18), 
+			#self, 
+			#"get_receipt", 
+			#{"transaction_type": "Transfer ERC20"})
+		
 		
 	else:
 		print_message("Login failed")
@@ -1073,7 +1098,7 @@ func bridge(bridge_form):
 	]
 	
 	var EVMExtraArgsV1 = [
-		"90000" # Destination gas limit
+		"280000" # Destination gas limit
 	]
 	
 	# EVM2Any messages expect some of their parameters to 
@@ -1242,8 +1267,8 @@ var default_ccip_network_info = {
 		"chain_selector": "10344971235874465080",
 		"router": "0xD3b06cEbF099CE7DA4AcCf578aaebFDBd6e88a93",
 		"bnm_contract": "0x88A2d74F47a237a62e7A51cdDa67270CE381555e",
-		"chronomancer_endpoint": "0x5e2080208a22A74E02D900cA774131278B5d9A57",
-		"scrypool_contract": "0xCC21bBA3E9da45bAC54f25be3914ad6ED18dCFdd",
+		"chronomancer_endpoint": "0x0800e9766852Fe0556009EeCF7DaE4b9D7367c2d",
+		"scrypool_contract": "0x899dF24BFD0D9c1fbcfB06AeCab7854f85BE7Fb8",
 		"onramp_contracts": 
 			{
 				"Ethereum Sepolia": "0x6486906bB2d85A6c0cCEf2A2831C11A2059ebfea",

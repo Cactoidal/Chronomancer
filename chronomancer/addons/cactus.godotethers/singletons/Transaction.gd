@@ -173,6 +173,11 @@ func estimate_gas_fee(callback):
 		
 		transaction["gas_limit"] = str(   int(callback["result"].hex_to_int() * 1.1)  )
 		
+		#NOTE
+		# Special logic for Chronomancer
+		if transaction["callback_args"]["transaction_type"] == "Order Fill":
+			transaction["gas_limit"] = str( float(transaction["gas_limit"]) + 200000 )
+		
 		var predicted_gas_cost = Ethers.big_uint_math(transaction["gas_limit"], "MULTIPLY", str(transaction["gas_price"]))
 		
 		# Check gas cost against balance
