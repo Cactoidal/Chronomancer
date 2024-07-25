@@ -19,7 +19,6 @@ func resolve_ethereum_request(result, response_code, headers, body):
 		
 		if body_string.begins_with("{"):
 			var json = JSON.new()
-			
 			var get_result = json.parse_string(body.get_string_from_ascii())
 			if typeof(get_result) == 27:
 				if get_result.has("result"):
