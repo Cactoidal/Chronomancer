@@ -154,6 +154,10 @@ func get_gas_price(callback):
 		# to estimate gas for complex transactions (I guess?)
 		{Ethers.get_address(account) : {"balance": "0x" + Ethers.convert_to_bignum("7777777", 18)}}]
 		
+		#NOTE: 
+		#Some network RPCs reject state overrides
+		
+		
 		Ethers.perform_request(
 			"eth_estimateGas", 
 			params, 

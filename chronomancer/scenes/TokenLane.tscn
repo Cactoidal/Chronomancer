@@ -237,6 +237,7 @@ grow_vertical = 2
 color = Color(0, 0, 0, 1)
 
 [node name="Confirm" type="Button" parent="LaneConfig"]
+layout_mode = 0
 offset_left = 389.0
 offset_top = 7.0
 offset_right = 476.0
@@ -245,6 +246,7 @@ mouse_default_cursor_shape = 2
 text = "Confirm"
 
 [node name="Cancel" type="Button" parent="LaneConfig"]
+layout_mode = 0
 offset_left = 512.0
 offset_top = 7.0
 offset_right = 599.0
@@ -253,6 +255,7 @@ mouse_default_cursor_shape = 2
 text = "Cancel"
 
 [node name="MinimumTransferLabel" type="Label" parent="LaneConfig"]
+layout_mode = 0
 offset_left = 22.0
 offset_top = 53.0
 offset_right = 171.0
@@ -260,12 +263,14 @@ offset_bottom = 76.0
 text = "Minimum Transfer:"
 
 [node name="MinimumTransfer" type="LineEdit" parent="LaneConfig"]
+layout_mode = 0
 offset_left = 232.0
 offset_top = 51.0
 offset_right = 601.0
 offset_bottom = 82.0
 
 [node name="MinimumRewardPercentLabel" type="Label" parent="LaneConfig"]
+layout_mode = 0
 offset_left = 22.0
 offset_top = 89.0
 offset_right = 228.0
@@ -273,12 +278,14 @@ offset_bottom = 112.0
 text = "Minimum Reward Percent:"
 
 [node name="MinimumRewardPercent" type="LineEdit" parent="LaneConfig"]
+layout_mode = 0
 offset_left = 232.0
 offset_top = 87.0
 offset_right = 601.0
 offset_bottom = 118.0
 
 [node name="MaximumGasFeeLabel" type="Label" parent="LaneConfig"]
+layout_mode = 0
 offset_left = 22.0
 offset_top = 126.0
 offset_right = 224.0
@@ -286,12 +293,14 @@ offset_bottom = 149.0
 text = "Maximum Gas Fee:"
 
 [node name="MaximumGasFee" type="LineEdit" parent="LaneConfig"]
+layout_mode = 0
 offset_left = 232.0
 offset_top = 124.0
 offset_right = 601.0
 offset_bottom = 155.0
 
 [node name="FlatRateThresholdLabel" type="Label" parent="LaneConfig"]
+layout_mode = 0
 offset_left = 22.0
 offset_top = 163.0
 offset_right = 224.0
@@ -300,12 +309,14 @@ text = "Flat Rate Threshold:
 (optional)"
 
 [node name="FlatRateThreshold" type="LineEdit" parent="LaneConfig"]
+layout_mode = 0
 offset_left = 232.0
 offset_top = 161.0
 offset_right = 601.0
 offset_bottom = 192.0
 
 [node name="WorstCase" type="Label" parent="LaneConfig"]
+layout_mode = 0
 offset_left = 245.0
 offset_top = 207.0
 offset_right = 582.0

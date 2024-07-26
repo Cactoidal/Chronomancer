@@ -43,18 +43,25 @@ var logged_messages = []
 
 # DEBUG
 var test_lane = {
-		"local_network": "Base Sepolia",
-		"local_token": "0x88A2d74F47a237a62e7A51cdDa67270CE381555e",
+		"local_network": "Ethereum Sepolia",
+		"local_token": "0xFd57b4ddBf88a4e07fF4e34C487b99af2Fe82a05",
 		"token_name": "CCIP-BnM",
 		"token_decimals": "18",
 		"minimum_transfer": "0",
 		"minimum_reward_percent": "0",
 		"maximum_gas_fee": "0.002",
-		"flat_rate_threshold": "100000000",
-		"remote_networks": {"Arbitrum Sepolia": "0xA8C0c11bf64AF62CDCA6f93D3769B88BdD7cb93D"},
+		"flat_rate_threshold": "100",
+		"remote_networks": {
+			"Avalanche Fuji": "0xD21341536c5cF5EB1bcb58f6723cE26e8D8E90e4",
+			"BNB Chain Testnet": "0xbFA2ACd33ED6EEc0ed3Cc06bF1ac38d22b36B9e9",
+			"Arbitrum Sepolia": "0xA8C0c11bf64AF62CDCA6f93D3769B88BdD7cb93D",
+			"Optimism Sepolia": "0x8aF4204e30565DF93352fE8E1De78925F6664dA7",
+			"Base Sepolia": "0x88A2d74F47a237a62e7A51cdDa67270CE381555e",
+			"Mode Sepolia": "0xB9d4e1141E67ECFedC8A8139b5229b7FF2BF16F5",
+			"Blast Sepolia": "0x8D122C3e8ce9C8B62b87d3551bDfD8C259Bb0771"
+			},
 		"lane_id": Crypto.new().generate_random_bytes(32).hex_encode()
 	}
-
 
 
 func _ready():
@@ -64,9 +71,6 @@ func _ready():
 	load_ccip_network_info()
 	load_application_manifest()
 	load_account()
-	
-	var amount = "100000"
-	var percent = "0.1"
 
 
 func _process(delta):
@@ -662,6 +666,7 @@ func export_private_key():
 func load_ccip_network_info():
 	var json = JSON.new()
 
+	# DEBUG
 	if FileAccess.file_exists("user://ccip_network_info") != true:
 		Ethers.network_info = default_ccip_network_info.duplicate()
 		var file = FileAccess.open("user://ccip_network_info", FileAccess.WRITE)
@@ -1198,6 +1203,8 @@ var default_ccip_network_info = {
 		"chain_selector": "16015286601757825753",
 		"router": "0x0BF3dE8c5D3e8A2B34D2BEeB17ABfCeBaf363A59",
 		"bnm_contract": "0xFd57b4ddBf88a4e07fF4e34C487b99af2Fe82a05",
+		"chronomancer_endpoint": "0x67BE65F09Fff0A71F3758f9AA893965FC47e3d87",
+		"scrypool_contract": "0xbc47858d6154E99561d93C26368B2F5A3A6eE8DA",
 		"onramp_contracts": 
 			{
 				"Arbitrum Sepolia": "0xe4Dd3B16E09c016402585a8aDFdB4A18f772a07e",
@@ -1227,6 +1234,8 @@ var default_ccip_network_info = {
 		"chain_selector": "3478487238524512106",
 		"router": "0x2a9C5afB0d0e4BAb2BCdaE109EC4b0c4Be15a165",
 		"bnm_contract": "0xA8C0c11bf64AF62CDCA6f93D3769B88BdD7cb93D",
+		"chronomancer_endpoint": "0x9119caDd3e2A767157229291bDE7327235aD1548",
+		"scrypool_contract": "0x6F7F1D9775435d3b4e28CE608c73A90b3bcfEf8d",
 		"onramp_contracts": 
 			{
 				"Ethereum Sepolia": "0x4205E1Ca0202A248A5D42F5975A8FE56F3E302e9",
@@ -1250,6 +1259,8 @@ var default_ccip_network_info = {
 		"chain_selector": "5224473277236331295",
 		"router": "0x114A20A10b43D4115e5aeef7345a1A71d2a60C57",
 		"bnm_contract": "0x8aF4204e30565DF93352fE8E1De78925F6664dA7",
+		"chronomancer_endpoint": "0xE4F656A588497349E99BDE9FD43C857de2f6fF23",
+		"scrypool_contract": "0xb003803114c9eE7A4C18d60c1d7D3219dc540AC1",
 		"onramp_contracts": 
 			{
 				"Ethereum Sepolia": "0xC8b93b46BF682c39B3F65Aa1c135bC8A95A5E43a",
@@ -1300,6 +1311,8 @@ var default_ccip_network_info = {
 		"chain_selector": "14767482510784806043",
 		"router": "0xF694E193200268f9a4868e4Aa017A0118C9a8177",
 		"bnm_contract": "0xD21341536c5cF5EB1bcb58f6723cE26e8D8E90e4",
+		"chronomancer_endpoint": "0xe71C37B02AFE10f7aA45a3FDf7DBA0C53FDd5f46",
+		"scrypool_contract": "0xfB0B5808A0c26b61E361a3ba1De753E0cFc4d64b",
 		"onramp_contracts": 
 			{
 				"Ethereum Sepolia": "0x5724B4Cc39a9690135F7273b44Dfd3BA6c0c69aD",
@@ -1325,6 +1338,8 @@ var default_ccip_network_info = {
 		"chain_selector": "13264668187771770619",
 		"router": "0xE1053aE1857476f36A3C62580FF9b016E8EE8F6f",
 		"bnm_contract": "0xbFA2ACd33ED6EEc0ed3Cc06bF1ac38d22b36B9e9",
+		"chronomancer_endpoint": "0x2e0d90fD5C983a5a76f5AB32698Db396Df066491",
+		"scrypool_contract": "0xb09E4Cab9c83771f016f969d263896aCf0A37469",
 		"onramp_contracts": 
 			{
 				"Ethereum Sepolia": "0xB1DE44B04C00eaFe9915a3C07a0CaeA4410537dF",
@@ -1333,113 +1348,6 @@ var default_ccip_network_info = {
 				"Polygon Amoy": "0xf37CcbfC04adc1B56a46B36F811D52C744a1AF78",
 				"Wemix Testnet": "0x89268Afc1BEA0782a27ba84124E3F42b196af927",
 				"Gnosis Chiado": "0x8735f991d41eA9cA9D2CC75cD201e4B7C866E63e"
-			}
-	},
-	
-	"Wemix Testnet": {
-		"chain_id": "1112",
-		"rpcs": ["https://api.test.wemix.com"],
-		"rpc_cycle": 0,
-		"minimum_gas_threshold": "0.0002",
-		"maximum_gas_fee": "",
-		"scan_url": "https://testnet.wemixscan.com",
-		"gas_symbol": "WEMIX",
-		#
-		"chain_selector": "9284632837123596123",
-		"router": "0xA8C0c11bf64AF62CDCA6f93D3769B88BdD7cb93D",
-		"bnm_contract": "0xF4E4057FbBc86915F4b2d63EEFFe641C03294ffc",
-		"onramp_contracts": 
-			{
-				"Ethereum Sepolia": "0x4d57C6d8037C65fa66D6231844785a428310a735",
-				"Arbitrum Sepolia": "0xA9DE3F7A617D67bC50c56baaCb9E0373C15EbfC6",
-				"Optimism Sepolia": "0x1961a7De751451F410391c251D4D4F98D71B767D",
-				"Avalanche Fuji": "0xC4aC84da458ba8e40210D2dF94C76E9a41f70069",
-				"BNB Chain Testnet": "0x5AD6eed6Be0ffaDCA4105050CF0E584D87E0c2F1",
-				"Polygon Amoy": "0xd55148e841e76265B484d399eC71b7076ecB1216",
-				"Kroma Sepolia": "0x428C4dc89b6Bf908B82d77C9CBceA786ea8cc7D0"
-			}
-	},
-	
-	"Gnosis Chiado": {
-		"chain_id": "10200",
-		"rpcs": ["https://1rpc.io/gnosis"],
-		"rpc_cycle": 0,
-		"minimum_gas_threshold": "0.0002",
-		"maximum_gas_fee": "",
-		"scan_url": "https://gnosis-chiado.blockscout.com",
-		"gas_symbol": "xDAI",
-		#
-		"chain_selector": "8871595565390010547",
-		"router": "0x19b1bac554111517831ACadc0FD119D23Bb14391",
-		"bnm_contract": "0xA189971a2c5AcA0DFC5Ee7a2C44a2Ae27b3CF389",
-		"onramp_contracts": 
-			{
-				"Ethereum Sepolia": "0x4ac7FBEc2A7298AbDf0E0F4fDC45015836C4bAFe",
-				"Arbitrum Sepolia": "0x473b49fb592B54a4BfCD55d40E048431982879C9",
-				"Optimism Sepolia": "0xAae733212981e06D9C978Eb5148F8af03F54b6EF",
-				"Base Sepolia": "0x41b4A51cAfb699D9504E89d19D71F92E886028a8",
-				"Avalanche Fuji": "0x610F76A35E17DA4542518D85FfEa12645eF111Fc",
-				"BNB Chain Testnet": "0xE48E6AA1fc7D0411acEA95F8C6CaD972A37721D4",
-				"Polygon Amoy": "0x01800fCDd892e37f7829937271840A6F041bE62E"
-			}
-	},
-	
-	"Polygon Amoy": {
-		"chain_id": "80002",
-		"rpcs": ["https://polygon-amoy-bor-rpc.publicnode.com", "https://rpc-amoy.polygon.technology", "https://polygon-amoy.drpc.org"],
-		"rpc_cycle": 0,
-		"minimum_gas_threshold": "0.0002",
-		"maximum_gas_fee": "",
-		"scan_url": "https://amoy.polygonscan.com",
-		"gas_symbol": "MATIC",
-		#
-		"chain_selector": "16281711391670634445",
-		"router": "0x9C32fCB86BF0f4a1A8921a9Fe46de3198bb884B2",
-		"bnm_contract": "0xcab0EF91Bee323d1A617c0a027eE753aFd6997E4",
-		"onramp_contracts": 
-			{
-				"Ethereum Sepolia": "0x35347A2fC1f2a4c5Eae03339040d0b83b09e6FDA",
-				"Optimism Sepolia": "0xA52cDAeb43803A80B3c0C2296f5cFe57e695BE11",
-				"Avalanche Fuji": "0x8Fb98b3837578aceEA32b454f3221FE18D7Ce903",
-				"BNB Chain Testnet": "0xC6683ac4a0F62803Bec89a5355B36495ddF2C38b",
-				"Wemix Testnet": "0x26546096F64B5eF9A1DcDAe70Df6F4f8c2E10C61",
-				"Gnosis Chiado": "0x2331F6D614C9Fd613Ff59a1aB727f1EDf6c37A68"
-			}
-	},
-	
-	"Kroma Sepolia": {
-		"chain_id": "2358",
-		"rpcs": ["https://api.sepolia.kroma.network"],
-		"rpc_cycle": 0,
-		"minimum_gas_threshold": "0.0002",
-		"maximum_gas_fee": "",
-		"scan_url": "https://sepolia.kromascan.com",
-		"gas_symbol": "ETH",
-		#
-		"chain_selector": "5990477251245693094",
-		"router": "0xA8C0c11bf64AF62CDCA6f93D3769B88BdD7cb93D",
-		"bnm_contract": "0x6AC3e353D1DDda24d5A5416024d6E436b8817A4e",
-		"onramp_contracts": 
-			{
-				"Wemix Testnet": "0x6ea155Fc77566D9dcE01B8aa5D7968665dc4f0C5"
-			}
-	},
-	
-	"Celo Alfajores": {
-		"chain_id": "44787",
-		"rpcs": ["https://alfajores-forno.celo-testnet.org"],
-		"rpc_cycle": 0,
-		"minimum_gas_threshold": "0.0002",
-		"maximum_gas_fee": "",
-		"scan_url": "https://alfajores.celoscan.io",
-		"gas_symbol": "CELO",
-		#
-		"chain_selector": "3552045678561919002",
-		"router": "0xb00E95b773528E2Ea724DB06B75113F239D15Dca",
-		"bnm_contract": "0x7e503dd1dAF90117A1b79953321043d9E6815C72",
-		"onramp_contracts": 
-			{
-				"Ethereum Sepolia": "0x16a020c4bbdE363FaB8481262D30516AdbcfcFc8"
 			}
 	},
 	
@@ -1455,6 +1363,10 @@ var default_ccip_network_info = {
 		"chain_selector": "2027362563942762617",
 		"router": "0xfb2f2A207dC428da81fbAFfDDe121761f8Be1194",
 		"bnm_contract": "0x8D122C3e8ce9C8B62b87d3551bDfD8C259Bb0771",
+		
+		"chronomancer_endpoint": "0x2e0d90fD5C983a5a76f5AB32698Db396Df066491",
+		"scrypool_contract": "0xb09E4Cab9c83771f016f969d263896aCf0A37469",
+		
 		"onramp_contracts": 
 			{
 				"Ethereum Sepolia": "0x85Ef19FC4C63c70744995DC38CAAEC185E0c619f"
@@ -1473,12 +1385,143 @@ var default_ccip_network_info = {
 		"chain_selector": "829525985033418733",
 		"router": "0xc49ec0eB4beb48B8Da4cceC51AA9A5bD0D0A4c43",
 		"bnm_contract": "0xB9d4e1141E67ECFedC8A8139b5229b7FF2BF16F5",
+		"chronomancer_endpoint": "0x2e0d90fD5C983a5a76f5AB32698Db396Df066491",
+		"scrypool_contract": "0xb09E4Cab9c83771f016f969d263896aCf0A37469",
 		"onramp_contracts": 
 			{
 				"Ethereum Sepolia": "0xfFdE9E8c34A27BEBeaCcAcB7b3044A0A364455C9",
 				"Base Sepolia": "0x73f7E074bd7291706a0C5412f51DB46441B1aDCB"
 			}
 	}
+	
+	# Incompatible with contract?
+	#"Wemix Testnet": {
+		#"chain_id": "1112",
+		#"rpcs": ["https://api.test.wemix.com"],
+		#"rpc_cycle": 0,
+		#"minimum_gas_threshold": "0.0002",
+		#"maximum_gas_fee": "",
+		#"scan_url": "https://testnet.wemixscan.com",
+		#"gas_symbol": "WEMIX",
+		##
+		#"chain_selector": "9284632837123596123",
+		#"router": "0xA8C0c11bf64AF62CDCA6f93D3769B88BdD7cb93D",
+		#"bnm_contract": "0xF4E4057FbBc86915F4b2d63EEFFe641C03294ffc",
+		#
+		#"chronomancer_endpoint": "",
+		#"scrypool_contract": "",
+		#
+		#"onramp_contracts": 
+			#{
+				#"Ethereum Sepolia": "0x4d57C6d8037C65fa66D6231844785a428310a735",
+				#"Arbitrum Sepolia": "0xA9DE3F7A617D67bC50c56baaCb9E0373C15EbfC6",
+				#"Optimism Sepolia": "0x1961a7De751451F410391c251D4D4F98D71B767D",
+				#"Avalanche Fuji": "0xC4aC84da458ba8e40210D2dF94C76E9a41f70069",
+				#"BNB Chain Testnet": "0x5AD6eed6Be0ffaDCA4105050CF0E584D87E0c2F1",
+				#"Polygon Amoy": "0xd55148e841e76265B484d399eC71b7076ecB1216",
+				#"Kroma Sepolia": "0x428C4dc89b6Bf908B82d77C9CBceA786ea8cc7D0"
+			#}
+	#},
+	
+	# Gas estimates don't seem compatible with state overrides
+	#"Gnosis Chiado": {
+		#"chain_id": "10200",
+		#"rpcs": ["https://gnosis-chiado-rpc.publicnode.com"],
+		#"rpc_cycle": 0,
+		#"minimum_gas_threshold": "0.0002",
+		#"maximum_gas_fee": "",
+		#"scan_url": "https://gnosis-chiado.blockscout.com",
+		#"gas_symbol": "xDAI",
+		##
+		#"chain_selector": "8871595565390010547",
+		#"router": "0x19b1bac554111517831ACadc0FD119D23Bb14391",
+		#"bnm_contract": "0xA189971a2c5AcA0DFC5Ee7a2C44a2Ae27b3CF389",
+		#"chronomancer_endpoint": "0x2e0d90fD5C983a5a76f5AB32698Db396Df066491",
+		#"scrypool_contract": "0xb09E4Cab9c83771f016f969d263896aCf0A37469",
+		#"onramp_contracts": 
+			#{
+				#"Ethereum Sepolia": "0x4ac7FBEc2A7298AbDf0E0F4fDC45015836C4bAFe",
+				#"Arbitrum Sepolia": "0x473b49fb592B54a4BfCD55d40E048431982879C9",
+				#"Optimism Sepolia": "0xAae733212981e06D9C978Eb5148F8af03F54b6EF",
+				#"Base Sepolia": "0x41b4A51cAfb699D9504E89d19D71F92E886028a8",
+				#"Avalanche Fuji": "0x610F76A35E17DA4542518D85FfEa12645eF111Fc",
+				#"BNB Chain Testnet": "0xE48E6AA1fc7D0411acEA95F8C6CaD972A37721D4",
+				#"Polygon Amoy": "0x01800fCDd892e37f7829937271840A6F041bE62E"
+			#}
+	#},
+	
+	#"Polygon Amoy": {
+		#"chain_id": "80002",
+		#"rpcs": ["https://polygon-amoy-bor-rpc.publicnode.com", "https://rpc-amoy.polygon.technology", "https://polygon-amoy.drpc.org"],
+		#"rpc_cycle": 0,
+		#"minimum_gas_threshold": "0.0002",
+		#"maximum_gas_fee": "",
+		#"scan_url": "https://amoy.polygonscan.com",
+		#"gas_symbol": "MATIC",
+		##
+		#"chain_selector": "16281711391670634445",
+		#"router": "0x9C32fCB86BF0f4a1A8921a9Fe46de3198bb884B2",
+		#"bnm_contract": "0xcab0EF91Bee323d1A617c0a027eE753aFd6997E4",
+		#
+		#"chronomancer_endpoint": "",
+		#"scrypool_contract": "",
+		#
+		#"onramp_contracts": 
+			#{
+				#"Ethereum Sepolia": "0x35347A2fC1f2a4c5Eae03339040d0b83b09e6FDA",
+				#"Optimism Sepolia": "0xA52cDAeb43803A80B3c0C2296f5cFe57e695BE11",
+				#"Avalanche Fuji": "0x8Fb98b3837578aceEA32b454f3221FE18D7Ce903",
+				#"BNB Chain Testnet": "0xC6683ac4a0F62803Bec89a5355B36495ddF2C38b",
+				#"Wemix Testnet": "0x26546096F64B5eF9A1DcDAe70Df6F4f8c2E10C61",
+				#"Gnosis Chiado": "0x2331F6D614C9Fd613Ff59a1aB727f1EDf6c37A68"
+			#}
+	#},
+	
+	# Currently only lane is Wemix, where contract can't be deployed
+	#"Kroma Sepolia": {
+		#"chain_id": "2358",
+		#"rpcs": ["https://api.sepolia.kroma.network"],
+		#"rpc_cycle": 0,
+		#"minimum_gas_threshold": "0.0002",
+		#"maximum_gas_fee": "",
+		#"scan_url": "https://sepolia.kromascan.com",
+		#"gas_symbol": "ETH",
+		##
+		#"chain_selector": "5990477251245693094",
+		#"router": "0xA8C0c11bf64AF62CDCA6f93D3769B88BdD7cb93D",
+		#"bnm_contract": "0x6AC3e353D1DDda24d5A5416024d6E436b8817A4e",
+		#
+		#"chronomancer_endpoint": "",
+		#"scrypool_contract": "",
+		#
+		#"onramp_contracts": 
+			#{
+				#"Wemix Testnet": "0x6ea155Fc77566D9dcE01B8aa5D7968665dc4f0C5"
+			#}
+	#},
+	
+	# Incompatible with contract?
+	#"Celo Alfajores": {
+		#"chain_id": "44787",
+		#"rpcs": ["https://alfajores-forno.celo-testnet.org"],
+		#"rpc_cycle": 0,
+		#"minimum_gas_threshold": "0.0002",
+		#"maximum_gas_fee": "",
+		#"scan_url": "https://alfajores.celoscan.io",
+		#"gas_symbol": "CELO",
+		##
+		#"chain_selector": "3552045678561919002",
+		#"router": "0xb00E95b773528E2Ea724DB06B75113F239D15Dca",
+		#"bnm_contract": "0x7e503dd1dAF90117A1b79953321043d9E6815C72",
+		#
+		#"chronomancer_endpoint": "",
+		#"scrypool_contract": "",
+		#
+		#"onramp_contracts": 
+			#{
+				#"Ethereum Sepolia": "0x16a020c4bbdE363FaB8481262D30516AdbcfcFc8"
+			#}
+	#},
 	
 }
 

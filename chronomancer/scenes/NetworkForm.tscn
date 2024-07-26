@@ -109,6 +109,7 @@ mouse_default_cursor_shape = 2
 text = "BNB Chain Testnet"
 
 [node name="Wemix Testnet" type="Button" parent="Form/NetworkList/Networks"]
+visible = false
 layout_mode = 0
 offset_left = 365.0
 offset_top = 255.0
@@ -118,15 +119,17 @@ mouse_default_cursor_shape = 2
 text = "Wemix Testnet"
 
 [node name="Gnosis Chiado" type="Button" parent="Form/NetworkList/Networks"]
+visible = false
 layout_mode = 0
 offset_left = 365.0
-offset_top = 293.0
+offset_top = 255.0
 offset_right = 510.0
-offset_bottom = 324.0
+offset_bottom = 286.0
 mouse_default_cursor_shape = 2
 text = "Gnosis Chiado"
 
 [node name="Polygon Amoy" type="Button" parent="Form/NetworkList/Networks"]
+visible = false
 layout_mode = 0
 offset_left = 365.0
 offset_top = 331.0
@@ -136,6 +139,7 @@ mouse_default_cursor_shape = 2
 text = "Polygon Amoy"
 
 [node name="Kroma Sepolia" type="Button" parent="Form/NetworkList/Networks"]
+visible = false
 layout_mode = 0
 offset_left = 365.0
 offset_top = 369.0
@@ -145,6 +149,7 @@ mouse_default_cursor_shape = 2
 text = "Kroma Sepolia"
 
 [node name="Celo Alfajores" type="Button" parent="Form/NetworkList/Networks"]
+visible = false
 layout_mode = 0
 offset_left = 365.0
 offset_top = 407.0
@@ -156,18 +161,18 @@ text = "Celo Alfajores"
 [node name="Blast Sepolia" type="Button" parent="Form/NetworkList/Networks"]
 layout_mode = 0
 offset_left = 365.0
-offset_top = 445.0
+offset_top = 255.0
 offset_right = 510.0
-offset_bottom = 476.0
+offset_bottom = 286.0
 mouse_default_cursor_shape = 2
 text = "Blast Sepolia"
 
 [node name="Mode Sepolia" type="Button" parent="Form/NetworkList/Networks"]
 layout_mode = 0
 offset_left = 365.0
-offset_top = 483.0
+offset_top = 293.0
 offset_right = 510.0
-offset_bottom = 514.0
+offset_bottom = 324.0
 mouse_default_cursor_shape = 2
 text = "Mode Sepolia"
 
