@@ -32,7 +32,7 @@ Click the `New Token Lane` button to bring up the lane form, where you can enter
 
 After creating your token lane, you must deposit the token into the ScryPool contract.  Click the `Deposit` button, then `Start Monitoring`.  CCIP messages detected on monitored networks will be matched against the criteria you've set, and you will automatically fill the order whenever a match is found.
 
-If you fill the order in its entirety, CCIP will return your tokens automatically once finality time on the sender chain has been reached, and the CCIP message resolves.  If you filled the order as part of a collective pool, you will instead need to claim your token manually once the CCIP message has arrived.
+If you fill the order in its entirety, CCIP will return your tokens automatically once finality time on the sender chain has been reached, and the CCIP message resolves.  If you filled the order as part of a collective pool, you will instead need to claim your tokens manually once the CCIP message has arrived.
 
 This can be done by clicking the `Manage Lane` button, and then `Check For Pending Rewards`.  If there are any rewards waiting, they will be claimed automatically, and added to your deposited token balance.
 
