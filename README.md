@@ -53,4 +53,4 @@ If your dApp needs an estimate of the available liquidity for fast transfers, yo
 
 Note that this is not 100% guaranteed to be accurate (for instance, someone could deposit tokens, but not actually run their Chronomancer bot; or someone could be filling orders without using ScryPool).
 
-If a transfer is initiated to the endpoint, but no fast-transfer liquidity for the token is available, the order will still execute as normal once finality on the sender network is reached, and the CCIP message arrives at the endpoint.
+If a transfer is initiated to the endpoint, but no fast-transfer liquidity for the token is available, the order will still execute normally once finality on the sender network is reached, and the CCIP message arrives at the endpoint.
