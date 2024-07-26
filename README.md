@@ -29,7 +29,7 @@ Click the `New Token Lane` button to bring up the lane form, where you can enter
 
 * Maximum Gas Fee (the highest gas fee you are willing to pay for the minimum possible transfer.  This is a "base limit" and will be multiplied by the ratio of transferAmount / minimumTransfer)
 
-* Flat Rate Threshold (an optional parameter defining the minimum reward you are willing to take, even if the reward percentage is lower than the minimum)
+* Flat Rate Threshold (an optional parameter defining the minimum reward you are willing to take, in the event the reward's percentage of the transferAmount is smaller than the MinimumRewardPercent)
 
 After creating your token lane, you must deposit the token into the ScryPool contract.  Click the `Deposit` button, then `Start Monitoring`.  CCIP messages detected on monitored networks will be matched against the criteria you've set, and you will automatically fill the order whenever a match is found.
 
