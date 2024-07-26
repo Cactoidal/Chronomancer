@@ -7,6 +7,7 @@ This branch contains a rewrite of Chronomancer for Godot 4.3 using [GodotEthers]
 
 This alpha version is close to completion, and I will put out a release once I have deployed the contracts.  Chronomancer will be usable on the 13 public testnets where CCIP is currently available: Avalanche Fuji, BNB Smart Chain Testnet, Ethereum Sepolia, Arbitrum Sepolia, Base Sepolia, Kroma Sepolia, Optimism Sepolia, Wemix Testnet, Gnosis Chiado, Polygon Amoy, Celo Alfajores, Mode Sepolia, and Blast Sepolia.
 
+___
 
 ## Usage
 
@@ -36,6 +37,7 @@ If you fill the order in its entirety, CCIP will return your tokens automaticall
 
 This can be done by clicking the `Manage Lane` button, and then `Check For Pending Rewards`.  If there are any rewards waiting, they will be claimed automatically, and added to your deposited token balance.
 
+___
 
 ### Chronomancer Users
 
