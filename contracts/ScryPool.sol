@@ -9,8 +9,7 @@ import {IRouterClient} from "@chainlink/contracts-ccip/src/v0.8/ccip/interfaces/
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "./IFastCCIPEndpoint.sol";
 
-// Individual bots in the current system are limited by their token supply when filling orders,
-// which restricts the maximum size of orders.
+
 // ScryPool allows bots to trustlessly pool their tokens, enabling them to collectively fill bigger orders.
 
 
