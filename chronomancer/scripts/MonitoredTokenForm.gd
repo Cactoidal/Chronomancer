@@ -223,35 +223,6 @@ func update_remote_token_name(callback):
 	if callback["success"]:
 		var remote_token = callback["callback_args"]["remote_token"]
 		remote_tokens[remote_token] = callback["result"][0]
-		
-
-
-func OLDcheck_remote_tokens():
-	# DEBUG
-	# Also needs to check when network changes
-	
-	for network in input.get_node("RemoteNetworks").get_children():
-		var network_name = network.get_node("RemoteNetwork").text
-		var remote_token = network.get_node("RemoteToken").text
-		
-		if network_name != "" && remote_token != "":
-			if network_name in Ethers.network_info.keys():
-				if is_valid_address(remote_token):
-					remote_tokens[remote_token] = ""
-					Ethers.get_erc20_info(
-							network_name, 
-							Ethers.get_address(account), 
-							remote_token, 
-							self, 
-							"update_remote_token_name",
-							{"remote_token": remote_token}
-							)
-
-
-func OLDupdate_remote_token_name(callback):
-	if callback["success"]:
-		var remote_token = callback["callback_args"]["remote_token"]
-		remote_tokens[remote_token] = callback["result"][0]
 
 
 func calculate_worst_case():

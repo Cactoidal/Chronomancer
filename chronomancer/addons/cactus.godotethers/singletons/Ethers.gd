@@ -606,6 +606,8 @@ func approve_erc20_allowance(account, network, token_address, spender_address, a
 #########  UTILITY  #########
 
 func convert_to_bignum(number, token_decimals=18):
+	number = str(number)
+	
 	if number.begins_with("."):
 		number = "0" + number
 		
@@ -616,7 +618,7 @@ func convert_to_bignum(number, token_decimals=18):
 	if decimal_index != -1:
 		var segment = number.right(-(decimal_index+1) )
 		zero_filler -= segment.length()
-		bignum = bignum.erase(decimal_index,decimal_index)
+		bignum = bignum.erase(decimal_index,1)
 
 	for zero in range(zero_filler):
 		bignum += "0"
@@ -645,7 +647,7 @@ func convert_to_smallnum(bignum, token_decimals=18):
 		var fill_length = int(token_decimals) - size
 		for zero in range(fill_length):
 			smallnum += "0"
-		smallnum += String(bignum)
+		smallnum += str(bignum)
 	elif size > 18:
 		smallnum = bignum
 		var decimal_index = size - 18

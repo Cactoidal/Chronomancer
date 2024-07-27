@@ -143,6 +143,7 @@ func update_erc20_balance(callback):
 func update_deposited_tokens(callback):
 	if callback["success"]:
 		deposited_tokens = callback["result"][0]
+		
 		main.account_balances[account][local_network][local_token]["deposited_balance"] = deposited_tokens
 		$YourLiquidity.text = "Your Liquidity:\n " + Ethers.convert_to_smallnum(deposited_tokens, token_decimals)
 		
@@ -277,15 +278,16 @@ func approve_tokens():
 
 
 func deposit_tokens():
-	deposit_pending = true
 	
 	var scrypool_contract = Ethers.network_info[local_network]["scrypool_contract"]
+	
+	var depositable_balance = main.account_balances[account][local_network][local_token]["balance"]
 	
 	var calldata = Ethers.get_calldata(
 							"WRITE", 
 							main.SCRYPOOL_ABI, 
 							"depositTokens", 
-							[local_token, Ethers.convert_to_bignum(token_balance, token_decimals)])
+							[local_token, Ethers.convert_to_bignum(depositable_balance, token_decimals)])
 					
 	var callback_args = {"token_lane": self, "transaction_type": "Deposit"}
 	
@@ -299,6 +301,8 @@ func deposit_tokens():
 				callback_args,
 				maximum_gas_fee
 				)
+	
+	deposit_pending = true
 
 
 func withdraw_tokens():

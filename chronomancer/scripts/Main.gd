@@ -1,6 +1,6 @@
 extends Control
 
-# Saves accounts, monitored token lanes, test cases, and pending rewards
+# Saves accounts, monitored token lanes, approvals, and pending rewards
 var application_manifest
 
 # Account in the "selected account" panel, for the purpose of logging in
@@ -17,8 +17,6 @@ var active_task_interface
 # for updating transactions in the transaction log
 var transaction_history = {}
 
-var _minimum_gas_threshold = "0.0002"
-
 # Reusable UI elements
 @onready var _account_object = preload("res://scenes/Account.tscn")
 @onready var _transaction_object = preload("res://scenes/Transaction.tscn")
@@ -29,18 +27,19 @@ var tx_downshift = 0
 var bridge_slider_amount = 116
 
 # Chronomancer Task variables
-
 var log_poll_timer = 1
 var previous_blocks = {}
 var loaded_token_lanes = []
 var active_token_lanes = []
 var logged_messages = []
+var _minimum_gas_threshold = "0.0002"
 
-
+# Spawnable scenes
 @onready var _chronomancer_task = preload("res://scenes/ChronomancerTask.tscn")
 @onready var _token_lane = preload("res://scenes/TokenLane.tscn")
 @onready var _monitored_token_form = preload("res://scenes/MonitoredTokenForm.tscn")
 
+# Example lane
 var test_lane = {
 		"local_network": "Ethereum Sepolia",
 		"local_token": "0xFd57b4ddBf88a4e07fF4e34C487b99af2Fe82a05",
@@ -78,10 +77,7 @@ func _process(delta):
 
 
 
-#####   TASK MANAGEMENT   #####
-
-
-### CHRONOMANCER
+#####   CHRONOMANCER  #####
 
 # SETUP
 
@@ -90,7 +86,6 @@ func load_chronomancer():
 	fadein.tween_property($UI,"modulate:a", 1, 1.2).set_trans(Tween.TRANS_QUAD)
 	fadein.play()
 	
-
 	var chronomancer_task = _chronomancer_task.instantiate()
 	$UI.add_child(chronomancer_task)
 	active_task_interface = chronomancer_task
@@ -149,7 +144,7 @@ func chronomancer_process(delta):
 		get_block_number()
 
 
-func get_block_number():	
+func get_block_number():
 	var remote_onramps = {}
 	
 	for lane in active_token_lanes:
@@ -231,7 +226,7 @@ func decode_EVM2EVM_message(callback):
 			var destination_network = ""
 			
 			# The list of onramp contracts is duplicated to avoid changes from
-			# propagating to the ccip_network_info dictionary.
+			# propagating to the network_info dictionary.
 			var onramp_list = Ethers.network_info[network]["onramp_contracts"].duplicate()
 			for onramp_network in onramp_list.keys():
 				var onramp = onramp_list[onramp_network]
@@ -282,8 +277,6 @@ func decode_EVM2EVM_message(callback):
 			# Check if the receiver is the Chronomancer endpoint.
 			var receiver = decoded_message[2]
 			var chronomancer_endpoint = Ethers.network_info[destination_network]["chronomancer_endpoint"]
-			
-	
 			if receiver.to_lower() != chronomancer_endpoint.to_lower():
 				return
 			
@@ -350,7 +343,7 @@ func decode_EVM2EVM_message(callback):
 				return
 			
 			
-			# Check that user's deposited tokens meet or exceed the minimum transfer amount.
+			# Check that your deposited tokens meet or exceed the minimum transfer amount.
 			if Ethers.big_uint_math(deposited_liquidity, "LESS THAN", minimum_transfer):
 				return
 			
@@ -371,13 +364,6 @@ func decode_EVM2EVM_message(callback):
 				var percent = str ( float(minimum_reward_percent) / 100.0)
 	
 				expected_minimum_reward = Ethers.big_uint_math(token_amount, "MULTIPLY", Ethers.convert_to_bignum(percent, token_decimals))
-
-				print("ORDER FILL REWARD PERCENT SMALLNUM")
-				print(percent)
-				print("ORDER FILL REWARD PERCENT BIGNUM")
-				print(Ethers.convert_to_bignum(percent, token_decimals))
-				print("ORDER REWARD")
-				print(Ethers.convert_to_smallnum(expected_minimum_reward))
 				
 				expected_minimum_reward = Ethers.convert_to_smallnum(Ethers.convert_to_smallnum(expected_minimum_reward, token_decimals), token_decimals)
 				
@@ -541,8 +527,6 @@ func load_application_manifest():
 		application_manifest = {
 			"account": "",
 			"monitored_tokens": [test_lane],
-			"test_cases": [],
-			"cached_transactions": [],
 			"approvals": {},
 			"pending_rewards": {}
 			}
@@ -1324,7 +1308,7 @@ var default_ccip_network_info = {
 		"rpc_cycle": 0,
 		"minimum_gas_threshold": "0.0002",
 		"maximum_gas_fee": "",
-		"scan_url": "https://testnet.bscscan.com",
+		"scan_url": "https://testnet.bscscan.com/",
 		"gas_symbol": "BNB",
 		#
 		"chain_selector": "13264668187771770619",
@@ -1349,7 +1333,7 @@ var default_ccip_network_info = {
 		"rpc_cycle": 0,
 		"minimum_gas_threshold": "0.0002",
 		"maximum_gas_fee": "",
-		"scan_url": "https://sepolia.blastscan.io",
+		"scan_url": "https://sepolia.blastscan.io/",
 		"gas_symbol": "ETH",
 		#
 		"chain_selector": "2027362563942762617",
@@ -1371,7 +1355,7 @@ var default_ccip_network_info = {
 		"rpc_cycle": 0,
 		"minimum_gas_threshold": "0.0002",
 		"maximum_gas_fee": "",
-		"scan_url": "https://sepolia.explorer.mode.network",
+		"scan_url": "https://sepolia.explorer.mode.network/",
 		"gas_symbol": "ETH",
 		#
 		"chain_selector": "829525985033418733",
@@ -1393,7 +1377,7 @@ var default_ccip_network_info = {
 		#"rpc_cycle": 0,
 		#"minimum_gas_threshold": "0.0002",
 		#"maximum_gas_fee": "",
-		#"scan_url": "https://testnet.wemixscan.com",
+		#"scan_url": "https://testnet.wemixscan.com/",
 		#"gas_symbol": "WEMIX",
 		##
 		#"chain_selector": "9284632837123596123",
@@ -1422,7 +1406,7 @@ var default_ccip_network_info = {
 		#"rpc_cycle": 0,
 		#"minimum_gas_threshold": "0.0002",
 		#"maximum_gas_fee": "",
-		#"scan_url": "https://gnosis-chiado.blockscout.com",
+		#"scan_url": "https://gnosis-chiado.blockscout.com/",
 		#"gas_symbol": "xDAI",
 		##
 		#"chain_selector": "8871595565390010547",
@@ -1448,7 +1432,7 @@ var default_ccip_network_info = {
 		#"rpc_cycle": 0,
 		#"minimum_gas_threshold": "0.0002",
 		#"maximum_gas_fee": "",
-		#"scan_url": "https://amoy.polygonscan.com",
+		#"scan_url": "https://amoy.polygonscan.com/",
 		#"gas_symbol": "MATIC",
 		##
 		#"chain_selector": "16281711391670634445",
@@ -1476,7 +1460,7 @@ var default_ccip_network_info = {
 		#"rpc_cycle": 0,
 		#"minimum_gas_threshold": "0.0002",
 		#"maximum_gas_fee": "",
-		#"scan_url": "https://sepolia.kromascan.com",
+		#"scan_url": "https://sepolia.kromascan.com/",
 		#"gas_symbol": "ETH",
 		##
 		#"chain_selector": "5990477251245693094",
@@ -1499,7 +1483,7 @@ var default_ccip_network_info = {
 		#"rpc_cycle": 0,
 		#"minimum_gas_threshold": "0.0002",
 		#"maximum_gas_fee": "",
-		#"scan_url": "https://alfajores.celoscan.io",
+		#"scan_url": "https://alfajores.celoscan.io/",
 		#"gas_symbol": "CELO",
 		##
 		#"chain_selector": "3552045678561919002",

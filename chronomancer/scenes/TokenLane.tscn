@@ -54,35 +54,39 @@ NETWORK"
 layout_mode = 0
 offset_left = 124.0
 offset_top = 5.0
-offset_right = 221.0
+offset_right = 275.0
 offset_bottom = 28.0
 text = "Gas: 0"
+clip_text = true
 
 [node name="TokenBalance" type="Label" parent="."]
 layout_mode = 0
 offset_left = 290.0
 offset_top = 4.0
-offset_right = 413.0
+offset_right = 517.0
 offset_bottom = 27.0
 text = "Tokens: 0"
+clip_text = true
 
 [node name="YourLiquidity" type="Label" parent="."]
 layout_mode = 0
 offset_left = 428.0
 offset_top = 47.0
-offset_right = 583.0
+offset_right = 625.0
 offset_bottom = 96.0
 text = "Your Deposited Liquidity: 
 0"
+clip_text = true
 
 [node name="ScryPoolLiquidity" type="Label" parent="."]
 layout_mode = 0
 offset_left = 428.0
 offset_top = 100.0
-offset_right = 613.0
+offset_right = 625.0
 offset_bottom = 149.0
 text = "ScryPool Total Liquidity:
 0"
+clip_text = true
 
 [node name="ToggleMonitoring" type="Button" parent="."]
 layout_mode = 0
