@@ -19,7 +19,7 @@ ___
 
 ### Chronomancer Providers
 
-Chronomancer providers monitor CCIP OnRamp contracts on sender chains, filter EVM2EVM messages, and provide instant token transfers on destination chains, in exchange for a fee.  As a Chronomancer provider, you can decide which tokens and networks you want to serve, and which networks you want to monitor for incoming messages.
+Chronomancer providers monitor CCIP OnRamp contracts on sender chains, filter EVM2EVM messages, and provide instant token transfers on destination chains, in exchange for a fee.  As a Chronomancer provider, you can decide which tokens and networks you want to serve, and which networks you want to monitor for outgoing messages.
 
 Click the `New Token Lane` button to bring up the lane form, where you can enter:
 
@@ -27,7 +27,7 @@ Click the `New Token Lane` button to bring up the lane form, where you can enter
 
 * Local Token (the address of the token you will be transferring; naturally, you must have a balance to provide fast transfers)
 
-* Remote Networks and Tokens (the networks you will monitor for incoming messages, and the contract addresses of the token on those networks)
+* Remote Networks and Tokens (the networks you will monitor for outgoing messages, and the contract addresses of the token on those networks)
 
 * Minimum Transfer (the smallest token transfer you are willing to provide)
 
