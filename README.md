@@ -11,7 +11,7 @@ Chronomancer is usable on the following testnets:
 
 Avalanche Fuji, BNB Chain Testnet, Ethereum Sepolia, Arbitrum Sepolia, Base Sepolia, Optimism Sepolia, Mode Sepolia, and Blast Sepolia.
 
-The list of Chronomancer Endpoint and ScryPool contract addresses can be found [here](https://github.com/Cactoidal/Chronomancer/blob/2984cab8f1b2646ca54466e827756a10dd44a0be/chronomancer/scripts/Main.gd#L1169).
+The list of Chronomancer Endpoint and ScryPool contract addresses can be found [here](https://github.com/Cactoidal/Chronomancer/blob/331c7a9f02c531d189f86651ca318c35c4da0898/chronomancer/scripts/Main.gd#L1169).
 
 ___
 
