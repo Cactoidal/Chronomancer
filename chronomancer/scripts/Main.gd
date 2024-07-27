@@ -41,14 +41,13 @@ var logged_messages = []
 @onready var _token_lane = preload("res://scenes/TokenLane.tscn")
 @onready var _monitored_token_form = preload("res://scenes/MonitoredTokenForm.tscn")
 
-# DEBUG
 var test_lane = {
 		"local_network": "Ethereum Sepolia",
 		"local_token": "0xFd57b4ddBf88a4e07fF4e34C487b99af2Fe82a05",
 		"token_name": "CCIP-BnM",
 		"token_decimals": "18",
 		"minimum_transfer": "0",
-		"minimum_reward_percent": "0",
+		"minimum_reward_percent": "0.1",
 		"maximum_gas_fee": "0.002",
 		"flat_rate_threshold": "100",
 		"remote_networks": {
@@ -352,12 +351,12 @@ func decode_EVM2EVM_message(callback):
 			
 			
 			# Check that user's deposited tokens meet or exceed the minimum transfer amount.
-			if Ethers.big_uint_math(deposited_liquidity, "LESS THAN OR EQUAL", minimum_transfer):
+			if Ethers.big_uint_math(deposited_liquidity, "LESS THAN", minimum_transfer):
 				return
 			
 			
 			# Check that the transfer amount meets or exceeds the minimum.
-			if Ethers.big_uint_math(token_amount, "LESS THAN OR EQUAL", minimum_transfer):
+			if Ethers.big_uint_math(token_amount, "LESS THAN", minimum_transfer):
 				return
 			
 			
@@ -367,14 +366,23 @@ func decode_EVM2EVM_message(callback):
 			
 			var expected_minimum_reward = "0"
 			
-			# DEBUG
 			if minimum_reward_percent != "0":
 				
-				var percent = str ( float(minimum_reward_percent) / 100 )
+				var percent = str ( float(minimum_reward_percent) / 100.0)
 	
 				expected_minimum_reward = Ethers.big_uint_math(token_amount, "MULTIPLY", Ethers.convert_to_bignum(percent, token_decimals))
 
+				print("ORDER FILL REWARD PERCENT SMALLNUM")
+				print(percent)
+				print("ORDER FILL REWARD PERCENT BIGNUM")
+				print(Ethers.convert_to_bignum(percent, token_decimals))
+				print("ORDER REWARD")
+				print(Ethers.convert_to_smallnum(expected_minimum_reward))
+				
 				expected_minimum_reward = Ethers.convert_to_smallnum(Ethers.convert_to_smallnum(expected_minimum_reward, token_decimals), token_decimals)
+				
+				
+				
 				
 			var message_reward = data[1]
 			
@@ -396,10 +404,6 @@ func decode_EVM2EVM_message(callback):
 				return
 	
 			# Check that this message hasn't already been recorded.
-			
-			# DEBUG 
-			# perhaps check the application manifest instead,
-			# since it gets pruned
 			var messageId = decoded_message[12]
 			
 			if messageId in logged_messages:
@@ -618,17 +622,6 @@ func login_account():
 		load_chronomancer()
 		
 		
-		# DEBUG
-		#Ethers.transfer_erc20(
-			#selected_account, 
-			#"Base Sepolia", 
-			#Ethers.network_info["Base Sepolia"]["bnm_contract"], 
-			#"0x2Bd1324482B9036708a7659A3FCe20DfaDD455ba", 
-			#Ethers.convert_to_bignum("62", 18), 
-			#self, 
-			#"get_receipt", 
-			#{"transaction_type": "Transfer ERC20"})
-		
 		
 	else:
 		print_message("Login failed")
@@ -666,7 +659,6 @@ func export_private_key():
 func load_ccip_network_info():
 	var json = JSON.new()
 
-	# DEBUG
 	if FileAccess.file_exists("user://ccip_network_info") != true:
 		Ethers.network_info = default_ccip_network_info.duplicate()
 		var file = FileAccess.open("user://ccip_network_info", FileAccess.WRITE)
@@ -1093,13 +1085,16 @@ func bridge(bridge_form):
 	var decimals = account_balances[selected_account][sender_network][token_contract]["decimals"]
 	var amount = Ethers.convert_to_bignum(bridge_form["amount"], decimals)
 	
-	# DEBUG
 	var chronomancer_endpoint = Ethers.network_info[destination_network]["chronomancer_endpoint"]
 	
-	# DEBUG
-	# Calculate some % reward
+	
 	var recipient = Ethers.get_address(selected_account)
-	var reward = Ethers.convert_to_bignum("0.01", decimals)
+
+	# Reward of 0.2%
+	var percent = str( 0.2 / 100.0 )
+	var reward = Ethers.big_uint_math(amount, "MULTIPLY", Ethers.convert_to_bignum(percent, decimals))
+	reward = Ethers.convert_to_smallnum(reward, decimals)
+	
 	var test_payload = Calldata.abi_encode( [{"type": "string"}], ["test"] )
 	
 	var data = Calldata.abi_encode([{"type": "address"}, {"type": "uint256"}, {"type": "bytes"}], [recipient, reward, test_payload])
@@ -1118,7 +1113,6 @@ func bridge(bridge_form):
 	var extra_args = "97a657c9" + Calldata.abi_encode( [{"type": "tuple", "components":[{"type": "uint256"}]}], [EVMExtraArgsV1] )
 	
 	var EVM2AnyMessage = [
-		# DEBUG
 		Calldata.abi_encode( [{"type": "address"}], [chronomancer_endpoint] ), # ABI-encoded Chronomancer endpoint address
 		data, # Data payload, as bytes
 		[EVMTokenAmount], # EVMTokenAmounts
@@ -1180,8 +1174,6 @@ func send_bridge_transaction(callback):
 
 # DEBUG
 func get_receipt(callback):
-	#DEBUG
-	# update balances
 	pass
 
 

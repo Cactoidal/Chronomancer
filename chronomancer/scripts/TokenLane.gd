@@ -64,7 +64,7 @@ func _process(delta):
 		var _minimum_transfer = $LaneConfig/MinimumTransfer.text
 		var _minimum_reward_percent = $LaneConfig/MinimumRewardPercent.text
 		var _maximum_gas_fee = $LaneConfig/MaximumGasFee.text
-		var min_reward = float(_minimum_transfer) * float(_minimum_reward_percent)
+		var min_reward = float(_minimum_transfer) * (float(_minimum_reward_percent) / 100.0)
 		$LaneConfig/WorstCase.text = "Worst Case: " + _maximum_gas_fee + " Gas for " + str(min_reward) + " Tokens"
 
 
@@ -173,23 +173,17 @@ func toggle_monitoring():
 	if active:
 		active = false
 		$ToggleMonitoring.text = "Start Monitoring"
-		# DEBUG
 		main.active_token_lanes.erase(self)
 		return
 
-	#NOTE
-	# The lane will still become active even if it isn't ready,
-	# it just won't be able to send transactions.
-	
-	# DEBUG
-	# turned off for now
+	# Returns a bool, but currently unused
 	check_if_ready()
 	
 	active = true
 	$ToggleMonitoring.text = "Stop Monitoring"
 	main.active_token_lanes.push_back(self)
 	
-	
+
 func check_if_ready():
 	if gas_balance == "0":
 		main.print_message("Warning: Not enough gas on " + local_network)
@@ -295,8 +289,6 @@ func deposit_tokens():
 					
 	var callback_args = {"token_lane": self, "transaction_type": "Deposit"}
 	
-	# DEBUG
-	# change callback node from main(?)
 	Ethers.queue_transaction(
 				account, 
 				local_network, 
@@ -328,8 +320,7 @@ func withdraw_tokens():
 				
 	var callback_args = {"token_lane": self, "transaction_type": "Withdrawal"}
 	
-	# DEBUG
-	# change callback node from main(?)
+	
 	Ethers.queue_transaction(
 				account, 
 				local_network, 
@@ -467,7 +458,12 @@ func confirm_lane_changes():
 	var _flat_rate_threshold = float($LaneConfig/FlatRateThreshold.text)
 	var _minimum_transfer = float($LaneConfig/MinimumTransfer.text)
 	var _minimum_reward_percent = float($LaneConfig/MinimumRewardPercent.text)
-	var min_reward = float(_minimum_transfer) * float(_minimum_reward_percent)
+	var min_reward = float(_minimum_transfer) * (float(_minimum_reward_percent) / 100.0)
+	
+	
+	if _minimum_reward_percent > 100:
+		main.print_message("Reward percent greater than 100")
+		return
 	
 	if min_reward > _flat_rate_threshold:
 		main.print_message("Flat rate lower than minimum reward")

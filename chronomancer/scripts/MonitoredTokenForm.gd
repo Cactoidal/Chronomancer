@@ -261,7 +261,8 @@ func calculate_worst_case():
 	
 	
 	if minimum_transfer && minimum_reward_percent && maximum_gas_fee:
-		min_reward = float(minimum_transfer) * float(minimum_reward_percent)
+		
+		min_reward = float(minimum_transfer) * (float(minimum_reward_percent) / 100)
 		input.get_node("WorstCase").visible = true
 		input.get_node("WorstCase").text = "Worst Case: " + maximum_gas_fee + " Gas for " + str(min_reward) + " Tokens"
 	else:
