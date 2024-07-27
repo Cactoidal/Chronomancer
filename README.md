@@ -35,7 +35,7 @@ Click the `New Token Lane` button to bring up the lane form, where you can enter
 
 * Flat Rate Threshold (an optional parameter defining the minimum reward you are willing to take, in the event the reward's percentage of the transferAmount is smaller than the MinimumRewardPercent)
 
-After creating your token lane, you must deposit the token into the ScryPool contract.  Click the `Deposit` button, then `Start Monitoring`.  CCIP messages detected on monitored networks will be matched against the criteria you've set, and you will automatically fill the order whenever a match is found.
+After creating your token lane, you must deposit tokens into the ScryPool contract.  Click the `Deposit` button, then `Start Monitoring`.  CCIP messages detected on monitored networks will be matched against the criteria you've set, and you will automatically fill the order whenever a match is found.
 
 If you fill the order in its entirety, CCIP will return your tokens automatically once finality time on the sender chain has been reached, and the CCIP message resolves.  If you filled the order as part of a collective pool, you will instead need to claim your tokens manually once the CCIP message has arrived.
 
