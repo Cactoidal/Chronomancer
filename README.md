@@ -3,6 +3,8 @@ Smart contract endpoint and order-filling bot for fast, Chainlink CCIP-backed tr
 
 `NOTE: This code has not been audited, and is intended for testnet use.`
 
+[Try out the release, available for MacOS, Linux, and Windows!](https://github.com/Cactoidal/Chronomancer/releases/tag/v0.2)
+
 This branch contains a rewrite of Chronomancer for Godot 4.3 using [GodotEthers](https://github.com/Cactoidal/GodotEthersV3).  This version uses a new endpoint contract, and an alpha version of the ScryPool contract, which allows Chronomancer providers to trustlessly pool their tokens when filling orders.  dApps can also gauge fast-bridging capacity by querying Scrypool's `availableLiquidity` mapping.
 
 Chronomancer is usable on the following testnets: 
