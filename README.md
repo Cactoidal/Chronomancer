@@ -17,7 +17,7 @@ ___
 
 **Note for Godot users:**
 
-The [chronomancer](https://github.com/Cactoidal/Chronomancer/tree/develop/chronomancer) folder is a complete Godot project and can be imported into Godot Engine 4.3.  You can download the Godot 4.3 Release Candidate [here](https://godotengine.org/download/archive/4.3-rc1/).
+The [chronomancer](https://github.com/Cactoidal/Chronomancer/tree/develop/chronomancer) folder is a complete Godot project and can be imported into Godot Engine 4.3.  You can download Godot 4.3 [here](https://godotengine.org/download/).
 
 ___
 
